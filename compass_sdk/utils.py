@@ -5,8 +5,9 @@ from concurrent.futures import Executor, Future
 from typing import Callable, Iterable, Iterator, List, Optional, TypeVar
 
 import fsspec
-from compass_sdk import CompassDocument, CompassDocumentMetadata, CompassSdkStage
 from fsspec import AbstractFileSystem
+
+from compass_sdk import CompassDocument, CompassDocumentMetadata, CompassSdkStage
 
 T = TypeVar("T")
 U = TypeVar("U")

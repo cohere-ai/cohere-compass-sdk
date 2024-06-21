@@ -1,0 +1,64 @@
+name: "Test"
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      # Always run when workflow configs change
+      - ".github/workflows/**"
+      # Run when package changes
+      - "**"
+  release:
+    types: [published]
+
+  pull_request:
+    branches:
+      - "main"
+    paths:
+      # Always run when workflow configs change
+      - ".github/workflows/**"
+      # Run when package changes
+      - "**"
+
+  workflow_dispatch: {}
+
+jobs:
+
+  test_client:
+    runs-on: large
+
+    permissions:
+      contents: read
+      id-token: write
+
+    strategy:
+      matrix:
+        python-version:
+          - 3.9
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v4
+        id: setup_python
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: |
+            poetry.lock
+
+      - name: Install dependencies (tests)
+        run: |
+          pip install pytest pytest-asyncio pytest-mock requests-mock
+
+      - name: Install dependencies 
+        working-directory: .
+        run: |
+          pip install -e .
+
+      - name: Run tests 
+        working-directory: .
+        run: |
+          echo $COHERE_API_KEY
+          pytest -sv tests/test_compass_client.py
