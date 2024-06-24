@@ -1,0 +1,35 @@
+name: Typecheck
+
+on:
+  pull_request: {}
+  workflow_dispatch: {}
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - 3.11
+        package:
+          - .
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: |
+            ${{ matrix.package }}/poetry.lock
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.package }}
+        run: |
+          pip install -e .
+
+      - uses: jakebailey/pyright-action@v2
+        with:
+          working-directory: ${{ matrix.package }}

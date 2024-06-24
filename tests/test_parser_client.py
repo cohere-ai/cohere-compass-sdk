@@ -2,6 +2,7 @@ import os
 from typing import List
 
 import pytest
+
 from compass_sdk import (
     CompassDocumentMetadata,
     MetadataConfig,
