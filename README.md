@@ -2,7 +2,7 @@
 
 The Compass SDK is a Python library that allows you to parse documents and insert them into a Compass index.
 
-In order to parser documents, the Compass SDK relies on the Compass Parser API, which is a RESTful API that
+In order to parse documents, the Compass SDK relies on the Compass Parser API, which is a RESTful API that
 receives files and returns parsed documents. This requires a hosted Compass server.
 
 The Compass SDK provides a `CompassParserClient` that allows to interact with the parser API from your
