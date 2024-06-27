@@ -196,7 +196,7 @@ class CompassParserClient:
             return []
         if len(doc.filebytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
             logger.error(
-                f"File too large, supported file size is {DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_1000} "
+                f"File too large, supported file size is {DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000} "
                 f"mb, filename {doc.metadata.filename}"
             )
             return []

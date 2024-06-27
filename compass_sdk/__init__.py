@@ -10,7 +10,6 @@ from compass_sdk.constants import (
     COHERE_API_ENV_VAR,
     DEFAULT_COMMANDR_EXTRACTABLE_ATTRIBUTES,
     DEFAULT_COMMANDR_PROMPT,
-    DEFAULT_MAX_TOKENS_METADATA,
     DEFAULT_MIN_CHARS_PER_ELEMENT,
     DEFAULT_MIN_NUM_CHUNKS_IN_TITLE,
     DEFAULT_MIN_NUM_TOKENS_CHUNK,
@@ -296,7 +295,7 @@ class ParserConfig(ValidatedModel):
     num_tokens_overlap: int = DEFAULT_NUM_TOKENS_CHUNK_OVERLAP
     min_chunk_tokens: int = DEFAULT_MIN_NUM_TOKENS_CHUNK
     num_chunks_in_title: int = DEFAULT_MIN_NUM_CHUNKS_IN_TITLE
-    max_tokens_metadata: int = DEFAULT_MAX_TOKENS_METADATA
+    max_tokens_metadata: int = 1000
     include_tables: bool = True
 
     # Formatting configuration
