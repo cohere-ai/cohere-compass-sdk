@@ -24,9 +24,8 @@ on:
   workflow_dispatch: {}
 
 jobs:
-
   test_client:
-    runs-on: large
+    runs-on: ubuntu-latest
 
     permissions:
       contents: read
