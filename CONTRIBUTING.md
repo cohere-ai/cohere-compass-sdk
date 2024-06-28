@@ -1,4 +1,4 @@
-# OSS Toolkit Contributing Guide
+# OSS Contributing Guide
 
 Thank you for your interest in contributing to Cohere's Compass SDK. This guide will help explain the contribution workflow from opening an issue, creating a PR, to reviewing and merging your added changes.
 
