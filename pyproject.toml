@@ -6,7 +6,7 @@ description = "Compass SDK"
 
 [tool.poetry.dependencies]
 fsspec = "2024.2.0"
-joblib = "*"
+joblib = "1.4.2"
 pydantic = ">=2.6.3"
 python = ">=3.9,<3.12"
 requests = ">=2.25.0,<3.0.0"
