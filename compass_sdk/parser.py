@@ -37,7 +37,8 @@ class CompassParserClient:
 
     def __init__(
         self,
-        parser_url: str = "http://localhost:8080",
+        *,
+        parser_url: str,
         parser_config: ParserConfig = ParserConfig(),
         metadata_config: MetadataConfig = MetadataConfig(),
         username: Optional[str] = None,
@@ -46,10 +47,9 @@ class CompassParserClient:
     ):
         """
         Initializes the CompassParserClient with the specified parser_url, parser_config, and metadata_config.
-        The default parser_url is "http://localhost:8080". The parser_config and metadata_config are optional,
-        and if not provided, the default configurations will be used. If the parser/metadata configs are provided,
-        they will be used for all subsequent files processed by the client unless specific configs are passed
-        when calling the process_file or process_files methods.
+        The parser_config and metadata_config are optional, and if not provided, the default configurations will be used.
+        If the parser/metadata configs are provided, they will be used for all subsequent files processed by the client
+        unless specific configs are passed when calling the process_file or process_files methods.
 
         :param parser_url: the URL of the CompassParser API
         :param parser_config: the parser configuration to use when processing files if no parser configuration
@@ -70,6 +70,7 @@ class CompassParserClient:
 
     def process_folder(
         self,
+        *,
         folder_path: str,
         allowed_extensions: Optional[List[str]] = None,
         recursive: bool = False,
@@ -104,6 +105,7 @@ class CompassParserClient:
 
     def process_files(
         self,
+        *,
         filenames: List[str],
         file_ids: Optional[List[str]] = None,
         parser_config: Optional[ParserConfig] = None,
@@ -164,6 +166,7 @@ class CompassParserClient:
 
     def process_file(
         self,
+        *,
         filename: str,
         file_id: Optional[str] = None,
         parser_config: Optional[ParserConfig] = None,
@@ -229,7 +232,7 @@ class CompassParserClient:
 
         return docs
 
-    def batch_upload(self, zip_file_path: str) -> str:
+    def batch_upload(self, *, zip_file_path: str) -> str:
         """
         Uploads a zip file to the for offline processing. The zip file should contain the files to process.
         The zip file is sent to the server, and the server will process each file in the zip file using the default
@@ -282,6 +285,7 @@ class CompassParserClient:
 
     def batch_run(
         self,
+        *,
         uuid: str,
         file_name_to_doc_ids: Optional[Dict[str, str]] = None,
         parser_config: Optional[ParserConfig] = None,
