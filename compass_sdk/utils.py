@@ -1,5 +1,7 @@
+import base64
 import glob
 import os
+import uuid
 from concurrent import futures
 from concurrent.futures import Executor
 from typing import Callable, Iterable, Iterator, List, Optional, TypeVar
@@ -8,6 +10,7 @@ import fsspec
 from fsspec import AbstractFileSystem
 
 from compass_sdk import CompassDocument, CompassDocumentMetadata, CompassSdkStage
+from compass_sdk.constants import UUID_NAMESPACE
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -85,3 +88,9 @@ def scan_folder(folder_path: str, allowed_extensions: Optional[List[str]] = None
         scanned_files = fs.glob(pattern, recursive=recursive)
         all_files.extend([f"{path_prepend}{f}" for f in scanned_files])
     return all_files
+
+
+def generate_doc_id_from_bytes(filebytes: bytes) -> uuid.UUID:
+    b64_string = base64.b64encode(filebytes).decode("utf-8")
+    namespace = uuid.UUID(UUID_NAMESPACE)
+    return uuid.uuid5(namespace, b64_string)
