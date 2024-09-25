@@ -75,6 +75,7 @@ class CompassClient:
         index_url: str,
         username: Optional[str] = None,
         password: Optional[str] = None,
+        bearer_token: Optional[str] = None,
         logger_level: LoggerLevel = LoggerLevel.INFO,
     ):
         """
@@ -87,6 +88,7 @@ class CompassClient:
         self.username = username or os.getenv("COHERE_COMPASS_USERNAME")
         self.password = password or os.getenv("COHERE_COMPASS_PASSWORD")
         self.session = requests.Session()
+        self.bearer_token = bearer_token
 
         self.function_call = {
             "create_index": self.session.put,
@@ -497,18 +499,23 @@ class CompassClient:
         )
         def _send_request_with_retry():
             nonlocal error
+
             try:
+
+                data_dict = None
                 if data:
                     if isinstance(data, BaseModel):
                         data_dict = data.model_dump(mode="json")
                     elif isinstance(data, Dict):
                         data_dict = data
 
-                    response = self.function_call[function](
-                        target_path, json=data_dict, auth=(self.username, self.password)
-                    )
-                else:
-                    response = self.function_call[function](target_path, auth=(self.username, self.password))
+                headers = None
+                auth = (self.username, self.password)
+                if self.bearer_token:
+                    headers = {"Authorization": f"Bearer {self.bearer_token}"}
+                    auth = None
+
+                response = self.function_call[function](target_path, json=data_dict, auth=auth, headers=headers)
 
                 if response.ok:
                     error = None
