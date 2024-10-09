@@ -110,7 +110,6 @@ class CompassParserClient:
         file_ids: Optional[List[str]] = None,
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
-        are_datasets: Optional[List[bool]] = None,
         custom_context: Optional[Fn_or_Dict] = None,
     ) -> Iterable[CompassDocument]:
         """
@@ -129,7 +128,6 @@ class CompassParserClient:
         :param file_ids: List of ids for the files
         :param parser_config: ParserConfig object (applies the same config to all docs)
         :param metadata_config: MetadataConfig object (applies the same config to all docs)
-        :param are_datasets: List of booleans indicating whether each file is a dataset
         :param custom_context: Additional data to add to compass document. Fields will be filterable but not semantically searchable.
             Can either be a dictionary or a callable that takes a CompassDocument and returns a dictionary.
 
@@ -143,7 +141,6 @@ class CompassParserClient:
                 file_id=file_ids[i] if file_ids else None,
                 parser_config=parser_config,
                 metadata_config=metadata_config,
-                is_dataset=are_datasets[i] if are_datasets else None,
                 custom_context=custom_context,
             )
 
@@ -171,7 +168,6 @@ class CompassParserClient:
         file_id: Optional[str] = None,
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
-        is_dataset: Optional[bool] = None,
         custom_context: Optional[Fn_or_Dict] = None,
     ) -> List[CompassDocument]:
         """
@@ -184,10 +180,6 @@ class CompassParserClient:
         :param file_id: Id for the file
         :param parser_config: ParserConfig object with the config to use for parsing the file
         :param metadata_config: MetadataConfig object with the config to use for extracting metadata for each document
-        :param is_dataset: Boolean indicating whether the file is a dataset. If True, the file will be processed
-            as a dataset and multiple CompassDocument objects might be returned (one per dataset record). Otherwise,
-            the file will be processed as a single document (e.g., a PDF file). Default is None, which means that
-            the server will try to infer whether the file is a dataset or not.
         :param custom_context: Additional data to add to compass document. Fields will be filterable but not semantically searchable.
             Can either be a dictionary or a callable that takes a CompassDocument and returns a dictionary.
 
@@ -211,7 +203,6 @@ class CompassParserClient:
             parser_config=parser_config,
             metadata_config=metadata_config,
             doc_id=file_id,
-            is_dataset=is_dataset,
         )
         auth = (self.username, self.password) if self.username and self.password else None
         res = self.session.post(
@@ -249,7 +240,6 @@ class CompassParserClient:
             zip_data = zip_file.read()
             res = self.session.post(
                 url=f"{self.parser_url}/v1/batch/upload",
-                data={"data": {"is_dataset": False}},
                 files={"file": ("data.zip", zip_data)},
                 auth=auth,
             )
@@ -290,7 +280,6 @@ class CompassParserClient:
         file_name_to_doc_ids: Optional[Dict[str, str]] = None,
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
-        are_datasets: Optional[bool] = None,
     ) -> List[CompassDocument]:
 
         parser_config = parser_config or self.parser_config
@@ -301,7 +290,6 @@ class CompassParserClient:
             file_name_to_doc_ids=file_name_to_doc_ids,
             parser_config=parser_config,
             metadata_config=metadata_config,
-            are_datasets=are_datasets,
         )
         auth = (self.username, self.password) if self.username and self.password else None
         res = self.session.post(
