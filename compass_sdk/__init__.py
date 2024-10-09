@@ -371,6 +371,7 @@ class PutDocumentsInput(BaseModel):
     """
 
     docs: List[Document]
+    authorized_groups: Optional[List[str]] = None
 
 
 class BatchPutDocumentsInput(BaseModel):
@@ -394,3 +395,14 @@ class ProcessFilesParameters(ValidatedModel):
 class BatchProcessFilesParameters(ProcessFilesParameters):
     uuid: str
     file_name_to_doc_ids: Optional[Dict[str, str]] = None
+
+
+class GroupAuthorizationActions(Enum):
+    ADD = "add"
+    REMOVE = "remove"
+
+
+class GroupAuthorizationInput(BaseModel):
+    doc_ids: List[str]
+    authorized_groups: List[str]
+    action: GroupAuthorizationActions

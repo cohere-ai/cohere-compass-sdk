@@ -21,6 +21,7 @@ from compass_sdk import (
     CompassDocumentStatus,
     CompassSdkStage,
     Document,
+    GroupAuthorizationInput,
     LoggerLevel,
     ParseableDocument,
     PushDocumentsInput,
@@ -102,6 +103,7 @@ class CompassClient:
             "add_context": self.session.post,
             "refresh": self.session.post,
             "push_documents": self.session.post,
+            "edit_group_authorization": self.session.post,
         }
         self.function_endpoint = {
             "create_index": "/api/v1/indexes/{index_name}",
@@ -115,6 +117,7 @@ class CompassClient:
             "add_context": "/api/v1/indexes/{index_name}/documents/add_context/{doc_id}",
             "refresh": "/api/v1/indexes/{index_name}/refresh",
             "push_documents": "/api/v2/indexes/{index_name}/documents",
+            "edit_group_authorization": "api/v1/indexes/{index_name}/group_authorization",
         }
         logger.setLevel(logger_level.value)
 
@@ -339,6 +342,7 @@ class CompassClient:
         errors_sliding_window_size: Optional[int] = 10,
         skip_first_n_docs: int = 0,
         num_jobs: Optional[int] = None,
+        authorized_groups: Optional[List[str]] = None,
     ) -> Optional[List[CompassDocument]]:
         """
         Insert multiple parsed documents into an index in Compass
@@ -351,6 +355,7 @@ class CompassClient:
         :param sleep_retry_seconds: the number of seconds to wait before retrying an API request
         :param errors_sliding_window_size: the size of the sliding window to keep track of errors
         :param skip_first_n_docs: number of docs to skip indexing. Useful when insertion failed after N documents
+        :param authorized_groups: the groups that are authorized to access the documents. These groups should exist in RBAC. None passed will make the documents public
         """
 
         def put_request(
@@ -361,7 +366,9 @@ class CompassClient:
             nonlocal num_succeeded, errors
             errors.extend(previous_errors)
             compass_docs: List[CompassDocument] = [compass_doc for compass_doc, _ in request_data]
-            put_docs_input = PutDocumentsInput(docs=[input_doc for _, input_doc in request_data])
+            put_docs_input = PutDocumentsInput(
+                docs=[input_doc for _, input_doc in request_data], authorized_groups=authorized_groups
+            )
 
             # It could be that all documents have errors, in which case we should not send a request
             # to the Compass Server. This is a common case when the parsing of the documents fails.
@@ -471,6 +478,20 @@ class CompassClient:
             data=SearchInput(query=query, top_k=top_k, filters=filters),
             max_retries=1,
             sleep_retry_seconds=1,
+        )
+
+    def edit_group_authorization(self, *, index_name: str, group_auth_input: GroupAuthorizationInput):
+        """
+        Edit group authorization for an index
+        :param index_name: the name of the index
+        :param group_auth_input: the group authorization input
+        """
+        return self._send_request(
+            function="edit_group_authorization",
+            index_name=index_name,
+            data=group_auth_input,
+            max_retries=DEFAULT_MAX_RETRIES,
+            sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
         )
 
     def _send_request(
