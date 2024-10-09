@@ -104,16 +104,12 @@ class CompassSdkStage(str, Enum):
     Indexing = "indexing"
 
 
-class CompassDocumentChunkOrigin(BaseModel):
-    page_number: Optional[int] = None
-
-
 class CompassDocumentChunk(BaseModel):
     chunk_id: str
     sort_id: str
     doc_id: str
     content: Dict[str, Any]
-    origin: Optional[CompassDocumentChunkOrigin] = None
+    origin: Optional[Dict[str, Any]] = None
 
 
 class CompassDocument(ValidatedModel):
@@ -130,12 +126,12 @@ class CompassDocument(ValidatedModel):
     filebytes: bytes = b""
     metadata: CompassDocumentMetadata = CompassDocumentMetadata()
     content: Dict[str, str] = {}
+    content_type: Optional[str] = None
     elements: List[Any] = []
     chunks: List[CompassDocumentChunk] = []
     index_fields: List[str] = []
     errors: List[Dict[CompassSdkStage, str]] = []
     ignore_metadata_errors: bool = True
-    is_dataset: bool = False
     markdown: Optional[str] = None
 
     def has_data(self) -> bool:
@@ -201,8 +197,6 @@ class LoggerLevel(str, Enum):
 class MetadataConfig(ValidatedModel):
     """
     Configuration class for metadata detection.
-    :param pre_build_detectors: whether to pre-build all metadata detectors. If set to False (default),
-        detectors will be built on the fly when needed
     :param metadata_strategy: the metadata detection strategy to use. One of:
         - No_Metadata: no metadata is inferred
         - Heuristics: metadata is inferred using heuristics
@@ -219,7 +213,6 @@ class MetadataConfig(ValidatedModel):
 
     """
 
-    pre_build_detectors: bool = False
     metadata_strategy: MetadataStrategy = MetadataStrategy.No_Metadata
     cohere_api_key: Optional[str] = getenv(COHERE_API_ENV_VAR, None)
     commandr_model_name: str = "command-r"
@@ -286,7 +279,6 @@ class ParserConfig(ValidatedModel):
     allowed_image_types: Optional[List[str]] = None
     min_chars_per_element: int = DEFAULT_MIN_CHARS_PER_ELEMENT
     skip_infer_table_types: List[str] = SKIP_INFER_TABLE_TYPES
-    detect_datasets: bool = True
     parsing_strategy: ParsingStrategy = ParsingStrategy.Fast
     parsing_model: ParsingModel = ParsingModel.Marker
 
@@ -309,7 +301,7 @@ class Chunk(BaseModel):
     chunk_id: str
     sort_id: int
     content: Dict[str, Any]
-    origin: Optional[CompassDocumentChunkOrigin] = None
+    origin: Optional[Dict[str, Any]] = None
 
 
 class Document(BaseModel):
@@ -383,14 +375,12 @@ class ProcessFileParameters(ValidatedModel):
     parser_config: ParserConfig
     metadata_config: MetadataConfig
     doc_id: Optional[str] = None
-    is_dataset: Optional[bool] = None
 
 
 class ProcessFilesParameters(ValidatedModel):
     doc_ids: Optional[List[str]] = None
     parser_config: ParserConfig
     metadata_config: MetadataConfig
-    are_datasets: Optional[bool] = None
 
 
 class BatchProcessFilesParameters(ProcessFilesParameters):

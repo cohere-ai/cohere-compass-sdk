@@ -56,7 +56,7 @@ def open_document(document_path) -> CompassDocument:
         fs = get_fs(document_path)
         with fs.open(document_path, "rb") as f:
             val = f.read()
-            if isinstance(val, bytes):
+            if val is not None and isinstance(val, bytes):
                 doc.filebytes = val
             else:
                 raise Exception(f"Expected bytes, got {type(val)}")
