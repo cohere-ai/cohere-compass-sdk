@@ -1,9 +1,11 @@
+import base64
 import os
 import threading
+import uuid
 from collections import deque
 from dataclasses import dataclass
 from statistics import mean
-from typing import Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import requests
 from joblib import Parallel, delayed
@@ -20,12 +22,15 @@ from compass_sdk import (
     CompassSdkStage,
     Document,
     LoggerLevel,
+    ParseableDocument,
+    PushDocumentsInput,
     PutDocumentsInput,
     SearchFilter,
     SearchInput,
     logger,
 )
 from compass_sdk.constants import (
+    DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_CHUNKS_PER_REQUEST,
     DEFAULT_MAX_ERROR_RATE,
     DEFAULT_MAX_RETRIES,
@@ -70,6 +75,7 @@ class CompassClient:
         index_url: str,
         username: Optional[str] = None,
         password: Optional[str] = None,
+        bearer_token: Optional[str] = None,
         logger_level: LoggerLevel = LoggerLevel.INFO,
     ):
         """
@@ -82,6 +88,7 @@ class CompassClient:
         self.username = username or os.getenv("COHERE_COMPASS_USERNAME")
         self.password = password or os.getenv("COHERE_COMPASS_PASSWORD")
         self.session = requests.Session()
+        self.bearer_token = bearer_token
 
         self.function_call = {
             "create_index": self.session.put,
@@ -94,6 +101,7 @@ class CompassClient:
             "search_documents": self.session.post,
             "add_context": self.session.post,
             "refresh": self.session.post,
+            "push_documents": self.session.post,
         }
         self.function_endpoint = {
             "create_index": "/api/v1/indexes/{index_name}",
@@ -106,6 +114,7 @@ class CompassClient:
             "search_documents": "/api/v1/indexes/{index_name}/documents/search",
             "add_context": "/api/v1/indexes/{index_name}/documents/add_context/{doc_id}",
             "refresh": "/api/v1/indexes/{index_name}/refresh",
+            "push_documents": "/api/v2/indexes/{index_name}/documents",
         }
         logger.setLevel(logger_level.value)
 
@@ -266,6 +275,57 @@ class CompassClient:
             return resp.json()
         else:
             raise Exception(f"Failed to get batch status: {resp.status_code} {resp.text}")
+
+    def push_document(
+        self,
+        *,
+        index_name: str,
+        filename: str,
+        filebytes: bytes,
+        content_type: str,
+        document_id: uuid.UUID,
+        context: Dict[str, Any] = {},
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+    ) -> Optional[str]:
+        """
+        Parse and insert a document into an index in Compass
+        :param index_name: the name of the index
+        :param filename: the filename of the document
+        :param filebytes: the bytes of the document
+        :param content_type: the content type of the document
+        :param document_id: the id of the document (optional)
+        :param context: represents an additional information about the document
+        :param max_retries: the maximum number of times to retry a request if it fails
+        :param sleep_retry_seconds: the number of seconds to wait before retrying an API request
+        :return: an error message if the request failed, otherwise None
+        """
+        if len(filebytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
+            err = f"File too large, supported file size is {DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000} mb"
+            logger.error(err)
+            return err
+
+        b64 = base64.b64encode(filebytes).decode("utf-8")
+        doc = ParseableDocument(
+            id=document_id,
+            filename=filename,
+            bytes=b64,
+            content_type=content_type,
+            content_length_bytes=len(filebytes),
+            context=context,
+        )
+
+        result = self._send_request(
+            function="push_documents",
+            index_name=index_name,
+            data=PushDocumentsInput(documents=[doc]),
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+
+        if result.error:
+            return result.error
+        return None
 
     def insert_docs(
         self,
@@ -439,18 +499,23 @@ class CompassClient:
         )
         def _send_request_with_retry():
             nonlocal error
+
             try:
+
+                data_dict = None
                 if data:
                     if isinstance(data, BaseModel):
-                        data_dict = data.model_dump()
+                        data_dict = data.model_dump(mode="json")
                     elif isinstance(data, Dict):
                         data_dict = data
 
-                    response = self.function_call[function](
-                        target_path, json=data_dict, auth=(self.username, self.password)
-                    )
-                else:
-                    response = self.function_call[function](target_path, auth=(self.username, self.password))
+                headers = None
+                auth = (self.username, self.password)
+                if self.bearer_token:
+                    headers = {"Authorization": f"Bearer {self.bearer_token}"}
+                    auth = None
+
+                response = self.function_call[function](target_path, json=data_dict, auth=auth, headers=headers)
 
                 if response.ok:
                     error = None

@@ -1,10 +1,10 @@
 import logging
+import uuid
 from enum import Enum
 from os import getenv
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Annotated, Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel
-from typing_extensions import TypedDict
+from pydantic import BaseModel, Field, PositiveInt, StringConstraints
 
 from compass_sdk.constants import (
     COHERE_API_ENV_VAR,
@@ -322,6 +322,26 @@ class Document(BaseModel):
     content: Dict[str, Any]
     chunks: List[Chunk]
     index_fields: List[str] = []
+
+
+class ParseableDocument(BaseModel):
+    """
+    A document to be sent to Compass in bytes format for parsing on the Compass side
+    """
+
+    id: uuid.UUID
+    filename: Annotated[
+        str,
+        StringConstraints(min_length=1),
+    ]  # Ensures the filename is a non-empty string
+    content_type: str
+    content_length_bytes: PositiveInt  # File size must be a non-negative integer
+    bytes: str  # Base64-encoded file contents
+    context: Dict[str, Any] = Field(default_factory=dict)
+
+
+class PushDocumentsInput(BaseModel):
+    documents: List[ParseableDocument]
 
 
 class SearchFilter(BaseModel):

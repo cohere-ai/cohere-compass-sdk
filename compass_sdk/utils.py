@@ -1,13 +1,16 @@
+import base64
 import glob
 import os
-from collections import deque
-from concurrent.futures import Executor, Future
+import uuid
+from concurrent import futures
+from concurrent.futures import Executor
 from typing import Callable, Iterable, Iterator, List, Optional, TypeVar
 
 import fsspec
 from fsspec import AbstractFileSystem
 
 from compass_sdk import CompassDocument, CompassDocumentMetadata, CompassSdkStage
+from compass_sdk.constants import UUID_NAMESPACE
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -15,16 +18,17 @@ U = TypeVar("U")
 
 def imap_queued(executor: Executor, f: Callable[[T], U], it: Iterable[T], max_queued: int) -> Iterator[U]:
     assert max_queued >= 1
-    tasks = deque[Future[U]]()
+    futures_set = set()
 
     for x in it:
-        tasks.append(executor.submit(f, x))
+        futures_set.add(executor.submit(f, x))
+        while len(futures_set) > max_queued:
+            done, futures_set = futures.wait(futures_set, return_when=futures.FIRST_COMPLETED)
+            for future in done:
+                yield future.result()
 
-        while len(tasks) > max_queued:
-            yield tasks.popleft().result()
-
-    while tasks:
-        yield tasks.popleft().result()
+    for future in futures.as_completed(futures_set):
+        yield future.result()
 
 
 def get_fs(document_path: str) -> AbstractFileSystem:
@@ -84,3 +88,9 @@ def scan_folder(folder_path: str, allowed_extensions: Optional[List[str]] = None
         scanned_files = fs.glob(pattern, recursive=recursive)
         all_files.extend([f"{path_prepend}{f}" for f in scanned_files])
     return all_files
+
+
+def generate_doc_id_from_bytes(filebytes: bytes) -> uuid.UUID:
+    b64_string = base64.b64encode(filebytes).decode("utf-8")
+    namespace = uuid.UUID(UUID_NAMESPACE)
+    return uuid.uuid5(namespace, b64_string)
