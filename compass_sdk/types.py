@@ -44,7 +44,6 @@ class GroupUserDeleteResponse(BaseModel):
 class Permission(Enum):
     READ = "read"
     WRITE = "write"
-    ADMIN = "admin"
     ROOT = "root"
 
 
