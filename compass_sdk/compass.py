@@ -117,7 +117,7 @@ class CompassClient:
             "add_context": "/api/v1/indexes/{index_name}/documents/add_context/{doc_id}",
             "refresh": "/api/v1/indexes/{index_name}/refresh",
             "push_documents": "/api/v2/indexes/{index_name}/documents",
-            "edit_group_authorization": "api/v1/indexes/{index_name}/group_authorization",
+            "edit_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",
         }
         logger.setLevel(logger_level.value)
 
