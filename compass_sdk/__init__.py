@@ -349,6 +349,7 @@ class SearchFilter(BaseModel):
         EQ = "$eq"
         LT_EQ = "$lte"
         GT_EQ = "$gte"
+        WORD_MATCH = "$wordMatch"
 
     field: str
     type: FilterType
