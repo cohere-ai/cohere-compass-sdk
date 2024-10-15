@@ -237,7 +237,7 @@ class CompassClient:
         doc: CompassDocument,
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
-    ) -> Optional[List[CompassDocument]]:
+    ) -> Optional[List[Dict[str, str]]]:
         """
         Insert a parsed document into an index in Compass
         :param index_name: the name of the index
@@ -343,7 +343,7 @@ class CompassClient:
         skip_first_n_docs: int = 0,
         num_jobs: Optional[int] = None,
         authorized_groups: Optional[List[str]] = None,
-    ) -> Optional[List[CompassDocument]]:
+    ) -> Optional[List[Dict[str, str]]]:
         """
         Insert multiple parsed documents into an index in Compass
         :param index_name: the name of the index
@@ -387,6 +387,7 @@ class CompassClient:
             if results.error:
                 for doc in compass_docs:
                     doc.errors.append({CompassSdkStage.Indexing: results.error})
+                    errors.append({doc.metadata.doc_id: results.error})
             else:
                 num_succeeded += len(compass_docs)
 
