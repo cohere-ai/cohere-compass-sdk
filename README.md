@@ -51,3 +51,13 @@ results = compass_client.insert_docs(index_name=index, docs=docs_to_index)
 results = compass_client.search(index_name=index, query="test", top_k=1)
 print(f"Results preview: \n {results.result['hits'][-1]} ... \n \n ") 
 ```
+
+## Running tests locally
+To run tests locally you'll have to install some testing dependencies:
+`pip install pytest pytest-asyncio pytest-mock requests-mock`
+
+And install the project locally:
+`pip install -e .`
+
+Then you can run the tests with:
+`pytest -sv tests/test_compass_client.py`
