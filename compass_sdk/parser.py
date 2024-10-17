@@ -213,7 +213,7 @@ class CompassParserClient:
         )
 
         if res.ok:
-            docs = [CompassDocument(**doc) for doc in res.json()["docs"]]
+            docs = [CompassDocument(**doc) for doc in res.json()["docs"] if doc.get("filebytes", False)]
             for doc in docs:
                 additional_metadata = CompassParserClient._get_metadata(doc=doc, custom_context=custom_context)
                 doc.content = {**doc.content, **additional_metadata}
