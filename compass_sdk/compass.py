@@ -343,6 +343,7 @@ class CompassClient:
         skip_first_n_docs: int = 0,
         num_jobs: Optional[int] = None,
         authorized_groups: Optional[List[str]] = None,
+        upsert_docs: bool = False,
     ) -> Optional[List[Dict[str, str]]]:
         """
         Insert multiple parsed documents into an index in Compass
@@ -356,18 +357,19 @@ class CompassClient:
         :param errors_sliding_window_size: the size of the sliding window to keep track of errors
         :param skip_first_n_docs: number of docs to skip indexing. Useful when insertion failed after N documents
         :param authorized_groups: the groups that are authorized to access the documents. These groups should exist in RBAC. None passed will make the documents public
+        :param upsert_docs: when doc level security enable, allow upserting documents with static groups
         """
 
         def put_request(
-            request_data: List[Tuple[CompassDocument, Document]],
-            previous_errors: List[CompassDocument],
-            num_doc: int,
+            request_data: List[Tuple[CompassDocument, Document]], previous_errors: List[CompassDocument], num_doc: int
         ) -> None:
             nonlocal num_succeeded, errors
             errors.extend(previous_errors)
             compass_docs: List[CompassDocument] = [compass_doc for compass_doc, _ in request_data]
             put_docs_input = PutDocumentsInput(
-                docs=[input_doc for _, input_doc in request_data], authorized_groups=authorized_groups
+                docs=[input_doc for _, input_doc in request_data],
+                authorized_groups=authorized_groups,
+                upsert_docs=upsert_docs,
             )
 
             # It could be that all documents have errors, in which case we should not send a request
