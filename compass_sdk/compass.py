@@ -50,12 +50,7 @@ class CompassAuthError(Exception):
 
     def __init__(
         self,
-        message=(
-            "Unauthorized. Please check your username and password, "
-            "which can be passed into CompassClient or set with "
-            "COHERE_COMPASS_USERNAME and COHERE_COMPASS_PASSWORD "
-            "environment variables."
-        ),
+        message=(f"CompassAuthError - check your bearer token or username and password."),
     ):
         self.message = message
         super().__init__(self.message)
@@ -547,7 +542,7 @@ class CompassClient:
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code == 401:
                     error = "Unauthorized. Please check your username and password."
-                    raise CompassAuthError()
+                    raise CompassAuthError(message=str(e))
                 else:
                     error = str(e) + " " + e.response.text
                     logger.error(
