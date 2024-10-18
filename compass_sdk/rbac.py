@@ -28,7 +28,7 @@ from compass_sdk.types import (
 
 class CompassRootClient:
     def __init__(self, compass_url: str, root_user_token: str):
-        self.base_url = compass_url + "/security/admin/rbac"
+        self.base_url = compass_url + "/api/security/admin/rbac"
         self.headers = {"Authorization": f"Bearer {root_user_token}", "Content-Type": "application/json"}
 
     T = TypeVar("T", bound=BaseModel)
