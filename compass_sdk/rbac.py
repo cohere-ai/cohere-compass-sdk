@@ -8,6 +8,7 @@ from requests import HTTPError
 from compass_sdk.types import (
     GroupCreateRequest,
     GroupCreateResponse,
+    GroupDeleteResponse,
     GroupFetchResponse,
     GroupUserDeleteResponse,
     PolicyRequest,
@@ -104,8 +105,8 @@ class CompassRootClient:
     def delete_users(self, *, user_names: List[str]) -> List[UserDeleteResponse]:
         return self._delete_entities(f"{self.base_url}/v1/users", self.headers, user_names, UserDeleteResponse)
 
-    def delete_groups(self, *, group_names: List[str]) -> List[GroupUserDeleteResponse]:
-        return self._delete_entities(f"{self.base_url}/v1/groups", self.headers, group_names, GroupUserDeleteResponse)
+    def delete_groups(self, *, group_names: List[str]) -> List[GroupDeleteResponse]:
+        return self._delete_entities(f"{self.base_url}/v1/groups", self.headers, group_names, GroupDeleteResponse)
 
     def delete_roles(self, *, role_ids: List[str]) -> List[RoleDeleteResponse]:
         return self._delete_entities(f"{self.base_url}/v1/roles", self.headers, role_ids, RoleDeleteResponse)
