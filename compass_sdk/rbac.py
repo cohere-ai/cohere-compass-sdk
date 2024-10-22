@@ -8,6 +8,7 @@ from requests import HTTPError
 from compass_sdk.types import (
     GroupCreateRequest,
     GroupCreateResponse,
+    GroupDeleteResponse,
     GroupFetchResponse,
     GroupUserDeleteResponse,
     PolicyRequest,
@@ -27,7 +28,7 @@ from compass_sdk.types import (
 
 class CompassRootClient:
     def __init__(self, compass_url: str, root_user_token: str):
-        self.base_url = compass_url + "/security/admin/rbac"
+        self.base_url = compass_url + "/api/security/admin/rbac"
         self.headers = {"Authorization": f"Bearer {root_user_token}", "Content-Type": "application/json"}
 
     T = TypeVar("T", bound=BaseModel)
@@ -104,8 +105,8 @@ class CompassRootClient:
     def delete_users(self, *, user_names: List[str]) -> List[UserDeleteResponse]:
         return self._delete_entities(f"{self.base_url}/v1/users", self.headers, user_names, UserDeleteResponse)
 
-    def delete_groups(self, *, group_names: List[str]) -> List[GroupUserDeleteResponse]:
-        return self._delete_entities(f"{self.base_url}/v1/groups", self.headers, group_names, GroupUserDeleteResponse)
+    def delete_groups(self, *, group_names: List[str]) -> List[GroupDeleteResponse]:
+        return self._delete_entities(f"{self.base_url}/v1/groups", self.headers, group_names, GroupDeleteResponse)
 
     def delete_roles(self, *, role_ids: List[str]) -> List[RoleDeleteResponse]:
         return self._delete_entities(f"{self.base_url}/v1/roles", self.headers, role_ids, RoleDeleteResponse)

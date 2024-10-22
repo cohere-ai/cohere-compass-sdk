@@ -36,6 +36,10 @@ class GroupCreateResponse(BaseModel):
     user_name: str
 
 
+class GroupDeleteResponse(BaseModel):
+    name: str
+
+
 class GroupUserDeleteResponse(BaseModel):
     group_name: str
     user_name: str
