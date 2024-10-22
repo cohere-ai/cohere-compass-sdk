@@ -80,6 +80,7 @@ class CompassDocumentMetadata(ValidatedModel):
     doc_id: str = ""
     filename: str = ""
     meta: List = []
+    parent_doc_id: str = ""
 
 
 class CompassDocumentStatus(str, Enum):
@@ -108,8 +109,12 @@ class CompassDocumentChunk(BaseModel):
     chunk_id: str
     sort_id: str
     doc_id: str
+    parent_doc_id: str
     content: Dict[str, Any]
     origin: Optional[Dict[str, Any]] = None
+
+    def parent_doc_is_split(self):
+        return self.doc_id != self.parent_doc_id
 
 
 class CompassDocument(ValidatedModel):
@@ -302,6 +307,7 @@ class Chunk(BaseModel):
     sort_id: int
     content: Dict[str, Any]
     origin: Optional[Dict[str, Any]] = None
+    parent_doc_id: str
 
 
 class Document(BaseModel):
@@ -311,6 +317,7 @@ class Document(BaseModel):
 
     doc_id: str
     path: str
+    parent_doc_id: str
     content: Dict[str, Any]
     chunks: List[Chunk]
     index_fields: List[str] = []
