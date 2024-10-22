@@ -338,6 +338,7 @@ class CompassClient:
         skip_first_n_docs: int = 0,
         num_jobs: Optional[int] = None,
         authorized_groups: Optional[List[str]] = None,
+        merge_groups_on_conflict: Optional[bool] = False
     ) -> Optional[List[Dict[str, str]]]:
         """
         Insert multiple parsed documents into an index in Compass
@@ -362,7 +363,9 @@ class CompassClient:
             errors.extend(previous_errors)
             compass_docs: List[CompassDocument] = [compass_doc for compass_doc, _ in request_data]
             put_docs_input = PutDocumentsInput(
-                docs=[input_doc for _, input_doc in request_data], authorized_groups=authorized_groups
+                docs=[input_doc for _, input_doc in request_data],
+                authorized_groups=authorized_groups,
+                merge_groups_on_conflict=merge_groups_on_conflict
             )
 
             # It could be that all documents have errors, in which case we should not send a request
