@@ -442,6 +442,7 @@ class CompassClient:
                         doc,
                         Document(
                             doc_id=doc.metadata.doc_id,
+                            parent_doc_id=doc.metadata.parent_doc_id,
                             path=doc.metadata.filename,
                             content=doc.content,
                             chunks=[Chunk(**c.model_dump()) for c in doc.chunks],
