@@ -372,6 +372,7 @@ class PutDocumentsInput(BaseModel):
 
     docs: List[Document]
     authorized_groups: Optional[List[str]] = None
+    merge_groups_on_conflict: bool = False
 
 
 class BatchPutDocumentsInput(BaseModel):
@@ -395,7 +396,7 @@ class BatchProcessFilesParameters(ProcessFilesParameters):
     file_name_to_doc_ids: Optional[Dict[str, str]] = None
 
 
-class GroupAuthorizationActions(Enum):
+class GroupAuthorizationActions(str, Enum):
     ADD = "add"
     REMOVE = "remove"
 
