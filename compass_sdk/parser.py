@@ -217,7 +217,9 @@ class CompassParserClient:
             for doc in res.json()["docs"]:
                 if not doc.get("errors", []):
                     compass_doc = CompassDocument(**doc)
-                    additional_metadata = CompassParserClient._get_metadata(doc=doc, custom_context=custom_context)
+                    additional_metadata = CompassParserClient._get_metadata(
+                        doc=compass_doc, custom_context=custom_context
+                    )
                     compass_doc.content = {**compass_doc.content, **additional_metadata}
                     docs.append(compass_doc)
         else:
