@@ -298,6 +298,13 @@ class ParserConfig(ValidatedModel):
     # Formatting configuration
     output_format: DocumentFormat = DocumentFormat.Markdown
 
+    # Visual elements extraction configuration
+    extract_visual_elements: bool = False
+    vertical_table_crop_margin: int = 100
+    horizontal_table_crop_margin: int = 100
+
+    apply_pdf_rough_text_extraction: bool = False
+
 
 ### Document indexing
 
