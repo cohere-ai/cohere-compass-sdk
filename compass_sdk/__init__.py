@@ -106,6 +106,11 @@ class CompassSdkStage(str, Enum):
     Indexing = "indexing"
 
 
+class CompassDocumentChunkAsset(BaseModel):
+    asset_type: str
+    asset_data: str
+
+
 class CompassDocumentChunk(BaseModel):
     chunk_id: str
     sort_id: str
@@ -113,6 +118,7 @@ class CompassDocumentChunk(BaseModel):
     parent_doc_id: str
     content: Dict[str, Any]
     origin: Optional[Dict[str, Any]] = None
+    assets: Optional[list[CompassDocumentChunkAsset]] = None
 
     def parent_doc_is_split(self):
         return self.doc_id != self.parent_doc_id
@@ -334,11 +340,17 @@ class ParserConfig(BaseModel):
 ### Document indexing
 
 
+class DocumentChunkAsset(BaseModel):
+    asset_type: str
+    asset_data: str
+
+
 class Chunk(BaseModel):
     chunk_id: str
     sort_id: int
     content: Dict[str, Any]
     origin: Optional[Dict[str, Any]] = None
+    assets: Optional[list[DocumentChunkAsset]] = None
     parent_doc_id: str
 
 
