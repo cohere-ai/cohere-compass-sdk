@@ -25,7 +25,9 @@ class Logger:
         self._logger = logging.getLogger(name)
         self._logger.setLevel(log_level)
 
-        formatter = logging.Formatter(f"%(asctime)s-{name}-PID:%(process)d: %(message)s", "%d-%m-%y:%H:%M:%S")
+        formatter = logging.Formatter(
+            f"%(asctime)s-{name}-PID:%(process)d: %(message)s", "%d-%m-%y:%H:%M:%S"
+        )
         stream_handler = logging.StreamHandler()
         stream_handler.setFormatter(formatter)
         self._logger.addHandler(stream_handler)
@@ -68,7 +70,9 @@ class ValidatedModel(BaseModel):
     def __init__(self, **data):
         for name, value in data.items():
             if not self.attribute_in_model(name):
-                raise ValueError(f"{name} is not a valid attribute for {self.__class__.__name__}")
+                raise ValueError(
+                    f"{name} is not a valid attribute for {self.__class__.__name__}"
+                )
         super().__init__(**data)
 
 
@@ -105,6 +109,11 @@ class CompassSdkStage(str, Enum):
     Indexing = "indexing"
 
 
+class CompassDocumentChunkAsset(BaseModel):
+    asset_type: str
+    asset_data: str
+
+
 class CompassDocumentChunk(BaseModel):
     chunk_id: str
     sort_id: str
@@ -112,6 +121,7 @@ class CompassDocumentChunk(BaseModel):
     parent_doc_id: str
     content: Dict[str, Any]
     origin: Optional[Dict[str, Any]] = None
+    assets: Optional[list[CompassDocumentChunkAsset]] = None
 
     def parent_doc_is_split(self):
         return self.doc_id != self.parent_doc_id
@@ -152,13 +162,25 @@ class CompassDocument(ValidatedModel):
         return len(self.metadata.meta) > 0
 
     def has_parsing_errors(self) -> bool:
-        return any(stage == CompassSdkStage.Parsing for error in self.errors for stage, _ in error.items())
+        return any(
+            stage == CompassSdkStage.Parsing
+            for error in self.errors
+            for stage, _ in error.items()
+        )
 
     def has_metadata_errors(self) -> bool:
-        return any(stage == CompassSdkStage.Metadata for error in self.errors for stage, _ in error.items())
+        return any(
+            stage == CompassSdkStage.Metadata
+            for error in self.errors
+            for stage, _ in error.items()
+        )
 
     def has_indexing_errors(self) -> bool:
-        return any(stage == CompassSdkStage.Indexing for error in self.errors for stage, _ in error.items())
+        return any(
+            stage == CompassSdkStage.Indexing
+            for error in self.errors
+            for stage, _ in error.items()
+        )
 
     @property
     def status(self) -> CompassDocumentStatus:
@@ -240,7 +262,9 @@ class ParsingStrategy(str, Enum):
 
 class ParsingModel(str, Enum):
     Marker = "marker"  # Default model, it is actually a combination of models used by the Marker PDF parser
-    YoloX_Quantized = "yolox_quantized"  # Only PDF parsing working option from Unstructured
+    YoloX_Quantized = (
+        "yolox_quantized"  # Only PDF parsing working option from Unstructured
+    )
 
     @classmethod
     def _missing_(cls, value):
@@ -309,11 +333,17 @@ class ParserConfig(ValidatedModel):
 ### Document indexing
 
 
+class DocumentChunkAsset(BaseModel):
+    asset_type: str
+    asset_data: str
+
+
 class Chunk(BaseModel):
     chunk_id: str
     sort_id: int
     content: Dict[str, Any]
     origin: Optional[Dict[str, Any]] = None
+    assets: Optional[list[DocumentChunkAsset]] = None
     parent_doc_id: str
 
 
