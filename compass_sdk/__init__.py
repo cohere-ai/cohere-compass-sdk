@@ -258,8 +258,8 @@ class DocumentFormat(str, Enum):
 
 
 class PDFParsingStrategy(StrEnum):
-    QuickText: str = "QuickText"
-    ImageToMarkdown: str = "ImageToMarkdown"
+    QuickText = "QuickText"
+    ImageToMarkdown = "ImageToMarkdown"
 
     @classmethod
     def _missing_(cls, value):
