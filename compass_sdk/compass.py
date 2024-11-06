@@ -15,7 +15,6 @@ from tenacity import RetryError, retry, retry_if_not_exception_type, stop_after_
 from tqdm import tqdm
 
 from compass_sdk import (
-    BatchPutDocumentsInput,
     Chunk,
     CompassDocument,
     CompassDocumentStatus,
@@ -93,7 +92,6 @@ class CompassClient:
             "delete_document": self.session.delete,
             "get_document": self.session.get,
             "put_documents": self.session.put,
-            "put_documents_batch": self.session.post,
             "search_documents": self.session.post,
             "add_context": self.session.post,
             "refresh": self.session.post,
@@ -107,7 +105,6 @@ class CompassClient:
             "delete_document": "/api/v1/indexes/{index_name}/documents/{doc_id}",
             "get_document": "/api/v1/indexes/{index_name}/documents/{doc_id}",
             "put_documents": "/api/v1/indexes/{index_name}/documents",
-            "put_documents_batch": "/api/v1/batch/indexes/{index_name}",
             "search_documents": "/api/v1/indexes/{index_name}/documents/search",
             "add_context": "/api/v1/indexes/{index_name}/documents/add_context/{doc_id}",
             "refresh": "/api/v1/indexes/{index_name}/refresh",
@@ -250,36 +247,6 @@ class CompassClient:
             authorized_groups=authorized_groups,
             merge_groups_on_conflict=merge_groups_on_conflict,
         )
-
-    def insert_docs_batch(self, *, uuid: str, index_name: str):
-        """
-        Insert a batch of parsed documents into an index in Compass
-        :param uuid: the uuid of the batch
-        :param index_name: the name of the index
-        """
-        return self._send_request(
-            function="put_documents_batch",
-            index_name=index_name,
-            data=BatchPutDocumentsInput(uuid=uuid),
-            max_retries=DEFAULT_MAX_RETRIES,
-            sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
-        )
-
-    def batch_status(self, *, uuid: str):
-        """
-        Get the status of a batch
-        :param uuid: the uuid of the batch
-        """
-        auth = (self.username, self.password) if self.username and self.password else None
-        resp = self.session.get(
-            url=f"{self.index_url}/api/v1/batch/status/{uuid}",
-            auth=auth,
-        )
-
-        if resp.ok:
-            return resp.json()
-        else:
-            raise Exception(f"Failed to get batch status: {resp.status_code} {resp.text}")
 
     def push_document(
         self,
