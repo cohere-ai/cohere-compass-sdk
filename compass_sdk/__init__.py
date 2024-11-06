@@ -1,11 +1,11 @@
 import logging
+import math
 import uuid
 from enum import Enum, StrEnum
 from os import getenv
 from typing import Annotated, Any, Dict, List, Optional, Union
 
-import math
-from pydantic import BaseModel, Field, PositiveInt, StringConstraints, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt, StringConstraints
 
 from compass_sdk.constants import (
     COHERE_API_ENV_VAR,
@@ -319,6 +319,7 @@ class ParserConfig(BaseModel):
     horizontal_table_crop_margin: int = 100
 
     pdf_parsing_strategy: PDFParsingStrategy = PDFParsingStrategy.QuickText
+
 
 ### Document indexing
 
