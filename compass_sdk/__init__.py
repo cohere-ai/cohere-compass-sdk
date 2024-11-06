@@ -1,10 +1,11 @@
 import logging
+import math
 import uuid
-from enum import Enum
+from enum import Enum, StrEnum
 from os import getenv
 from typing import Annotated, Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, PositiveInt, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt, StringConstraints
 
 from compass_sdk.constants import (
     COHERE_API_ENV_VAR,
@@ -256,7 +257,16 @@ class DocumentFormat(str, Enum):
         return cls.Markdown
 
 
-class ParserConfig(ValidatedModel):
+class PDFParsingStrategy(StrEnum):
+    QuickText = "QuickText"
+    ImageToMarkdown = "ImageToMarkdown"
+
+    @classmethod
+    def _missing_(cls, value):
+        return cls.QuickText
+
+
+class ParserConfig(BaseModel):
     """
     CompassParser configuration. Important parameters:
     :param parsing_strategy: the parsing strategy to use:
@@ -276,6 +286,11 @@ class ParserConfig(ValidatedModel):
 
     """
 
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        extra="ignore",
+    )
+
     # CompassParser configuration
     logger_level: LoggerLevel = LoggerLevel.INFO
     parse_tables: bool = True
@@ -285,14 +300,14 @@ class ParserConfig(ValidatedModel):
     min_chars_per_element: int = DEFAULT_MIN_CHARS_PER_ELEMENT
     skip_infer_table_types: List[str] = SKIP_INFER_TABLE_TYPES
     parsing_strategy: ParsingStrategy = ParsingStrategy.Fast
-    parsing_model: ParsingModel = ParsingModel.Marker
+    parsing_model: ParsingModel = ParsingModel.YoloX_Quantized
 
     # CompassChunker configuration
     num_tokens_per_chunk: int = DEFAULT_NUM_TOKENS_PER_CHUNK
     num_tokens_overlap: int = DEFAULT_NUM_TOKENS_CHUNK_OVERLAP
     min_chunk_tokens: int = DEFAULT_MIN_NUM_TOKENS_CHUNK
     num_chunks_in_title: int = DEFAULT_MIN_NUM_CHUNKS_IN_TITLE
-    max_tokens_metadata: int = 1000
+    max_tokens_metadata: int = math.floor(num_tokens_per_chunk * 0.1)
     include_tables: bool = True
 
     # Formatting configuration
@@ -303,7 +318,7 @@ class ParserConfig(ValidatedModel):
     vertical_table_crop_margin: int = 100
     horizontal_table_crop_margin: int = 100
 
-    apply_pdf_rough_text_extraction: bool = False
+    pdf_parsing_strategy: PDFParsingStrategy = PDFParsingStrategy.QuickText
 
 
 ### Document indexing
