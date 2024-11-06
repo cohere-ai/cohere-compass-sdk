@@ -397,10 +397,6 @@ class PutDocumentsInput(BaseModel):
     merge_groups_on_conflict: bool = False
 
 
-class BatchPutDocumentsInput(BaseModel):
-    uuid: str
-
-
 class ProcessFileParameters(ValidatedModel):
     parser_config: ParserConfig
     metadata_config: MetadataConfig
@@ -411,11 +407,6 @@ class ProcessFilesParameters(ValidatedModel):
     doc_ids: Optional[List[str]] = None
     parser_config: ParserConfig
     metadata_config: MetadataConfig
-
-
-class BatchProcessFilesParameters(ProcessFilesParameters):
-    uuid: str
-    file_name_to_doc_ids: Optional[Dict[str, str]] = None
 
 
 class GroupAuthorizationActions(str, Enum):
