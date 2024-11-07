@@ -267,8 +267,8 @@ class PDFParsingStrategy(StrEnum):
 
 
 class PresentationParsingStrategy(StrEnum):
-    Unstructured: str = "Unstructured"
-    ImageToMarkdown: str = "ImageToMarkdown"
+    Unstructured = "Unstructured"
+    ImageToMarkdown = "ImageToMarkdown"
 
     @classmethod
     def _missing_(cls, value):
