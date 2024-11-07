@@ -266,6 +266,15 @@ class PDFParsingStrategy(StrEnum):
         return cls.QuickText
 
 
+class PresentationParsingStrategy(StrEnum):
+    Unstructured: str = "Unstructured"
+    ImageToMarkdown: str = "ImageToMarkdown"
+
+    @classmethod
+    def _missing_(cls, value):
+        return cls.Unstructured
+
+
 class ParserConfig(BaseModel):
     """
     CompassParser configuration. Important parameters:
@@ -319,6 +328,7 @@ class ParserConfig(BaseModel):
     horizontal_table_crop_margin: int = 100
 
     pdf_parsing_strategy: PDFParsingStrategy = PDFParsingStrategy.QuickText
+    presentation_parsing_strategy: PresentationParsingStrategy = PresentationParsingStrategy.Unstructured
 
 
 ### Document indexing
