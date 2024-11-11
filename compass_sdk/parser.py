@@ -159,6 +159,7 @@ class CompassParserClient:
         *,
         filename: str,
         file_id: Optional[str] = None,
+        content_type: Optional[str] = None,
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
         custom_context: Optional[Fn_or_Dict] = None,
@@ -171,6 +172,7 @@ class CompassParserClient:
 
         :param filename: Filename to process
         :param file_id: Id for the file
+        :param content_type: Content type of the file
         :param parser_config: ParserConfig object with the config to use for parsing the file
         :param metadata_config: MetadataConfig object with the config to use for extracting metadata for each document
         :param custom_context: Additional data to add to compass document. Fields will be filterable but not semantically searchable.
@@ -196,6 +198,7 @@ class CompassParserClient:
             parser_config=parser_config,
             metadata_config=metadata_config,
             doc_id=file_id,
+            content_type=content_type,
         )
         auth = (self.username, self.password) if self.username and self.password else None
         res = self.session.post(

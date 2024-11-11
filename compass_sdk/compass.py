@@ -259,7 +259,7 @@ class CompassClient:
         context: Dict[str, Any] = {},
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
-    ) -> Optional[str]:
+    ) -> Optional[str | Dict]:
         """
         Parse and insert a document into an index in Compass
         :param index_name: the name of the index
@@ -297,7 +297,7 @@ class CompassClient:
 
         if result.error:
             return result.error
-        return None
+        return result.result
 
     def insert_docs(
         self,
