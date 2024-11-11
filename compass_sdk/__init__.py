@@ -411,6 +411,7 @@ class ProcessFileParameters(ValidatedModel):
     parser_config: ParserConfig
     metadata_config: MetadataConfig
     doc_id: Optional[str] = None
+    content_type: Optional[str] = None
 
 
 class ProcessFilesParameters(ValidatedModel):
