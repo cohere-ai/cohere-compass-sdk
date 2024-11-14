@@ -292,7 +292,7 @@ class CompassClient:
         context: Dict[str, Any] = {},
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
-    ) -> Optional[str]:
+    ) -> Optional[str | Dict]:
         """
         Parse and insert a document into an index in Compass
         :param index_name: the name of the index
@@ -330,7 +330,7 @@ class CompassClient:
 
         if result.error:
             return result.error
-        return None
+        return result.result
 
     def insert_docs(
         self,
@@ -437,8 +437,8 @@ class CompassClient:
         num_chunks = 0
         for num_doc, doc in enumerate(docs, 1):
             if doc.status != CompassDocumentStatus.Success:
-                logger.error(f"[Thread {threading.get_native_id()}] Document #{num_doc} has errors: {doc.errors}")
-                errors.append(doc)
+                logger.error(f"Document {doc.metadata.doc_id} has errors: {doc.errors}")
+                errors.extend(doc.errors)
             else:
                 num_chunks += len(doc.chunks) if doc.status == CompassDocumentStatus.Success else 0
                 if num_chunks > max_chunks_per_request:
