@@ -1,4 +1,6 @@
 import logging
+from dataclasses import field
+
 import math
 import uuid
 from enum import Enum, StrEnum
@@ -80,7 +82,7 @@ class CompassDocumentMetadata(ValidatedModel):
 
     doc_id: str = ""
     filename: str = ""
-    meta: List = []
+    meta: List = field(default_factory=list)
     parent_doc_id: str = ""
 
 
@@ -137,12 +139,12 @@ class CompassDocument(ValidatedModel):
 
     filebytes: bytes = b""
     metadata: CompassDocumentMetadata = CompassDocumentMetadata()
-    content: Dict[str, str] = {}
+    content: Dict[str, str] = field(default_factory=dict)
     content_type: Optional[str] = None
-    elements: List[Any] = []
-    chunks: List[CompassDocumentChunk] = []
-    index_fields: List[str] = []
-    errors: List[Dict[CompassSdkStage, str]] = []
+    elements: List[Any] = field(default_factory=list)
+    chunks: List[CompassDocumentChunk] = field(default_factory=list)
+    index_fields: List[str] = field(default_factory=list)
+    errors: List[Dict[CompassSdkStage, str]] = field(default_factory=list)
     ignore_metadata_errors: bool = True
     markdown: Optional[str] = None
 
@@ -364,7 +366,7 @@ class Document(BaseModel):
     parent_doc_id: str
     content: Dict[str, Any]
     chunks: List[Chunk]
-    index_fields: List[str] = []
+    index_fields: List[str] = field(default_factory=list)
 
 
 class ParseableDocument(BaseModel):
@@ -373,10 +375,7 @@ class ParseableDocument(BaseModel):
     """
 
     id: uuid.UUID
-    filename: Annotated[
-        str,
-        StringConstraints(min_length=1),
-    ]  # Ensures the filename is a non-empty string
+    filename: Annotated[str, StringConstraints(min_length=1)]  # Ensures the filename is a non-empty string
     content_type: str
     content_length_bytes: PositiveInt  # File size must be a non-negative integer
     bytes: str  # Base64-encoded file contents
