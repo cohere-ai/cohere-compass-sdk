@@ -48,7 +48,6 @@ class GroupUserDeleteResponse(BaseModel):
 class Permission(Enum):
     READ = "read"
     WRITE = "write"
-    ROOT = "root"
 
 
 class PolicyRequest(BaseModel):
