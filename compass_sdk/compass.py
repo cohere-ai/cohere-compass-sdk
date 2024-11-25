@@ -27,7 +27,7 @@ from compass_sdk import (
     PutDocumentsInput,
     SearchFilter,
     SearchInput,
-    logger,
+    logger, HeavyParsingStrategy,
 )
 from compass_sdk.constants import (
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
@@ -257,6 +257,7 @@ class CompassClient:
         content_type: str,
         document_id: uuid.UUID,
         context: Dict[str, Any] = {},
+        heavy_parsing_strategy: HeavyParsingStrategy = HeavyParsingStrategy.Fallback,
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ) -> Optional[str | Dict]:
@@ -285,6 +286,7 @@ class CompassClient:
             content_type=content_type,
             content_length_bytes=len(filebytes),
             context=context,
+            heavy_parsing_strategy=heavy_parsing_strategy,
         )
 
         result = self._send_request(
