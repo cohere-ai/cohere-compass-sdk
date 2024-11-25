@@ -21,7 +21,6 @@ from compass_sdk import (
     CompassSdkStage,
     Document,
     GroupAuthorizationInput,
-    HeavyParsingStrategy,
     LoggerLevel,
     ParseableDocument,
     PushDocumentsInput,
@@ -258,7 +257,6 @@ class CompassClient:
         content_type: str,
         document_id: uuid.UUID,
         context: Dict[str, Any] = {},
-        heavy_parsing_strategy: HeavyParsingStrategy = HeavyParsingStrategy.Fallback,
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ) -> Optional[str | Dict]:
@@ -287,7 +285,6 @@ class CompassClient:
             content_type=content_type,
             content_length_bytes=len(filebytes),
             context=context,
-            heavy_parsing_strategy=heavy_parsing_strategy,
         )
 
         result = self._send_request(
