@@ -393,7 +393,7 @@ class ParseableDocument(BaseModel):
     content_length_bytes: PositiveInt  # File size must be a non-negative integer
     bytes: str  # Base64-encoded file contents
     context: Dict[str, Any] = Field(default_factory=dict)
-    heavy_parsing_strategy: HeavyParsingStrategy
+    heavy_parsing_strategy: HeavyParsingStrategy = HeavyParsingStrategy.Fallback
 
 
 class PushDocumentsInput(BaseModel):
