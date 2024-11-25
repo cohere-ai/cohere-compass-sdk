@@ -246,20 +246,6 @@ class ParsingStrategy(str, Enum):
         return cls.Fast
 
 
-class HeavyParsingStrategy(StrEnum):
-    """
-    Enum for heavy parsing strategies. Heavy parsing strategies are used to determine when and how to use the "heavier"
-    parsing methods for a document. The "heavier" parsing methods are more computationally expensive and should be used
-    sparingly. The strategies are as follows:
-    - Fallback: Only when the lighter parsing fails.
-    - Complementary: In addition to the lighter parsing. This runs a two-step parsing process, first the lighter parsing
-                        method is used, and then the heavier parsing method updates the results in OS.
-    """
-
-    Fallback = "fallback"
-    Complementary = "complementary"
-
-
 class ParsingModel(str, Enum):
     Marker = "marker"  # Default model, it is actually a combination of models used by the Marker PDF parser
     YoloX_Quantized = "yolox_quantized"  # Only PDF parsing working option from Unstructured
@@ -393,7 +379,6 @@ class ParseableDocument(BaseModel):
     content_length_bytes: PositiveInt  # File size must be a non-negative integer
     bytes: str  # Base64-encoded file contents
     context: Dict[str, Any] = Field(default_factory=dict)
-    heavy_parsing_strategy: HeavyParsingStrategy = HeavyParsingStrategy.Fallback
 
 
 class PushDocumentsInput(BaseModel):
