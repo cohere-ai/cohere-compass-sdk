@@ -28,7 +28,7 @@ from compass_sdk import (
     PutDocumentsInput,
     SearchFilter,
     SearchInput,
-    logger,
+    logger, HeavyParsingStrategy,
 )
 from compass_sdk.constants import (
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
