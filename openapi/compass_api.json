@@ -1,0 +1,221 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Compass SDK",
+    "version": "0.5",
+    "description": "API for interacting with Cohere's Compass"
+  },
+  "paths": {
+    "/datasources": {
+      "get": {
+        "summary": "List all datasources",
+        "operationId": "list_datasources",
+        "responses": {
+          "200": {
+            "description": "A paginated list of datasources",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedListDataSource"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new datasource",
+        "operationId": "create_datasource",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateDataSource" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created datasource",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DataSource" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/datasources/config": {
+      "get": {
+        "summary": "List all available config types",
+        "operationId": "listConfigs",
+        "responses": {
+          "200": {
+            "description": "A list of available config types",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/datasources/config/{config_type}": {
+      "get": {
+        "summary": "Get the configuration schema for a specific config type",
+        "operationId": "getConfig",
+        "parameters": [
+          {
+            "name": "config_type",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration schema and authentication URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetConfigResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/datasources/{datasource_id}": {
+      "get": {
+        "summary": "Get a datasource by ID",
+        "operationId": "get_datasource",
+        "parameters": [
+          {
+            "name": "datasource_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Datasource details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DataSource" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a datasource by ID",
+        "operationId": "delete_datasource",
+        "parameters": [
+          {
+            "name": "datasource_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": { "204": { "description": "Datasource deleted" } }
+      }
+    }
+  },
+  "security": [
+    {
+      "basicAuth": []
+    },
+    {
+      "bearerAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "PaginatedListDataSource": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/DataSource" }
+          },
+          "nextPageToken": { "type": "string", "nullable": true }
+        }
+      },
+      "DatasourceConfig": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/AzureBlobStorageConfig" },
+          { "$ref": "#/components/schemas/OneDriveConfig" }
+        ]
+      },
+      "OneDriveConfig": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["msft_onedrive"] }
+        }
+      },
+      "AzureBlobStorageConfig": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["msft_azure_blob_storage"] },
+          "connection_string": { "type": "string" },
+          "container_name": { "type": "string" },
+          "name_starts_with": { "type": "string", "nullable": true }
+        }
+      },
+      "DataSource": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "nullable": true },
+          "name": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "config": { "$ref": "#/components/schemas/DatasourceConfig" },
+          "destinations": { "type": "array", "items": { "type": "string" } },
+          "enabled": { "type": "boolean", "default": true },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "CreateDataSource": {
+        "type": "object",
+        "properties": {
+          "datasource": { "$ref": "#/components/schemas/DataSource" },
+          "state_key": { "type": "string", "nullable": true }
+        }
+      },
+      "GetConfigResponse": {
+        "type": "object",
+        "properties": {
+          "config_schema": { "type": "object" },
+          "auth_url": { "type": "string", "nullable": true }
+        }
+      }
+    }
+  }
+}
