@@ -59,9 +59,21 @@ class CompassAuthError(Exception):
 class CompassMaxErrorRateExceeded(Exception):
     """Exception raised when the error rate exceeds the maximum allowed error rate in the Compass client."""
 
-    def __init__(self, message="The maximum error rate was exceeded. Stopping the insertion process."):
+    def __init__(
+        self,
+        message="The maximum error rate was exceeded. Stopping the insertion process.",
+    ):
         self.message = message
         super().__init__(self.message)
+
+
+_DEFAULT_TIMEOUT = 30
+
+
+class SessionWithDefaultTimeout(requests.Session):
+    def request(self, method, url, **kwargs):
+        kwargs.setdefault("timeout", _DEFAULT_TIMEOUT)
+        return super().request(method, url, **kwargs)
 
 
 class CompassClient:
@@ -83,7 +95,7 @@ class CompassClient:
         self.index_url = index_url
         self.username = username or os.getenv("COHERE_COMPASS_USERNAME")
         self.password = password or os.getenv("COHERE_COMPASS_PASSWORD")
-        self.session = requests.Session()
+        self.session = SessionWithDefaultTimeout()
         self.bearer_token = bearer_token
 
         self.function_call = {
