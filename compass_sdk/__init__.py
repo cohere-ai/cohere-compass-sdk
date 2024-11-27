@@ -373,7 +373,6 @@ class PutDocumentsInput(BaseModel):
 
     docs: List[Document]
     authorized_groups: Optional[List[str]] = None
-    merge_groups_on_conflict: Optional[bool] = False
 
 
 class BatchPutDocumentsInput(BaseModel):
