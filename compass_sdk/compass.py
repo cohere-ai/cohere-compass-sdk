@@ -357,7 +357,7 @@ class CompassClient:
             if results.error:
                 for doc in compass_docs:
                     doc.errors.append({CompassSdkStage.Indexing: f"{doc.metadata.filename}: {results.error}"})
-                    errors.append({doc.metadata.doc_id: results.error})
+                    errors.append({doc.metadata.doc_id: f"{doc.metadata.filename}: {results.error}"})
             else:
                 num_succeeded += len(compass_docs)
 
