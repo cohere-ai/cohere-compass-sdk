@@ -11,13 +11,7 @@ import requests
 from joblib import Parallel, delayed
 from pydantic import BaseModel
 from requests.exceptions import InvalidSchema
-from tenacity import (
-    RetryError,
-    retry,
-    retry_if_not_exception_type,
-    stop_after_attempt,
-    wait_fixed,
-)
+from tenacity import RetryError, retry, retry_if_not_exception_type, stop_after_attempt, wait_fixed
 from tqdm import tqdm
 
 from compass_sdk import (
@@ -55,9 +49,7 @@ class CompassAuthError(Exception):
 
     def __init__(
         self,
-        message=(
-            f"CompassAuthError - check your bearer token or username and password."
-        ),
+        message=(f"CompassAuthError - check your bearer token or username and password."),
     ):
         self.message = message
         super().__init__(self.message)
@@ -361,9 +353,7 @@ class CompassClient:
         ) -> None:
             nonlocal num_succeeded, errors
             errors.extend(previous_errors)
-            compass_docs: List[CompassDocument] = [
-                compass_doc for compass_doc, _ in request_data
-            ]
+            compass_docs: List[CompassDocument] = [compass_doc for compass_doc, _ in request_data]
             put_docs_input = PutDocumentsInput(
                 docs=[input_doc for _, input_doc in request_data],
                 authorized_groups=authorized_groups,
@@ -402,20 +392,14 @@ class CompassClient:
             # Keep track of the results of the last N API calls to calculate the error rate
             # If the error rate is higher than the threshold, stop the insertion process
             error_window.append(results.error)
-            error_rate = (
-                mean([1 if x else 0 for x in error_window])
-                if len(error_window) == error_window.maxlen
-                else 0
-            )
+            error_rate = mean([1 if x else 0 for x in error_window]) if len(error_window) == error_window.maxlen else 0
             if error_rate > max_error_rate:
                 raise CompassMaxErrorRateExceeded(
                     f"[Thread {threading.get_native_id()}]{error_rate * 100}% of insertions failed "
                     f"in the last {errors_sliding_window_size} API calls. Stopping the insertion process."
                 )
 
-        error_window = deque(
-            maxlen=errors_sliding_window_size
-        )  # Keep track of the results of the last N API calls
+        error_window = deque(maxlen=errors_sliding_window_size)  # Keep track of the results of the last N API calls
         num_succeeded = 0
         errors = []
         requests_iter = self._get_request_blocks(docs, max_chunks_per_request)
@@ -455,11 +439,7 @@ class CompassClient:
                 for error in doc.errors:
                     errors.append({doc.metadata.doc_id: list(error.values())[0]})
             else:
-                num_chunks += (
-                    len(doc.chunks)
-                    if doc.status == CompassDocumentStatus.Success
-                    else 0
-                )
+                num_chunks += len(doc.chunks) if doc.status == CompassDocumentStatus.Success else 0
                 if num_chunks > max_chunks_per_request:
                     yield request_block, errors
                     request_block, errors = [], []
@@ -504,9 +484,7 @@ class CompassClient:
             sleep_retry_seconds=1,
         )
 
-    def edit_group_authorization(
-        self, *, index_name: str, group_auth_input: GroupAuthorizationInput
-    ):
+    def edit_group_authorization(self, *, index_name: str, group_auth_input: GroupAuthorizationInput):
         """
         Edit group authorization for an index
         :param index_name: the name of the index
@@ -561,9 +539,7 @@ class CompassClient:
                     headers = {"Authorization": f"Bearer {self.bearer_token}"}
                     auth = None
 
-                response = self.function_call[function](
-                    target_path, json=data_dict, auth=auth, headers=headers
-                )
+                response = self.function_call[function](target_path, json=data_dict, auth=auth, headers=headers)
 
                 if response.ok:
                     error = None
@@ -593,9 +569,7 @@ class CompassClient:
 
         error = None
         try:
-            target_path = self.index_url + self.function_endpoint[function].format(
-                index_name=index_name, doc_id=doc_id
-            )
+            target_path = self.index_url + self.function_endpoint[function].format(index_name=index_name, doc_id=doc_id)
             res = _send_request_with_retry()
             if res:
                 return res
