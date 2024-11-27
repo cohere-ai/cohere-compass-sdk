@@ -36,6 +36,7 @@ from compass_sdk.constants import (
     DEFAULT_SLEEP_RETRY_SECONDS,
 )
 from compass_sdk.models import CreateDataSource, DataSource
+from compass_sdk.models.datasources import PaginatedList
 
 
 @dataclass
@@ -315,7 +316,7 @@ class CompassClient:
         )
 
         result = self._send_request(
-            api_name="push_documents",
+            api_name="upload_documents",
             data=PushDocumentsInput(documents=[doc]),
             max_retries=max_retries,
             sleep_retry_seconds=sleep_retry_seconds,
@@ -453,9 +454,7 @@ class CompassClient:
 
         if result.error:
             return result.error
-        if not result.result or "value" not in result.result:
-            return []
-        return [DataSource.model_validate(ds) for ds in result.result["value"]]
+        return PaginatedList.model_validate(result.result)
 
     def get_datasource(
         self,

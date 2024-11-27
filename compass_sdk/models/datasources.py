@@ -14,7 +14,6 @@ Content: typing.TypeAlias = typing.Dict[str, typing.Any]
 
 class PaginatedList(pydantic.BaseModel, typing.Generic[T]):
     value: typing.List[T]
-    nextPageToken: typing.Optional[str] = None
 
 
 class OneDriveConfig(pydantic.BaseModel):
