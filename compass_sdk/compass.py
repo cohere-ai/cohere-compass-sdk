@@ -7,11 +7,18 @@ from dataclasses import dataclass
 from statistics import mean
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
+from joblib.disk import time
 import requests
 from joblib import Parallel, delayed
 from pydantic import BaseModel
 from requests.exceptions import InvalidSchema
-from tenacity import RetryError, retry, retry_if_not_exception_type, stop_after_attempt, wait_fixed
+from tenacity import (
+    RetryError,
+    retry,
+    retry_if_not_exception_type,
+    stop_after_attempt,
+    wait_fixed,
+)
 from tqdm import tqdm
 
 from compass_sdk import (
@@ -50,7 +57,9 @@ class CompassAuthError(Exception):
 
     def __init__(
         self,
-        message=(f"CompassAuthError - check your bearer token or username and password."),
+        message=(
+            f"CompassAuthError - check your bearer token or username and password."
+        ),
     ):
         self.message = message
         super().__init__(self.message)
@@ -71,8 +80,12 @@ _DEFAULT_TIMEOUT = 30
 
 
 class SessionWithDefaultTimeout(requests.Session):
+    def __init__(self, timeout: int):
+        self._timeout = timeout
+        super().__init__()
+
     def request(self, method, url, **kwargs):
-        kwargs.setdefault("timeout", _DEFAULT_TIMEOUT)
+        kwargs.setdefault("timeout", self._timeout)
         return super().request(method, url, **kwargs)
 
 
@@ -85,6 +98,7 @@ class CompassClient:
         password: Optional[str] = None,
         bearer_token: Optional[str] = None,
         logger_level: LoggerLevel = LoggerLevel.INFO,
+        default_timeout: int = _DEFAULT_TIMEOUT,
     ):
         """
         A compass client to interact with the Compass API
@@ -95,7 +109,7 @@ class CompassClient:
         self.index_url = index_url
         self.username = username or os.getenv("COHERE_COMPASS_USERNAME")
         self.password = password or os.getenv("COHERE_COMPASS_PASSWORD")
-        self.session = SessionWithDefaultTimeout()
+        self.session = SessionWithDefaultTimeout(default_timeout)
         self.bearer_token = bearer_token
 
         self.function_call = {
@@ -253,7 +267,10 @@ class CompassClient:
         :param sleep_retry_seconds: number of seconds to go to sleep before retrying a doc insertion
         """
         return self.insert_docs(
-            index_name=index_name, docs=iter([doc]), max_retries=max_retries, sleep_retry_seconds=sleep_retry_seconds
+            index_name=index_name,
+            docs=iter([doc]),
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
         )
 
     def insert_docs_batch(self, *, uuid: str, index_name: str):
@@ -275,7 +292,9 @@ class CompassClient:
         Get the status of a batch
         :param uuid: the uuid of the batch
         """
-        auth = (self.username, self.password) if self.username and self.password else None
+        auth = (
+            (self.username, self.password) if self.username and self.password else None
+        )
         resp = self.session.get(
             url=f"{self.index_url}/api/v1/batch/status/{uuid}",
             auth=auth,
@@ -284,7 +303,9 @@ class CompassClient:
         if resp.ok:
             return resp.json()
         else:
-            raise Exception(f"Failed to get batch status: {resp.status_code} {resp.text}")
+            raise Exception(
+                f"Failed to get batch status: {resp.status_code} {resp.text}"
+            )
 
     def push_document(
         self,
@@ -350,7 +371,7 @@ class CompassClient:
         skip_first_n_docs: int = 0,
         num_jobs: Optional[int] = None,
         authorized_groups: Optional[List[str]] = None,
-        merge_groups_on_conflict: Optional[bool] = False
+        merge_groups_on_conflict: Optional[bool] = False,
     ) -> Optional[List[Dict[str, str]]]:
         """
         Insert multiple parsed documents into an index in Compass
@@ -373,11 +394,13 @@ class CompassClient:
         ) -> None:
             nonlocal num_succeeded, errors
             errors.extend(previous_errors)
-            compass_docs: List[CompassDocument] = [compass_doc for compass_doc, _ in request_data]
+            compass_docs: List[CompassDocument] = [
+                compass_doc for compass_doc, _ in request_data
+            ]
             put_docs_input = PutDocumentsInput(
                 docs=[input_doc for _, input_doc in request_data],
                 authorized_groups=authorized_groups,
-                merge_groups_on_conflict=merge_groups_on_conflict
+                merge_groups_on_conflict=merge_groups_on_conflict,
             )
 
             # It could be that all documents have errors, in which case we should not send a request
@@ -404,14 +427,20 @@ class CompassClient:
             # Keep track of the results of the last N API calls to calculate the error rate
             # If the error rate is higher than the threshold, stop the insertion process
             error_window.append(results.error)
-            error_rate = mean([1 if x else 0 for x in error_window]) if len(error_window) == error_window.maxlen else 0
+            error_rate = (
+                mean([1 if x else 0 for x in error_window])
+                if len(error_window) == error_window.maxlen
+                else 0
+            )
             if error_rate > max_error_rate:
                 raise CompassMaxErrorRateExceeded(
                     f"[Thread {threading.get_native_id()}]{error_rate * 100}% of insertions failed "
                     f"in the last {errors_sliding_window_size} API calls. Stopping the insertion process."
                 )
 
-        error_window = deque(maxlen=errors_sliding_window_size)  # Keep track of the results of the last N API calls
+        error_window = deque(
+            maxlen=errors_sliding_window_size
+        )  # Keep track of the results of the last N API calls
         num_succeeded = 0
         errors = []
         requests_iter = tqdm(self._get_request_blocks(docs, max_chunks_per_request))
@@ -419,7 +448,11 @@ class CompassClient:
         try:
             num_jobs = num_jobs or os.cpu_count()
             Parallel(n_jobs=num_jobs, backend="threading")(
-                delayed(put_request)(request_data=request_block, previous_errors=previous_errors, num_doc=i)
+                delayed(put_request)(
+                    request_data=request_block,
+                    previous_errors=previous_errors,
+                    num_doc=i,
+                )
                 for i, (request_block, previous_errors) in enumerate(requests_iter, 1)
                 if i > skip_first_n_docs
             )
@@ -443,10 +476,16 @@ class CompassClient:
         num_chunks = 0
         for num_doc, doc in enumerate(docs, 1):
             if doc.status != CompassDocumentStatus.Success:
-                logger.error(f"[Thread {threading.get_native_id()}] Document #{num_doc} has errors: {doc.errors}")
+                logger.error(
+                    f"[Thread {threading.get_native_id()}] Document #{num_doc} has errors: {doc.errors}"
+                )
                 errors.append(doc)
             else:
-                num_chunks += len(doc.chunks) if doc.status == CompassDocumentStatus.Success else 0
+                num_chunks += (
+                    len(doc.chunks)
+                    if doc.status == CompassDocumentStatus.Success
+                    else 0
+                )
                 if num_chunks > max_chunks_per_request:
                     yield request_block, errors
                     request_block, errors = [], []
@@ -490,7 +529,9 @@ class CompassClient:
             sleep_retry_seconds=1,
         )
 
-    def edit_group_authorization(self, *, index_name: str, group_auth_input: GroupAuthorizationInput):
+    def edit_group_authorization(
+        self, *, index_name: str, group_auth_input: GroupAuthorizationInput
+    ):
         """
         Edit group authorization for an index
         :param index_name: the name of the index
@@ -532,7 +573,6 @@ class CompassClient:
             nonlocal error
 
             try:
-
                 data_dict = None
                 if data:
                     if isinstance(data, BaseModel):
@@ -546,7 +586,9 @@ class CompassClient:
                     headers = {"Authorization": f"Bearer {self.bearer_token}"}
                     auth = None
 
-                response = self.function_call[function](target_path, json=data_dict, auth=auth, headers=headers)
+                response = self.function_call[function](
+                    target_path, json=data_dict, auth=auth, headers=headers
+                )
 
                 if response.ok:
                     error = None
@@ -578,7 +620,9 @@ class CompassClient:
 
         error = None
         try:
-            target_path = self.index_url + self.function_endpoint[function].format(index_name=index_name, doc_id=doc_id)
+            target_path = self.index_url + self.function_endpoint[function].format(
+                index_name=index_name, doc_id=doc_id
+            )
             res = _send_request_with_retry()
             if res:
                 return res
