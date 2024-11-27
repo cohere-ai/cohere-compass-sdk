@@ -62,6 +62,19 @@ class CompassMaxErrorRateExceeded(Exception):
         super().__init__(self.message)
 
 
+_DEFAULT_TIMEOUT = 30
+
+
+class SessionWithDefaultTimeout(requests.Session):
+    def __init__(self, timeout: int):
+        self._timeout = timeout
+        super().__init__()
+
+    def request(self, method, url, **kwargs):
+        kwargs.setdefault("timeout", self._timeout)
+        return super().request(method, url, **kwargs)
+
+
 class CompassClient:
     def __init__(
         self,
@@ -71,6 +84,7 @@ class CompassClient:
         password: Optional[str] = None,
         bearer_token: Optional[str] = None,
         logger_level: LoggerLevel = LoggerLevel.INFO,
+        default_timeout: int = _DEFAULT_TIMEOUT,
     ):
         """
         A compass client to interact with the Compass API
@@ -81,7 +95,7 @@ class CompassClient:
         self.index_url = index_url
         self.username = username or os.getenv("COHERE_COMPASS_USERNAME")
         self.password = password or os.getenv("COHERE_COMPASS_PASSWORD")
-        self.session = requests.Session()
+        self.session = SessionWithDefaultTimeout(default_timeout)
         self.bearer_token = bearer_token
 
         self.function_call = {
