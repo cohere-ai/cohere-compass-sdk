@@ -12,7 +12,6 @@ from joblib import Parallel, delayed
 from pydantic import BaseModel
 from requests.exceptions import InvalidSchema
 from tenacity import RetryError, retry, retry_if_not_exception_type, stop_after_attempt, wait_fixed
-from tqdm import tqdm
 
 from compass_sdk import (
     Chunk,
@@ -375,7 +374,7 @@ class CompassClient:
         error_window = deque(maxlen=errors_sliding_window_size)  # Keep track of the results of the last N API calls
         num_succeeded = 0
         errors = []
-        requests_iter = tqdm(self._get_request_blocks(docs, max_chunks_per_request))
+        requests_iter = self._get_request_blocks(docs, max_chunks_per_request)
 
         try:
             num_jobs = num_jobs or os.cpu_count()
