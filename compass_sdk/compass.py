@@ -546,7 +546,5 @@ class CompassClient:
             else:
                 return RetryResult(result=None, error=error)
         except RetryError:
-            logger.error(
-                f"Failed to send request after {max_retries} attempts. Aborting."
-            )
+            logger.error(f"Failed to send request after {max_retries} attempts. Aborting.")
             return RetryResult(result=None, error=error)
