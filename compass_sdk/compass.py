@@ -120,7 +120,7 @@ class CompassClient:
             "search_documents": self.session.post,
             "add_context": self.session.post,
             "refresh": self.session.post,
-            "push_documents": self.session.post,
+            "upload_documents": self.session.post,
             "edit_group_authorization": self.session.post,
         }
         self.function_endpoint = {
@@ -133,7 +133,7 @@ class CompassClient:
             "search_documents": "/api/v1/indexes/{index_name}/documents/_search",
             "add_context": "/api/v1/indexes/{index_name}/documents/add_context/{doc_id}",
             "refresh": "/api/v1/indexes/{index_name}/_refresh",
-            "push_documents": "/api/v1/indexes/{index_name}/documents/_upload",
+            "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
             "edit_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",
         }
         logger.setLevel(logger_level.value)
@@ -273,7 +273,7 @@ class CompassClient:
             merge_groups_on_conflict=merge_groups_on_conflict,
         )
 
-    def push_document(
+    def upload_document(
         self,
         *,
         index_name: str,
@@ -313,7 +313,7 @@ class CompassClient:
         )
 
         result = self._send_request(
-            function="push_documents",
+            function="upload_documents",
             index_name=index_name,
             data=PushDocumentsInput(documents=[doc]),
             max_retries=max_retries,
