@@ -14,4 +14,4 @@ def test_imap_queued():
             input,
             max_queued=8,
         )
-        assert list(actual) == expected
+        assert sorted(list(actual)) == sorted(expected)

@@ -377,7 +377,7 @@ class ParseableDocument(BaseModel):
     filename: Annotated[str, StringConstraints(min_length=1)]  # Ensures the filename is a non-empty string
     content_type: str
     content_length_bytes: PositiveInt  # File size must be a non-negative integer
-    bytes: str  # Base64-encoded file contents
+    content_encoded_bytes: str  # Base64-encoded file contents
     context: Dict[str, Any] = Field(default_factory=dict)
 
 

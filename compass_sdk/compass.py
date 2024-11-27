@@ -57,7 +57,10 @@ class CompassAuthError(Exception):
 class CompassMaxErrorRateExceeded(Exception):
     """Exception raised when the error rate exceeds the maximum allowed error rate in the Compass client."""
 
-    def __init__(self, message="The maximum error rate was exceeded. Stopping the insertion process."):
+    def __init__(
+        self,
+        message="The maximum error rate was exceeded. Stopping the insertion process.",
+    ):
         self.message = message
         super().__init__(self.message)
 
@@ -108,7 +111,7 @@ class CompassClient:
             "search_documents": self.session.post,
             "add_context": self.session.post,
             "refresh": self.session.post,
-            "push_documents": self.session.post,
+            "upload_documents": self.session.post,
             "edit_group_authorization": self.session.post,
         }
         self.function_endpoint = {
@@ -118,10 +121,10 @@ class CompassClient:
             "delete_document": "/api/v1/indexes/{index_name}/documents/{doc_id}",
             "get_document": "/api/v1/indexes/{index_name}/documents/{doc_id}",
             "put_documents": "/api/v1/indexes/{index_name}/documents",
-            "search_documents": "/api/v1/indexes/{index_name}/documents/search",
+            "search_documents": "/api/v1/indexes/{index_name}/documents/_search",
             "add_context": "/api/v1/indexes/{index_name}/documents/add_context/{doc_id}",
-            "refresh": "/api/v1/indexes/{index_name}/refresh",
-            "push_documents": "/api/v2/indexes/{index_name}/documents",
+            "refresh": "/api/v1/indexes/{index_name}/_refresh",
+            "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
             "edit_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",
         }
         logger.setLevel(logger_level.value)
@@ -261,7 +264,7 @@ class CompassClient:
             merge_groups_on_conflict=merge_groups_on_conflict,
         )
 
-    def push_document(
+    def upload_document(
         self,
         *,
         index_name: str,
@@ -294,14 +297,14 @@ class CompassClient:
         doc = ParseableDocument(
             id=document_id,
             filename=filename,
-            bytes=b64,
             content_type=content_type,
             content_length_bytes=len(filebytes),
+            content_encoded_bytes=b64,
             context=context,
         )
 
         result = self._send_request(
-            function="push_documents",
+            function="upload_documents",
             index_name=index_name,
             data=PushDocumentsInput(documents=[doc]),
             max_retries=max_retries,
@@ -343,7 +346,9 @@ class CompassClient:
         """
 
         def put_request(
-            request_data: List[Tuple[CompassDocument, Document]], previous_errors: List[CompassDocument], num_doc: int
+            request_data: List[Tuple[CompassDocument, Document]],
+            previous_errors: List[CompassDocument],
+            num_doc: int,
         ) -> None:
             nonlocal num_succeeded, errors
             errors.extend(previous_errors)
@@ -393,7 +398,11 @@ class CompassClient:
         try:
             num_jobs = num_jobs or os.cpu_count()
             Parallel(n_jobs=num_jobs, backend="threading")(
-                delayed(put_request)(request_data=request_block, previous_errors=previous_errors, num_doc=i)
+                delayed(put_request)(
+                    request_data=request_block,
+                    previous_errors=previous_errors,
+                    num_doc=i,
+                )
                 for i, (request_block, previous_errors) in enumerate(requests_iter, 1)
                 if i > skip_first_n_docs
             )
@@ -508,7 +517,6 @@ class CompassClient:
             nonlocal error
 
             try:
-
                 data_dict = None
                 if data:
                     if isinstance(data, BaseModel):

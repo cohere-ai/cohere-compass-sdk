@@ -49,7 +49,7 @@ def test_refresh_is_valid(requests_mock):
     compass = CompassClient(index_url="http://test.com")
     compass.refresh(index_name="test_index")
     assert requests_mock.request_history[0].method == "POST"
-    assert requests_mock.request_history[0].url == "http://test.com/api/v1/indexes/test_index/refresh"
+    assert requests_mock.request_history[0].url == "http://test.com/api/v1/indexes/test_index/_refresh"
 
 
 def test_add_context_is_valid(requests_mock):
