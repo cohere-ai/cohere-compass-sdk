@@ -358,7 +358,7 @@ class CompassClient:
             if results.error:
                 for doc in compass_docs:
                     doc.errors.append({CompassSdkStage.Indexing: results.error})
-                    errors.append({doc.metadata.doc_id: results.error})
+                    errors.append({doc.metadata.doc_id: f"{doc.metadata.filename}: {results.error}"})
             else:
                 num_succeeded += len(compass_docs)
 
@@ -524,8 +524,7 @@ class CompassClient:
                 else:
                     error = str(e) + " " + e.response.text
                     logger.error(
-                        f"[Thread {threading.get_native_id()}] Failed to send request to "
-                        f"{function} {target_path}: {type(e)} {error}. Going to sleep for "
+                        f"Failed to send request to {function} {target_path}: {type(e)} {error}. Going to sleep for "
                         f"{sleep_retry_seconds} seconds and retrying."
                     )
                     raise e
@@ -533,8 +532,7 @@ class CompassClient:
             except Exception as e:
                 error = str(e)
                 logger.error(
-                    f"[Thread {threading.get_native_id()}] Failed to send request to "
-                    f"{function} {target_path}: {type(e)} {error}. Going to sleep for "
+                    f"Failed to send request to {function} {target_path}: {type(e)} {error}. Going to sleep for "
                     f"{sleep_retry_seconds} seconds and retrying."
                 )
                 raise e
@@ -549,6 +547,6 @@ class CompassClient:
                 return RetryResult(result=None, error=error)
         except RetryError:
             logger.error(
-                f"[Thread {threading.get_native_id()}] Failed to send request after {max_retries} attempts. Aborting."
+                f"Failed to send request after {max_retries} attempts. Aborting."
             )
             return RetryResult(result=None, error=error)
