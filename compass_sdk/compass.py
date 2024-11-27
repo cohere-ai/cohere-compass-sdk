@@ -453,6 +453,8 @@ class CompassClient:
 
         if result.error:
             return result.error
+        if not result.result or "value" not in result.result:
+            return []
         return [DataSource.model_validate(ds) for ds in result.result["value"]]
 
     def get_datasource(
