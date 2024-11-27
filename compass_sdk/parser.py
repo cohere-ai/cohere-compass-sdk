@@ -5,14 +5,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 import requests
 
-from compass_sdk import (
-    BatchProcessFilesParameters,
-    CompassDocument,
-    MetadataConfig,
-    ParserConfig,
-    ProcessFileParameters,
-    logger,
-)
+from compass_sdk import CompassDocument, MetadataConfig, ParserConfig, ProcessFileParameters, logger
 from compass_sdk.constants import DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES
 from compass_sdk.utils import imap_queued, open_document, scan_folder
 
@@ -110,7 +103,6 @@ class CompassParserClient:
         file_ids: Optional[List[str]] = None,
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
-        are_datasets: Optional[List[bool]] = None,
         custom_context: Optional[Fn_or_Dict] = None,
     ) -> Iterable[CompassDocument]:
         """
@@ -129,7 +121,6 @@ class CompassParserClient:
         :param file_ids: List of ids for the files
         :param parser_config: ParserConfig object (applies the same config to all docs)
         :param metadata_config: MetadataConfig object (applies the same config to all docs)
-        :param are_datasets: List of booleans indicating whether each file is a dataset
         :param custom_context: Additional data to add to compass document. Fields will be filterable but not semantically searchable.
             Can either be a dictionary or a callable that takes a CompassDocument and returns a dictionary.
 
@@ -143,7 +134,6 @@ class CompassParserClient:
                 file_id=file_ids[i] if file_ids else None,
                 parser_config=parser_config,
                 metadata_config=metadata_config,
-                is_dataset=are_datasets[i] if are_datasets else None,
                 custom_context=custom_context,
             )
 
@@ -169,9 +159,9 @@ class CompassParserClient:
         *,
         filename: str,
         file_id: Optional[str] = None,
+        content_type: Optional[str] = None,
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
-        is_dataset: Optional[bool] = None,
         custom_context: Optional[Fn_or_Dict] = None,
     ) -> List[CompassDocument]:
         """
@@ -182,12 +172,9 @@ class CompassParserClient:
 
         :param filename: Filename to process
         :param file_id: Id for the file
+        :param content_type: Content type of the file
         :param parser_config: ParserConfig object with the config to use for parsing the file
         :param metadata_config: MetadataConfig object with the config to use for extracting metadata for each document
-        :param is_dataset: Boolean indicating whether the file is a dataset. If True, the file will be processed
-            as a dataset and multiple CompassDocument objects might be returned (one per dataset record). Otherwise,
-            the file will be processed as a single document (e.g., a PDF file). Default is None, which means that
-            the server will try to infer whether the file is a dataset or not.
         :param custom_context: Additional data to add to compass document. Fields will be filterable but not semantically searchable.
             Can either be a dictionary or a callable that takes a CompassDocument and returns a dictionary.
 
@@ -211,7 +198,7 @@ class CompassParserClient:
             parser_config=parser_config,
             metadata_config=metadata_config,
             doc_id=file_id,
-            is_dataset=is_dataset,
+            content_type=content_type,
         )
         auth = (self.username, self.password) if self.username and self.password else None
         res = self.session.post(
@@ -222,101 +209,17 @@ class CompassParserClient:
         )
 
         if res.ok:
-            docs = [CompassDocument(**doc) for doc in res.json()["docs"]]
-            for doc in docs:
-                additional_metadata = CompassParserClient._get_metadata(doc=doc, custom_context=custom_context)
-                doc.content = {**doc.content, **additional_metadata}
+            docs = []
+            for doc in res.json()["docs"]:
+                if not doc.get("errors", []):
+                    compass_doc = CompassDocument(**doc)
+                    additional_metadata = CompassParserClient._get_metadata(
+                        doc=compass_doc, custom_context=custom_context
+                    )
+                    compass_doc.content = {**compass_doc.content, **additional_metadata}
+                    docs.append(compass_doc)
         else:
             docs = []
             logger.error(f"Error processing file: {res.text}")
 
-        return docs
-
-    def batch_upload(self, *, zip_file_path: str) -> str:
-        """
-        Uploads a zip file to the for offline processing. The zip file should contain the files to process.
-        The zip file is sent to the server, and the server will process each file in the zip file using the default
-        parser and metadata configurations passed when creating the client.
-
-        :param zip_file_path: the path to the zip file to upload
-        :return: uuid for the uploaded zip file
-        """
-        if not zip_file_path.endswith(".zip"):
-            raise Exception(f"Allowed type is only zip")
-
-        auth = (self.username, self.password) if self.username and self.password else None
-        with open(zip_file_path, "rb") as zip_file:
-            zip_data = zip_file.read()
-            res = self.session.post(
-                url=f"{self.parser_url}/v1/batch/upload",
-                data={"data": {"is_dataset": False}},
-                files={"file": ("data.zip", zip_data)},
-                auth=auth,
-            )
-
-        if res.ok:
-            return res.json()
-        else:
-            logger.error(f"Error uploading file: {res.text}")
-            raise Exception(f"Error uploading zip file: {res.text}")
-
-    def batch_status(self, uuid: str) -> str:
-        """
-        Returns the status of the batch processing job with the specified uuid. The status can be one of the following:
-        - "PROCESSING": the job is being processed
-        - "DONE": the job has been processed successfully
-        - "ERROR": the job has failed to process
-
-        :param uuid: the uuid of the batch processing job
-        :return: the status of the batch processing job
-        """
-        auth = (self.username, self.password) if self.username and self.password else None
-        res = self.session.get(
-            url=f"{self.parser_url}/v1/batch/status",
-            params={"uuid": uuid},
-            auth=auth,
-        )
-
-        if res.ok:
-            return res.json()
-        else:
-            logger.error(f"Error getting batch status: {res.text}")
-            raise Exception(f"Error getting batch status: {res.text}")
-
-    def batch_run(
-        self,
-        *,
-        uuid: str,
-        file_name_to_doc_ids: Optional[Dict[str, str]] = None,
-        parser_config: Optional[ParserConfig] = None,
-        metadata_config: Optional[MetadataConfig] = None,
-        are_datasets: Optional[bool] = None,
-    ) -> List[CompassDocument]:
-
-        parser_config = parser_config or self.parser_config
-        metadata_config = metadata_config or self.metadata_config
-
-        params = BatchProcessFilesParameters(
-            uuid=uuid,
-            file_name_to_doc_ids=file_name_to_doc_ids,
-            parser_config=parser_config,
-            metadata_config=metadata_config,
-            are_datasets=are_datasets,
-        )
-        auth = (self.username, self.password) if self.username and self.password else None
-        res = self.session.post(
-            url=f"{self.parser_url}/v1/batch/run",
-            data={"data": json.dumps(params.model_dump())},
-            auth=auth,
-        )
-
-        if res.ok:
-            return res.json()
-        else:
-            docs = []
-            logger.error(f"Error processing file: {res.text}")
-
-        # # Run metadata detection locally if a metadata detector was provided.
-        # # This overrides the metadata generated by the server using the metadata_config provided in the method call
-        # self._add_metadata(docs=docs, metadata_detector=metadata_detector, metadata_config=metadata_config)
         return docs

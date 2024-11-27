@@ -12,10 +12,8 @@ from joblib import Parallel, delayed
 from pydantic import BaseModel
 from requests.exceptions import InvalidSchema
 from tenacity import RetryError, retry, retry_if_not_exception_type, stop_after_attempt, wait_fixed
-from tqdm import tqdm
 
 from compass_sdk import (
-    BatchPutDocumentsInput,
     Chunk,
     CompassDocument,
     CompassDocumentStatus,
@@ -107,7 +105,6 @@ class CompassClient:
             "delete_document": self.session.delete,
             "get_document": self.session.get,
             "put_documents": self.session.put,
-            "put_documents_batch": self.session.post,
             "search_documents": self.session.post,
             "add_context": self.session.post,
             "refresh": self.session.post,
@@ -121,7 +118,6 @@ class CompassClient:
             "delete_document": "/api/v1/indexes/{index_name}/documents/{doc_id}",
             "get_document": "/api/v1/indexes/{index_name}/documents/{doc_id}",
             "put_documents": "/api/v1/indexes/{index_name}/documents",
-            "put_documents_batch": "/api/v1/batch/indexes/{index_name}",
             "search_documents": "/api/v1/indexes/{index_name}/documents/search",
             "add_context": "/api/v1/indexes/{index_name}/documents/add_context/{doc_id}",
             "refresh": "/api/v1/indexes/{index_name}/refresh",
@@ -246,6 +242,8 @@ class CompassClient:
         doc: CompassDocument,
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+        authorized_groups: Optional[List[str]] = None,
+        merge_groups_on_conflict: bool = False,
     ) -> Optional[List[Dict[str, str]]]:
         """
         Insert a parsed document into an index in Compass
@@ -255,38 +253,13 @@ class CompassClient:
         :param sleep_retry_seconds: number of seconds to go to sleep before retrying a doc insertion
         """
         return self.insert_docs(
-            index_name=index_name, docs=iter([doc]), max_retries=max_retries, sleep_retry_seconds=sleep_retry_seconds
-        )
-
-    def insert_docs_batch(self, *, uuid: str, index_name: str):
-        """
-        Insert a batch of parsed documents into an index in Compass
-        :param uuid: the uuid of the batch
-        :param index_name: the name of the index
-        """
-        return self._send_request(
-            function="put_documents_batch",
             index_name=index_name,
-            data=BatchPutDocumentsInput(uuid=uuid),
-            max_retries=DEFAULT_MAX_RETRIES,
-            sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
+            docs=iter([doc]),
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+            authorized_groups=authorized_groups,
+            merge_groups_on_conflict=merge_groups_on_conflict,
         )
-
-    def batch_status(self, *, uuid: str):
-        """
-        Get the status of a batch
-        :param uuid: the uuid of the batch
-        """
-        auth = (self.username, self.password) if self.username and self.password else None
-        resp = self.session.get(
-            url=f"{self.index_url}/api/v1/batch/status/{uuid}",
-            auth=auth,
-        )
-
-        if resp.ok:
-            return resp.json()
-        else:
-            raise Exception(f"Failed to get batch status: {resp.status_code} {resp.text}")
 
     def push_document(
         self,
@@ -299,7 +272,7 @@ class CompassClient:
         context: Dict[str, Any] = {},
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
-    ) -> Optional[str]:
+    ) -> Optional[str | Dict]:
         """
         Parse and insert a document into an index in Compass
         :param index_name: the name of the index
@@ -337,7 +310,7 @@ class CompassClient:
 
         if result.error:
             return result.error
-        return None
+        return result.result
 
     def insert_docs(
         self,
@@ -352,6 +325,7 @@ class CompassClient:
         skip_first_n_docs: int = 0,
         num_jobs: Optional[int] = None,
         authorized_groups: Optional[List[str]] = None,
+        merge_groups_on_conflict: bool = False,
     ) -> Optional[List[Dict[str, str]]]:
         """
         Insert multiple parsed documents into an index in Compass
@@ -365,18 +339,19 @@ class CompassClient:
         :param errors_sliding_window_size: the size of the sliding window to keep track of errors
         :param skip_first_n_docs: number of docs to skip indexing. Useful when insertion failed after N documents
         :param authorized_groups: the groups that are authorized to access the documents. These groups should exist in RBAC. None passed will make the documents public
+        :param merge_groups_on_conflict: when doc level security enable, allow upserting documents with static groups
         """
 
         def put_request(
-            request_data: List[Tuple[CompassDocument, Document]],
-            previous_errors: List[CompassDocument],
-            num_doc: int,
+            request_data: List[Tuple[CompassDocument, Document]], previous_errors: List[CompassDocument], num_doc: int
         ) -> None:
             nonlocal num_succeeded, errors
             errors.extend(previous_errors)
             compass_docs: List[CompassDocument] = [compass_doc for compass_doc, _ in request_data]
             put_docs_input = PutDocumentsInput(
-                docs=[input_doc for _, input_doc in request_data], authorized_groups=authorized_groups
+                docs=[input_doc for _, input_doc in request_data],
+                authorized_groups=authorized_groups,
+                merge_groups_on_conflict=merge_groups_on_conflict,
             )
 
             # It could be that all documents have errors, in which case we should not send a request
@@ -395,8 +370,8 @@ class CompassClient:
 
             if results.error:
                 for doc in compass_docs:
-                    doc.errors.append({CompassSdkStage.Indexing: results.error})
-                    errors.append({doc.metadata.doc_id: results.error})
+                    doc.errors.append({CompassSdkStage.Indexing: f"{doc.metadata.filename}: {results.error}"})
+                    errors.append({doc.metadata.doc_id: f"{doc.metadata.filename}: {results.error}"})
             else:
                 num_succeeded += len(compass_docs)
 
@@ -413,7 +388,7 @@ class CompassClient:
         error_window = deque(maxlen=errors_sliding_window_size)  # Keep track of the results of the last N API calls
         num_succeeded = 0
         errors = []
-        requests_iter = tqdm(self._get_request_blocks(docs, max_chunks_per_request))
+        requests_iter = self._get_request_blocks(docs, max_chunks_per_request)
 
         try:
             num_jobs = num_jobs or os.cpu_count()
@@ -442,8 +417,9 @@ class CompassClient:
         num_chunks = 0
         for num_doc, doc in enumerate(docs, 1):
             if doc.status != CompassDocumentStatus.Success:
-                logger.error(f"[Thread {threading.get_native_id()}] Document #{num_doc} has errors: {doc.errors}")
-                errors.append(doc)
+                logger.error(f"Document {doc.metadata.doc_id} has errors: {doc.errors}")
+                for error in doc.errors:
+                    errors.append({doc.metadata.doc_id: list(error.values())[0]})
             else:
                 num_chunks += len(doc.chunks) if doc.status == CompassDocumentStatus.Success else 0
                 if num_chunks > max_chunks_per_request:
@@ -456,6 +432,7 @@ class CompassClient:
                         doc,
                         Document(
                             doc_id=doc.metadata.doc_id,
+                            parent_doc_id=doc.metadata.parent_doc_id,
                             path=doc.metadata.filename,
                             content=doc.content,
                             chunks=[Chunk(**c.model_dump()) for c in doc.chunks],
@@ -560,8 +537,7 @@ class CompassClient:
                 else:
                     error = str(e) + " " + e.response.text
                     logger.error(
-                        f"[Thread {threading.get_native_id()}] Failed to send request to "
-                        f"{function} {target_path}: {type(e)} {error}. Going to sleep for "
+                        f"Failed to send request to {function} {target_path}: {type(e)} {error}. Going to sleep for "
                         f"{sleep_retry_seconds} seconds and retrying."
                     )
                     raise e
@@ -569,8 +545,7 @@ class CompassClient:
             except Exception as e:
                 error = str(e)
                 logger.error(
-                    f"[Thread {threading.get_native_id()}] Failed to send request to "
-                    f"{function} {target_path}: {type(e)} {error}. Going to sleep for "
+                    f"Failed to send request to {function} {target_path}: {type(e)} {error}. Going to sleep for "
                     f"{sleep_retry_seconds} seconds and retrying."
                 )
                 raise e
@@ -584,7 +559,5 @@ class CompassClient:
             else:
                 return RetryResult(result=None, error=error)
         except RetryError:
-            logger.error(
-                f"[Thread {threading.get_native_id()}] Failed to send request after {max_retries} attempts. Aborting."
-            )
+            logger.error(f"Failed to send request after {max_retries} attempts. Aborting.")
             return RetryResult(result=None, error=error)

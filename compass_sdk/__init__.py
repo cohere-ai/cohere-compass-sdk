@@ -1,10 +1,12 @@
 import logging
+import math
 import uuid
-from enum import Enum
+from dataclasses import field
+from enum import Enum, StrEnum
 from os import getenv
 from typing import Annotated, Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, PositiveInt, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt, StringConstraints
 
 from compass_sdk.constants import (
     COHERE_API_ENV_VAR,
@@ -79,7 +81,8 @@ class CompassDocumentMetadata(ValidatedModel):
 
     doc_id: str = ""
     filename: str = ""
-    meta: List = []
+    meta: List = field(default_factory=list)
+    parent_doc_id: str = ""
 
 
 class CompassDocumentStatus(str, Enum):
@@ -104,16 +107,22 @@ class CompassSdkStage(str, Enum):
     Indexing = "indexing"
 
 
-class CompassDocumentChunkOrigin(BaseModel):
-    page_number: Optional[int] = None
+class CompassDocumentChunkAsset(BaseModel):
+    content_type: str
+    asset_data: str
 
 
 class CompassDocumentChunk(BaseModel):
     chunk_id: str
     sort_id: str
     doc_id: str
+    parent_doc_id: str
     content: Dict[str, Any]
-    origin: Optional[CompassDocumentChunkOrigin] = None
+    origin: Optional[Dict[str, Any]] = None
+    assets: Optional[list[CompassDocumentChunkAsset]] = None
+
+    def parent_doc_is_split(self):
+        return self.doc_id != self.parent_doc_id
 
 
 class CompassDocument(ValidatedModel):
@@ -129,13 +138,13 @@ class CompassDocument(ValidatedModel):
 
     filebytes: bytes = b""
     metadata: CompassDocumentMetadata = CompassDocumentMetadata()
-    content: Dict[str, str] = {}
-    elements: List[Any] = []
-    chunks: List[CompassDocumentChunk] = []
-    index_fields: List[str] = []
-    errors: List[Dict[CompassSdkStage, str]] = []
+    content: Dict[str, str] = field(default_factory=dict)
+    content_type: Optional[str] = None
+    elements: List[Any] = field(default_factory=list)
+    chunks: List[CompassDocumentChunk] = field(default_factory=list)
+    index_fields: List[str] = field(default_factory=list)
+    errors: List[Dict[CompassSdkStage, str]] = field(default_factory=list)
     ignore_metadata_errors: bool = True
-    is_dataset: bool = False
     markdown: Optional[str] = None
 
     def has_data(self) -> bool:
@@ -201,8 +210,6 @@ class LoggerLevel(str, Enum):
 class MetadataConfig(ValidatedModel):
     """
     Configuration class for metadata detection.
-    :param pre_build_detectors: whether to pre-build all metadata detectors. If set to False (default),
-        detectors will be built on the fly when needed
     :param metadata_strategy: the metadata detection strategy to use. One of:
         - No_Metadata: no metadata is inferred
         - Heuristics: metadata is inferred using heuristics
@@ -219,7 +226,6 @@ class MetadataConfig(ValidatedModel):
 
     """
 
-    pre_build_detectors: bool = False
     metadata_strategy: MetadataStrategy = MetadataStrategy.No_Metadata
     cohere_api_key: Optional[str] = getenv(COHERE_API_ENV_VAR, None)
     commandr_model_name: str = "command-r"
@@ -258,7 +264,25 @@ class DocumentFormat(str, Enum):
         return cls.Markdown
 
 
-class ParserConfig(ValidatedModel):
+class PDFParsingStrategy(StrEnum):
+    QuickText = "QuickText"
+    ImageToMarkdown = "ImageToMarkdown"
+
+    @classmethod
+    def _missing_(cls, value):
+        return cls.QuickText
+
+
+class PresentationParsingStrategy(StrEnum):
+    Unstructured = "Unstructured"
+    ImageToMarkdown = "ImageToMarkdown"
+
+    @classmethod
+    def _missing_(cls, value):
+        return cls.Unstructured
+
+
+class ParserConfig(BaseModel):
     """
     CompassParser configuration. Important parameters:
     :param parsing_strategy: the parsing strategy to use:
@@ -278,6 +302,11 @@ class ParserConfig(ValidatedModel):
 
     """
 
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        extra="ignore",
+    )
+
     # CompassParser configuration
     logger_level: LoggerLevel = LoggerLevel.INFO
     parse_tables: bool = True
@@ -286,30 +315,44 @@ class ParserConfig(ValidatedModel):
     allowed_image_types: Optional[List[str]] = None
     min_chars_per_element: int = DEFAULT_MIN_CHARS_PER_ELEMENT
     skip_infer_table_types: List[str] = SKIP_INFER_TABLE_TYPES
-    detect_datasets: bool = True
     parsing_strategy: ParsingStrategy = ParsingStrategy.Fast
-    parsing_model: ParsingModel = ParsingModel.Marker
+    parsing_model: ParsingModel = ParsingModel.YoloX_Quantized
 
     # CompassChunker configuration
     num_tokens_per_chunk: int = DEFAULT_NUM_TOKENS_PER_CHUNK
     num_tokens_overlap: int = DEFAULT_NUM_TOKENS_CHUNK_OVERLAP
     min_chunk_tokens: int = DEFAULT_MIN_NUM_TOKENS_CHUNK
     num_chunks_in_title: int = DEFAULT_MIN_NUM_CHUNKS_IN_TITLE
-    max_tokens_metadata: int = 1000
+    max_tokens_metadata: int = math.floor(num_tokens_per_chunk * 0.1)
     include_tables: bool = True
 
     # Formatting configuration
     output_format: DocumentFormat = DocumentFormat.Markdown
 
+    # Visual elements extraction configuration
+    extract_visual_elements: bool = False
+    vertical_table_crop_margin: int = 100
+    horizontal_table_crop_margin: int = 100
+
+    pdf_parsing_strategy: PDFParsingStrategy = PDFParsingStrategy.QuickText
+    presentation_parsing_strategy: PresentationParsingStrategy = PresentationParsingStrategy.Unstructured
+
 
 ### Document indexing
+
+
+class DocumentChunkAsset(BaseModel):
+    content_type: str
+    asset_data: str
 
 
 class Chunk(BaseModel):
     chunk_id: str
     sort_id: int
     content: Dict[str, Any]
-    origin: Optional[CompassDocumentChunkOrigin] = None
+    origin: Optional[Dict[str, Any]] = None
+    assets: Optional[list[DocumentChunkAsset]] = None
+    parent_doc_id: str
 
 
 class Document(BaseModel):
@@ -319,9 +362,10 @@ class Document(BaseModel):
 
     doc_id: str
     path: str
+    parent_doc_id: str
     content: Dict[str, Any]
     chunks: List[Chunk]
-    index_fields: List[str] = []
+    index_fields: List[str] = field(default_factory=list)
 
 
 class ParseableDocument(BaseModel):
@@ -330,10 +374,7 @@ class ParseableDocument(BaseModel):
     """
 
     id: uuid.UUID
-    filename: Annotated[
-        str,
-        StringConstraints(min_length=1),
-    ]  # Ensures the filename is a non-empty string
+    filename: Annotated[str, StringConstraints(min_length=1)]  # Ensures the filename is a non-empty string
     content_type: str
     content_length_bytes: PositiveInt  # File size must be a non-negative integer
     bytes: str  # Base64-encoded file contents
@@ -373,32 +414,23 @@ class PutDocumentsInput(BaseModel):
 
     docs: List[Document]
     authorized_groups: Optional[List[str]] = None
-
-
-class BatchPutDocumentsInput(BaseModel):
-    uuid: str
+    merge_groups_on_conflict: bool = False
 
 
 class ProcessFileParameters(ValidatedModel):
     parser_config: ParserConfig
     metadata_config: MetadataConfig
     doc_id: Optional[str] = None
-    is_dataset: Optional[bool] = None
+    content_type: Optional[str] = None
 
 
 class ProcessFilesParameters(ValidatedModel):
     doc_ids: Optional[List[str]] = None
     parser_config: ParserConfig
     metadata_config: MetadataConfig
-    are_datasets: Optional[bool] = None
 
 
-class BatchProcessFilesParameters(ProcessFilesParameters):
-    uuid: str
-    file_name_to_doc_ids: Optional[Dict[str, str]] = None
-
-
-class GroupAuthorizationActions(Enum):
+class GroupAuthorizationActions(str, Enum):
     ADD = "add"
     REMOVE = "remove"
 
