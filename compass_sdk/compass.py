@@ -12,7 +12,6 @@ from joblib import Parallel, delayed
 from pydantic import BaseModel
 from requests.exceptions import InvalidSchema
 from tenacity import RetryError, retry, retry_if_not_exception_type, stop_after_attempt, wait_fixed
-from tqdm import tqdm
 
 from compass_sdk import (
     Chunk,
@@ -376,16 +375,8 @@ class CompassClient:
 
             if results.error:
                 for doc in compass_docs:
-                    doc.errors.append(
-                        {
-                            CompassSdkStage.Indexing: f"{doc.metadata.filename}: {results.error}"
-                        }
-                    )
-                    errors.append(
-                        {
-                            doc.metadata.doc_id: f"{doc.metadata.filename}: {results.error}"
-                        }
-                    )
+                    doc.errors.append({CompassSdkStage.Indexing: f"{doc.metadata.filename}: {results.error}"})
+                    errors.append({doc.metadata.doc_id: f"{doc.metadata.filename}: {results.error}"})
             else:
                 num_succeeded += len(compass_docs)
 
@@ -576,7 +567,5 @@ class CompassClient:
             else:
                 return RetryResult(result=None, error=error)
         except RetryError:
-            logger.error(
-                f"Failed to send request after {max_retries} attempts. Aborting."
-            )
+            logger.error(f"Failed to send request after {max_retries} attempts. Aborting.")
             return RetryResult(result=None, error=error)
