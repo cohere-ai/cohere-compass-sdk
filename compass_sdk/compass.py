@@ -297,9 +297,9 @@ class CompassClient:
         doc = ParseableDocument(
             id=document_id,
             filename=filename,
-            bytes=b64,
             content_type=content_type,
             content_length_bytes=len(filebytes),
+            content_encoded_bytes=b64,
             context=context,
         )
 
