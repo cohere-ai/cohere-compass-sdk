@@ -35,6 +35,7 @@ from compass_sdk.constants import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_SLEEP_RETRY_SECONDS,
 )
+from compass_sdk.models import CreateDataSource, DataSource
 
 
 @dataclass
@@ -48,7 +49,7 @@ class CompassAuthError(Exception):
 
     def __init__(
         self,
-        message=(f"CompassAuthError - check your bearer token or username and password."),
+        message=("CompassAuthError - check your bearer token or username and password."),
     ):
         self.message = message
         super().__init__(self.message)
@@ -101,7 +102,7 @@ class CompassClient:
         self.session = SessionWithDefaultTimeout(default_timeout)
         self.bearer_token = bearer_token
 
-        self.function_call = {
+        self.api_method = {
             "create_index": self.session.put,
             "list_indexes": self.session.get,
             "delete_index": self.session.delete,
@@ -113,8 +114,13 @@ class CompassClient:
             "refresh": self.session.post,
             "upload_documents": self.session.post,
             "edit_group_authorization": self.session.post,
+            # Data Sources APIs
+            "create_datasource": self.session.post,
+            "list_datasources": self.session.get,
+            "delete_datasources": self.session.delete,
+            "get_datasource": self.session.get,
         }
-        self.function_endpoint = {
+        self.api_endpoint = {
             "create_index": "/api/v1/indexes/{index_name}",
             "list_indexes": "/api/v1/indexes",
             "delete_index": "/api/v1/indexes/{index_name}",
@@ -126,6 +132,11 @@ class CompassClient:
             "refresh": "/api/v1/indexes/{index_name}/_refresh",
             "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
             "edit_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",
+            # Data Sources APIs
+            "create_datasource": "/api/v1/datasources",
+            "list_datasources": "/api/v1/datasources",
+            "delete_datasources": "/api/v1/datasources/{datasource_id}",
+            "get_datasource": "/api/v1/datasources/{datasource_id}",
         }
         logger.setLevel(logger_level.value)
 
@@ -136,10 +147,10 @@ class CompassClient:
         :return: the response from the Compass API
         """
         return self._send_request(
-            function="create_index",
-            index_name=index_name,
+            api_name="create_index",
             max_retries=DEFAULT_MAX_RETRIES,
             sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
+            index_name=index_name,
         )
 
     def refresh(self, *, index_name: str):
@@ -149,10 +160,10 @@ class CompassClient:
         :return: the response from the Compass API
         """
         return self._send_request(
-            function="refresh",
-            index_name=index_name,
+            api_name="refresh",
             max_retries=DEFAULT_MAX_RETRIES,
             sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
+            index_name=index_name,
         )
 
     def delete_index(self, *, index_name: str):
@@ -162,10 +173,10 @@ class CompassClient:
         :return: the response from the Compass API
         """
         return self._send_request(
-            function="delete_index",
-            index_name=index_name,
+            api_name="delete_index",
             max_retries=DEFAULT_MAX_RETRIES,
             sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
+            index_name=index_name,
         )
 
     def delete_document(self, *, index_name: str, doc_id: str):
@@ -176,11 +187,11 @@ class CompassClient:
         :return: the response from the Compass API
         """
         return self._send_request(
-            function="delete_document",
-            index_name=index_name,
+            api_name="delete_document",
             doc_id=doc_id,
             max_retries=DEFAULT_MAX_RETRIES,
             sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
+            index_name=index_name,
         )
 
     def get_document(self, *, index_name: str, doc_id: str):
@@ -191,11 +202,11 @@ class CompassClient:
         :return: the response from the Compass API
         """
         return self._send_request(
-            function="get_document",
-            index_name=index_name,
+            api_name="get_document",
             doc_id=doc_id,
             max_retries=DEFAULT_MAX_RETRIES,
             sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
+            index_name=index_name,
         )
 
     def list_indexes(self):
@@ -204,10 +215,10 @@ class CompassClient:
         :return: the response from the Compass API
         """
         return self._send_request(
-            function="list_indexes",
-            index_name="",
+            api_name="list_indexes",
             max_retries=DEFAULT_MAX_RETRIES,
             sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
+            index_name="",
         )
 
     def add_context(
@@ -230,12 +241,12 @@ class CompassClient:
         """
 
         return self._send_request(
-            function="add_context",
-            index_name=index_name,
+            api_name="add_context",
             doc_id=doc_id,
             data=context,
             max_retries=max_retries,
             sleep_retry_seconds=sleep_retry_seconds,
+            index_name=index_name,
         )
 
     def insert_doc(
@@ -304,11 +315,11 @@ class CompassClient:
         )
 
         result = self._send_request(
-            function="upload_documents",
-            index_name=index_name,
+            api_name="push_documents",
             data=PushDocumentsInput(documents=[doc]),
             max_retries=max_retries,
             sleep_retry_seconds=sleep_retry_seconds,
+            index_name=index_name,
         )
 
         if result.error:
@@ -366,11 +377,11 @@ class CompassClient:
                 return
 
             results = self._send_request(
-                function="put_documents",
-                index_name=index_name,
+                api_name="put_documents",
                 data=put_docs_input,
                 max_retries=max_retries,
                 sleep_retry_seconds=sleep_retry_seconds,
+                index_name=index_name,
             )
 
             if results.error:
@@ -409,6 +420,76 @@ class CompassClient:
         except CompassMaxErrorRateExceeded as e:
             logger.error(e.message)
         return errors if len(errors) > 0 else None
+
+    def create_datasource(
+        self,
+        *,
+        datasource: CreateDataSource,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+    ):
+        result = self._send_request(
+            api_name="create_datasource",
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+            data=datasource,
+        )
+
+        if result.error:
+            return result.error
+        return DataSource.model_validate(result.result)
+
+    def list_datasources(
+        self,
+        *,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+    ):
+        result = self._send_request(
+            api_name="list_datasources",
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+
+        if result.error:
+            return result.error
+        return [DataSource.model_validate(ds) for ds in result.result["value"]]
+
+    def get_datasource(
+        self,
+        *,
+        datasource_id: str,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+    ):
+        result = self._send_request(
+            api_name="get_datasource",
+            datasource_id=datasource_id,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+
+        if result.error:
+            return result.error
+        return DataSource.model_validate(result.result)
+
+    def delete_datasource(
+        self,
+        *,
+        datasource_id: str,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+    ):
+        result = self._send_request(
+            api_name="delete_datasources",
+            datasource_id=datasource_id,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+
+        if result.error:
+            return result.error
+        return result.result
 
     @staticmethod
     def _get_request_blocks(
@@ -468,7 +549,7 @@ class CompassClient:
         :param top_k: number of documents to return
         """
         return self._send_request(
-            function="search_documents",
+            api_name="search_documents",
             index_name=index_name,
             data=SearchInput(query=query, top_k=top_k, filters=filters),
             max_retries=1,
@@ -482,7 +563,7 @@ class CompassClient:
         :param group_auth_input: the group authorization input
         """
         return self._send_request(
-            function="edit_group_authorization",
+            api_name="edit_group_authorization",
             index_name=index_name,
             data=group_auth_input,
             max_retries=DEFAULT_MAX_RETRIES,
@@ -491,12 +572,11 @@ class CompassClient:
 
     def _send_request(
         self,
-        index_name: str,
-        function: str,
+        api_name: str,
         max_retries: int,
         sleep_retry_seconds: int,
         data: Optional[Union[Dict, BaseModel]] = None,
-        doc_id: Optional[str] = None,
+        **url_params: str,
     ) -> RetryResult:
         """
         Send a request to the Compass API
@@ -530,7 +610,7 @@ class CompassClient:
                     headers = {"Authorization": f"Bearer {self.bearer_token}"}
                     auth = None
 
-                response = self.function_call[function](target_path, json=data_dict, auth=auth, headers=headers)
+                response = self.api_method[api_name](target_path, json=data_dict, auth=auth, headers=headers)
 
                 if response.ok:
                     error = None
@@ -545,7 +625,7 @@ class CompassClient:
                 else:
                     error = str(e) + " " + e.response.text
                     logger.error(
-                        f"Failed to send request to {function} {target_path}: {type(e)} {error}. Going to sleep for "
+                        f"Failed to send request to {api_name} {target_path}: {type(e)} {error}. Going to sleep for "
                         f"{sleep_retry_seconds} seconds and retrying."
                     )
                     raise e
@@ -553,14 +633,14 @@ class CompassClient:
             except Exception as e:
                 error = str(e)
                 logger.error(
-                    f"Failed to send request to {function} {target_path}: {type(e)} {error}. Going to sleep for "
+                    f"Failed to send request to {api_name} {target_path}: {type(e)} {error}. Going to sleep for "
                     f"{sleep_retry_seconds} seconds and retrying."
                 )
                 raise e
 
         error = None
         try:
-            target_path = self.index_url + self.function_endpoint[function].format(index_name=index_name, doc_id=doc_id)
+            target_path = self.index_url + self.api_endpoint[api_name].format(**url_params)
             res = _send_request_with_retry()
             if res:
                 return res
