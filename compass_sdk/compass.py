@@ -5,7 +5,7 @@ import uuid
 from collections import deque
 from dataclasses import dataclass
 from statistics import mean
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 
 import requests
 from joblib import Parallel, delayed
@@ -111,6 +111,7 @@ class CompassClient:
             "get_document": self.session.get,
             "put_documents": self.session.put,
             "search_documents": self.session.post,
+            "search_chunks": self.session.post,
             "add_context": self.session.post,
             "refresh": self.session.post,
             "upload_documents": self.session.post,
@@ -129,6 +130,7 @@ class CompassClient:
             "get_document": "/api/v1/indexes/{index_name}/documents/{doc_id}",
             "put_documents": "/api/v1/indexes/{index_name}/documents",
             "search_documents": "/api/v1/indexes/{index_name}/documents/_search",
+            "search_chunks": "/api/v1/indexes/{index_name}/documents/_search_chunks",
             "add_context": "/api/v1/indexes/{index_name}/documents/add_context/{doc_id}",
             "refresh": "/api/v1/indexes/{index_name}/_refresh",
             "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
@@ -535,9 +537,10 @@ class CompassClient:
         if len(request_block) > 0 or len(errors) > 0:
             yield request_block, errors
 
-    def search(
+    def _search(
         self,
         *,
+        api_name: Literal["search_documents", "search_chunks"],
         index_name: str,
         query: str,
         top_k: int = 10,
@@ -550,11 +553,43 @@ class CompassClient:
         :param top_k: number of documents to return
         """
         return self._send_request(
-            api_name="search_documents",
+            api_name=api_name,
             index_name=index_name,
             data=SearchInput(query=query, top_k=top_k, filters=filters),
             max_retries=1,
             sleep_retry_seconds=1,
+        )
+
+    def search_documents(
+        self,
+        *,
+        index_name: str,
+        query: str,
+        top_k: int = 10,
+        filters: Optional[List[SearchFilter]] = None,
+    ):
+        return self._search(
+            api_name="search_documents",
+            index_name=index_name,
+            query=query,
+            top_k=top_k,
+            filters=filters,
+        )
+
+    def search_chunks(
+        self,
+        *,
+        index_name: str,
+        query: str,
+        top_k: int = 10,
+        filters: Optional[List[SearchFilter]] = None,
+    ):
+        return self._search(
+            api_name="search_chunks",
+            index_name=index_name,
+            query=query,
+            top_k=top_k,
+            filters=filters,
         )
 
     def edit_group_authorization(self, *, index_name: str, group_auth_input: GroupAuthorizationInput):
