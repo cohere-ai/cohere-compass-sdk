@@ -35,8 +35,13 @@ from compass_sdk.constants import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_SLEEP_RETRY_SECONDS,
 )
-from compass_sdk.models import CreateDataSource, DataSource
-from compass_sdk.models.datasources import PaginatedList
+from compass_sdk.models import (
+    CreateDataSource,
+    DataSource,
+    PaginatedList,
+    SearchChunksResponse,
+    SearchDocumentsResponse,
+)
 
 
 @dataclass
@@ -567,14 +572,16 @@ class CompassClient:
         query: str,
         top_k: int = 10,
         filters: Optional[List[SearchFilter]] = None,
-    ):
-        return self._search(
+    ) -> SearchDocumentsResponse:
+        result = self._search(
             api_name="search_documents",
             index_name=index_name,
             query=query,
             top_k=top_k,
             filters=filters,
         )
+
+        return SearchDocumentsResponse.model_validate(result.result)
 
     def search_chunks(
         self,
@@ -583,14 +590,16 @@ class CompassClient:
         query: str,
         top_k: int = 10,
         filters: Optional[List[SearchFilter]] = None,
-    ):
-        return self._search(
+    ) -> SearchChunksResponse:
+        result = self._search(
             api_name="search_chunks",
             index_name=index_name,
             query=query,
             top_k=top_k,
             filters=filters,
         )
+
+        return SearchChunksResponse.model_validate(result.result)
 
     def edit_group_authorization(self, *, index_name: str, group_auth_input: GroupAuthorizationInput):
         """
