@@ -12,6 +12,8 @@ from compass_sdk.models import (
     ValidatedModel,
 )
 
+__version__ = "0.6.0"
+
 
 class ProcessFileParameters(ValidatedModel):
     parser_config: ParserConfig
