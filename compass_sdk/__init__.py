@@ -1,4 +1,3 @@
-import logging
 import math
 import uuid
 from dataclasses import field
@@ -20,9 +19,6 @@ from compass_sdk.constants import (
     METADATA_HEURISTICS_ATTRIBUTES,
     SKIP_INFER_TABLE_TYPES,
 )
-
-
-logger = logging.getLogger(__name__)
 
 
 class ValidatedModel(BaseModel):
@@ -177,18 +173,6 @@ class MetadataStrategy(str, Enum):
         return cls.No_Metadata
 
 
-class LoggerLevel(str, Enum):
-    DEBUG = "DEBUG"
-    INFO = "INFO"
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-    CRITICAL = "CRITICAL"
-
-    @classmethod
-    def _missing_(cls, value):
-        return cls.INFO
-
-
 class MetadataConfig(ValidatedModel):
     """
     Configuration class for metadata detection.
@@ -292,7 +276,6 @@ class ParserConfig(BaseModel):
     )
 
     # CompassParser configuration
-    logger_level: LoggerLevel = LoggerLevel.INFO
     parse_tables: bool = True
     parse_images: bool = True
     parsed_images_output_dir: Optional[str] = None

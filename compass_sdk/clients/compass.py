@@ -30,7 +30,6 @@ from compass_sdk import (
     CompassSdkStage,
     Document,
     GroupAuthorizationInput,
-    LoggerLevel,
     ParseableDocument,
     PushDocumentsInput,
     PutDocumentsInput,
@@ -88,7 +87,6 @@ class CompassClient:
         username: Optional[str] = None,
         password: Optional[str] = None,
         bearer_token: Optional[str] = None,
-        logger_level: LoggerLevel = LoggerLevel.INFO,
         default_timeout: int = _DEFAULT_TIMEOUT,
     ):
         """
@@ -141,7 +139,6 @@ class CompassClient:
             "delete_datasources": "/api/v1/datasources/{datasource_id}",
             "get_datasource": "/api/v1/datasources/{datasource_id}",
         }
-        logger.setLevel(logger_level.value)
 
     def create_index(self, *, index_name: str):
         """
