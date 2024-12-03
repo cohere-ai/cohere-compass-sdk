@@ -16,14 +16,18 @@ T = TypeVar("T")
 U = TypeVar("U")
 
 
-def imap_queued(executor: Executor, f: Callable[[T], U], it: Iterable[T], max_queued: int) -> Iterator[U]:
+def imap_queued(
+    executor: Executor, f: Callable[[T], U], it: Iterable[T], max_queued: int
+) -> Iterator[U]:
     assert max_queued >= 1
     futures_set = set()
 
     for x in it:
         futures_set.add(executor.submit(f, x))
         while len(futures_set) > max_queued:
-            done, futures_set = futures.wait(futures_set, return_when=futures.FIRST_COMPLETED)
+            done, futures_set = futures.wait(
+                futures_set, return_when=futures.FIRST_COMPLETED
+            )
             for future in done:
                 yield future.result()
 
@@ -65,7 +69,11 @@ def open_document(document_path) -> CompassDocument:
     return doc
 
 
-def scan_folder(folder_path: str, allowed_extensions: Optional[List[str]] = None, recursive: bool = False) -> List[str]:
+def scan_folder(
+    folder_path: str,
+    allowed_extensions: Optional[List[str]] = None,
+    recursive: bool = False,
+) -> List[str]:
     """
     Scans a folder for files with the given extensions
     :param folder_path: the path to the folder
@@ -75,12 +83,16 @@ def scan_folder(folder_path: str, allowed_extensions: Optional[List[str]] = None
     """
     fs = get_fs(folder_path)
     all_files = []
-    path_prepend = f"{folder_path.split('://')[0]}://" if folder_path.find("://") >= 0 else ""
+    path_prepend = (
+        f"{folder_path.split('://')[0]}://" if folder_path.find("://") >= 0 else ""
+    )
 
     if allowed_extensions is None:
         allowed_extensions = [""]
     else:
-        allowed_extensions = [f".{ext}" if not ext.startswith(".") else ext for ext in allowed_extensions]
+        allowed_extensions = [
+            f".{ext}" if not ext.startswith(".") else ext for ext in allowed_extensions
+        ]
 
     for ext in allowed_extensions:
         rec_glob = "**/" if recursive else ""

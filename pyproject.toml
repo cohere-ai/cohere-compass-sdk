@@ -18,6 +18,7 @@ pytest = "^8.3.3"
 pytest-asyncio = "^0.24.0"
 pytest-mock = "^3.14.0"
 requests-mock = "^1.12.1"
+ruff = "^0.8.1"
 
 [tool.pyright]
 typeCheckingMode = 'basic'
@@ -26,3 +27,6 @@ reportMissingImports = false
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 88

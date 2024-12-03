@@ -4,7 +4,7 @@ import uuid
 from dataclasses import field
 from enum import Enum, StrEnum
 from os import getenv
-from typing import Annotated, Any, Dict, List, Optional, Union
+from typing import Annotated, Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, StringConstraints
 
@@ -22,40 +22,7 @@ from compass_sdk.constants import (
 )
 
 
-class Logger:
-    def __init__(self, name: str, log_level: int = logging.INFO):
-        self._logger = logging.getLogger(name)
-        self._logger.setLevel(log_level)
-
-        formatter = logging.Formatter(f"%(asctime)s-{name}-PID:%(process)d: %(message)s", "%d-%m-%y:%H:%M:%S")
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(formatter)
-        self._logger.addHandler(stream_handler)
-
-    def info(self, msg: str):
-        self._logger.info(msg)
-
-    def debug(self, msg: str):
-        self._logger.debug(msg)
-
-    def error(self, msg: str):
-        self._logger.error(msg)
-
-    def critical(self, msg: str):
-        self._logger.critical(msg)
-
-    def warning(self, msg: str):
-        self._logger.warning(msg)
-
-    def flush(self):
-        for handler in self._logger.handlers:
-            handler.flush()
-
-    def setLevel(self, level: Union[int, str]):
-        self._logger.setLevel(level)
-
-
-logger = Logger(name="compass-sdk", log_level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class ValidatedModel(BaseModel):
@@ -70,7 +37,9 @@ class ValidatedModel(BaseModel):
     def __init__(self, **data):
         for name, value in data.items():
             if not self.attribute_in_model(name):
-                raise ValueError(f"{name} is not a valid attribute for {self.__class__.__name__}")
+                raise ValueError(
+                    f"{name} is not a valid attribute for {self.__class__.__name__}"
+                )
         super().__init__(**data)
 
 
@@ -127,11 +96,12 @@ class CompassDocumentChunk(BaseModel):
 
 class CompassDocument(ValidatedModel):
     """
-    A Compass document contains all the information required to process a document and insert it into the index
-    It includes:
+    A Compass document contains all the information required to process a document and
+    insert it into the index. It includes:
     - metadata: the document metadata (e.g., filename, title, authors, date)
     - content: the document content in string format
-    - elements: the document's Unstructured elements (e.g., tables, images, text). Used for chunking
+    - elements: the document's Unstructured elements (e.g., tables, images, text). Used
+      for chunking
     - chunks: the document's chunks (e.g., paragraphs, tables, images). Used for indexing
     - index_fields: the fields to be indexed. Used by the indexer
     """
@@ -160,13 +130,25 @@ class CompassDocument(ValidatedModel):
         return len(self.metadata.meta) > 0
 
     def has_parsing_errors(self) -> bool:
-        return any(stage == CompassSdkStage.Parsing for error in self.errors for stage, _ in error.items())
+        return any(
+            stage == CompassSdkStage.Parsing
+            for error in self.errors
+            for stage, _ in error.items()
+        )
 
     def has_metadata_errors(self) -> bool:
-        return any(stage == CompassSdkStage.Metadata for error in self.errors for stage, _ in error.items())
+        return any(
+            stage == CompassSdkStage.Metadata
+            for error in self.errors
+            for stage, _ in error.items()
+        )
 
     def has_indexing_errors(self) -> bool:
-        return any(stage == CompassSdkStage.Indexing for error in self.errors for stage, _ in error.items())
+        return any(
+            stage == CompassSdkStage.Indexing
+            for error in self.errors
+            for stage, _ in error.items()
+        )
 
     @property
     def status(self) -> CompassDocumentStatus:
@@ -248,7 +230,9 @@ class ParsingStrategy(str, Enum):
 
 class ParsingModel(str, Enum):
     Marker = "marker"  # Default model, it is actually a combination of models used by the Marker PDF parser
-    YoloX_Quantized = "yolox_quantized"  # Only PDF parsing working option from Unstructured
+    YoloX_Quantized = (
+        "yolox_quantized"  # Only PDF parsing working option from Unstructured
+    )
 
     @classmethod
     def _missing_(cls, value):
@@ -335,7 +319,9 @@ class ParserConfig(BaseModel):
     horizontal_table_crop_margin: int = 100
 
     pdf_parsing_strategy: PDFParsingStrategy = PDFParsingStrategy.QuickText
-    presentation_parsing_strategy: PresentationParsingStrategy = PresentationParsingStrategy.Unstructured
+    presentation_parsing_strategy: PresentationParsingStrategy = (
+        PresentationParsingStrategy.Unstructured
+    )
 
 
 ### Document indexing
@@ -374,7 +360,9 @@ class ParseableDocument(BaseModel):
     """
 
     id: uuid.UUID
-    filename: Annotated[str, StringConstraints(min_length=1)]  # Ensures the filename is a non-empty string
+    filename: Annotated[
+        str, StringConstraints(min_length=1)
+    ]  # Ensures the filename is a non-empty string
     content_type: str
     content_length_bytes: PositiveInt  # File size must be a non-negative integer
     content_encoded_bytes: str  # Base64-encoded file contents
