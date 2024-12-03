@@ -10,12 +10,14 @@ import requests
 
 # Local imports
 from compass_sdk import (
-    CompassDocument,
-    MetadataConfig,
-    ParserConfig,
     ProcessFileParameters,
 )
 from compass_sdk.constants import DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES
+from compass_sdk.models import (
+    CompassDocument,
+    MetadataConfig,
+    ParserConfig,
+)
 from compass_sdk.utils import imap_queued, open_document, scan_folder
 
 Fn_or_Dict = Union[Dict[str, Any], Callable[[CompassDocument], Dict[str, Any]]]

@@ -1,6 +1,8 @@
+# Python imports
 from enum import Enum
 from typing import List
 
+# 3rd party imports
 from pydantic import BaseModel
 
 

@@ -24,17 +24,7 @@ import requests
 
 # Local imports
 from compass_sdk import (
-    Chunk,
-    CompassDocument,
-    CompassDocumentStatus,
-    CompassSdkStage,
-    Document,
     GroupAuthorizationInput,
-    ParseableDocument,
-    PushDocumentsInput,
-    PutDocumentsInput,
-    SearchFilter,
-    SearchInput,
 )
 from compass_sdk.constants import (
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
@@ -49,11 +39,21 @@ from compass_sdk.exceptions import (
     CompassMaxErrorRateExceeded,
 )
 from compass_sdk.models import (
+    Chunk,
+    CompassDocument,
+    CompassDocumentStatus,
+    CompassSdkStage,
     CreateDataSource,
     DataSource,
+    Document,
     PaginatedList,
+    ParseableDocument,
+    PushDocumentsInput,
+    PutDocumentsInput,
     SearchChunksResponse,
     SearchDocumentsResponse,
+    SearchFilter,
+    SearchInput,
 )
 
 

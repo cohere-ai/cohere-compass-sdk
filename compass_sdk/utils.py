@@ -9,8 +9,12 @@ from typing import Callable, Iterable, Iterator, List, Optional, TypeVar
 import fsspec
 from fsspec import AbstractFileSystem
 
-from compass_sdk import CompassDocument, CompassDocumentMetadata, CompassSdkStage
 from compass_sdk.constants import UUID_NAMESPACE
+from compass_sdk.models import (
+    CompassDocument,
+    CompassDocumentMetadata,
+    CompassSdkStage,
+)
 
 T = TypeVar("T")
 U = TypeVar("U")

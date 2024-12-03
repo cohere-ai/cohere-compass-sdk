@@ -1,4 +1,5 @@
-from compass_sdk.clients import CompassClient, CompassDocument
+from compass_sdk.clients import CompassClient
+from compass_sdk.models import CompassDocument
 
 
 def test_delete_url_formatted_with_doc_and_index(requests_mock):
