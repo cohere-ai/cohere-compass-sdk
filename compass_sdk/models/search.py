@@ -1,5 +1,8 @@
+# Python imports
+from enum import Enum
 from typing import Any, Dict, List, Optional, TypeAlias
 
+# 3rd party imports
 from pydantic import BaseModel
 
 Content: TypeAlias = Dict[str, Any]
@@ -10,7 +13,7 @@ class AssetInfo(BaseModel):
     presigned_url: str
 
 
-class Chunk(BaseModel):
+class RetrievedChunk(BaseModel):
     chunk_id: str
     sort_id: int
     parent_doc_id: str
@@ -20,26 +23,48 @@ class Chunk(BaseModel):
     score: float
 
 
-class Document(BaseModel):
+class RetrievedDocument(BaseModel):
     doc_id: str
     path: str
     parent_doc_id: str
     content: Content
     index_fields: Optional[List[str]] = None
     authorized_groups: Optional[List[str]] = None
-    chunks: List[Chunk]
+    chunks: List[RetrievedChunk]
     score: float
 
 
-class ChunkExtended(Chunk):
+class RetrieveChunkExtended(RetrievedChunk):
     doc_id: str
     path: str
     index_fields: Optional[List[str]] = None
 
 
 class SearchDocumentsResponse(BaseModel):
-    hits: List[Document]
+    hits: List[RetrievedDocument]
 
 
 class SearchChunksResponse(BaseModel):
-    hits: List[ChunkExtended]
+    hits: List[RetrieveChunkExtended]
+
+
+class SearchFilter(BaseModel):
+    class FilterType(str, Enum):
+        EQ = "$eq"
+        LT_EQ = "$lte"
+        GT_EQ = "$gte"
+        WORD_MATCH = "$wordMatch"
+
+    field: str
+    type: FilterType
+    value: Any
+
+
+class SearchInput(BaseModel):
+    """
+    Search query input
+    """
+
+    query: str
+    top_k: int
+    filters: Optional[List[SearchFilter]] = None

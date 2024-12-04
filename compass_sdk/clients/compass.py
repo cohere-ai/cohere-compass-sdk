@@ -1,32 +1,30 @@
-import base64
-import os
-import threading
-import uuid
+# Python imports
 from collections import deque
 from dataclasses import dataclass
 from statistics import mean
 from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
+import base64
+import logging
+import os
+import threading
+import uuid
 
-import requests
+# 3rd party imports
 from joblib import Parallel, delayed
 from pydantic import BaseModel
 from requests.exceptions import InvalidSchema
-from tenacity import RetryError, retry, retry_if_not_exception_type, stop_after_attempt, wait_fixed
+from tenacity import (
+    RetryError,
+    retry,
+    retry_if_not_exception_type,
+    stop_after_attempt,
+    wait_fixed,
+)
+import requests
 
+# Local imports
 from compass_sdk import (
-    Chunk,
-    CompassDocument,
-    CompassDocumentStatus,
-    CompassSdkStage,
-    Document,
     GroupAuthorizationInput,
-    LoggerLevel,
-    ParseableDocument,
-    PushDocumentsInput,
-    PutDocumentsInput,
-    SearchFilter,
-    SearchInput,
-    logger,
 )
 from compass_sdk.constants import (
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
@@ -35,13 +33,27 @@ from compass_sdk.constants import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_SLEEP_RETRY_SECONDS,
 )
-from compass_sdk.exceptions import CompassAuthError, CompassClientError, CompassMaxErrorRateExceeded
+from compass_sdk.exceptions import (
+    CompassAuthError,
+    CompassClientError,
+    CompassMaxErrorRateExceeded,
+)
 from compass_sdk.models import (
+    Chunk,
+    CompassDocument,
+    CompassDocumentStatus,
+    CompassSdkStage,
     CreateDataSource,
     DataSource,
+    Document,
     PaginatedList,
+    ParseableDocument,
+    PushDocumentsInput,
+    PutDocumentsInput,
     SearchChunksResponse,
     SearchDocumentsResponse,
+    SearchFilter,
+    SearchInput,
 )
 
 
@@ -52,6 +64,9 @@ class RetryResult:
 
 
 _DEFAULT_TIMEOUT = 30
+
+
+logger = logging.getLogger(__name__)
 
 
 class SessionWithDefaultTimeout(requests.Session):
@@ -72,7 +87,6 @@ class CompassClient:
         username: Optional[str] = None,
         password: Optional[str] = None,
         bearer_token: Optional[str] = None,
-        logger_level: LoggerLevel = LoggerLevel.INFO,
         default_timeout: int = _DEFAULT_TIMEOUT,
     ):
         """
@@ -125,7 +139,6 @@ class CompassClient:
             "delete_datasources": "/api/v1/datasources/{datasource_id}",
             "get_datasource": "/api/v1/datasources/{datasource_id}",
         }
-        logger.setLevel(logger_level.value)
 
     def create_index(self, *, index_name: str):
         """
@@ -350,7 +363,9 @@ class CompassClient:
         ) -> None:
             nonlocal num_succeeded, errors
             errors.extend(previous_errors)
-            compass_docs: List[CompassDocument] = [compass_doc for compass_doc, _ in request_data]
+            compass_docs: List[CompassDocument] = [
+                compass_doc for compass_doc, _ in request_data
+            ]
             put_docs_input = PutDocumentsInput(
                 docs=[input_doc for _, input_doc in request_data],
                 authorized_groups=authorized_groups,
@@ -373,22 +388,36 @@ class CompassClient:
 
             if results.error:
                 for doc in compass_docs:
-                    doc.errors.append({CompassSdkStage.Indexing: f"{doc.metadata.filename}: {results.error}"})
-                    errors.append({doc.metadata.doc_id: f"{doc.metadata.filename}: {results.error}"})
+                    doc.errors.append(
+                        {
+                            CompassSdkStage.Indexing: f"{doc.metadata.filename}: {results.error}"
+                        }
+                    )
+                    errors.append(
+                        {
+                            doc.metadata.doc_id: f"{doc.metadata.filename}: {results.error}"
+                        }
+                    )
             else:
                 num_succeeded += len(compass_docs)
 
             # Keep track of the results of the last N API calls to calculate the error rate
             # If the error rate is higher than the threshold, stop the insertion process
             error_window.append(results.error)
-            error_rate = mean([1 if x else 0 for x in error_window]) if len(error_window) == error_window.maxlen else 0
+            error_rate = (
+                mean([1 if x else 0 for x in error_window])
+                if len(error_window) == error_window.maxlen
+                else 0
+            )
             if error_rate > max_error_rate:
                 raise CompassMaxErrorRateExceeded(
                     f"[Thread {threading.get_native_id()}]{error_rate * 100}% of insertions failed "
                     f"in the last {errors_sliding_window_size} API calls. Stopping the insertion process."
                 )
 
-        error_window = deque(maxlen=errors_sliding_window_size)  # Keep track of the results of the last N API calls
+        error_window = deque(
+            maxlen=errors_sliding_window_size
+        )  # Keep track of the results of the last N API calls
         num_succeeded = 0
         errors = []
         requests_iter = self._get_request_blocks(docs, max_chunks_per_request)
@@ -498,7 +527,11 @@ class CompassClient:
                 for error in doc.errors:
                     errors.append({doc.metadata.doc_id: list(error.values())[0]})
             else:
-                num_chunks += len(doc.chunks) if doc.status == CompassDocumentStatus.Success else 0
+                num_chunks += (
+                    len(doc.chunks)
+                    if doc.status == CompassDocumentStatus.Success
+                    else 0
+                )
                 if num_chunks > max_chunks_per_request:
                     yield request_block, errors
                     request_block, errors = [], []
@@ -580,7 +613,9 @@ class CompassClient:
 
         return SearchChunksResponse.model_validate(result.result)
 
-    def edit_group_authorization(self, *, index_name: str, group_auth_input: GroupAuthorizationInput):
+    def edit_group_authorization(
+        self, *, index_name: str, group_auth_input: GroupAuthorizationInput
+    ):
         """
         Edit group authorization for an index
         :param index_name: the name of the index
@@ -639,7 +674,9 @@ class CompassClient:
                     headers = {"Authorization": f"Bearer {self.bearer_token}"}
                     auth = None
 
-                response = self.api_method[api_name](target_path, json=data_dict, auth=auth, headers=headers)
+                response = self.api_method[api_name](
+                    target_path, json=data_dict, auth=auth, headers=headers
+                )
 
                 if response.ok:
                     error = None
@@ -672,12 +709,16 @@ class CompassClient:
 
         error = None
         try:
-            target_path = self.index_url + self.api_endpoint[api_name].format(**url_params)
+            target_path = self.index_url + self.api_endpoint[api_name].format(
+                **url_params
+            )
             res = _send_request_with_retry()
             if res:
                 return res
             else:
                 return RetryResult(result=None, error=error)
         except RetryError:
-            logger.error(f"Failed to send request after {max_retries} attempts. Aborting.")
+            logger.error(
+                f"Failed to send request after {max_retries} attempts. Aborting."
+            )
             return RetryResult(result=None, error=error)
