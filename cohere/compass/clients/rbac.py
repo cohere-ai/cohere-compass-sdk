@@ -5,7 +5,7 @@ import requests
 from pydantic import BaseModel
 from requests import HTTPError
 
-from compass_sdk.models import (
+from cohere.compass.models import (
     GroupCreateRequest,
     GroupCreateResponse,
     GroupDeleteResponse,

@@ -1,5 +1,7 @@
 # Cohere Compass SDK
 
+[![Checked with pyright](https://microsoft.github.io/pyright/img/pyright_badge.svg)](https://microsoft.github.io/pyright/)
+
 The Compass SDK is a Python library that allows you to parse documents and insert them
 into a Compass index.
 

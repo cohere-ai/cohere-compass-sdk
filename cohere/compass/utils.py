@@ -6,11 +6,11 @@ from concurrent import futures
 from concurrent.futures import Executor
 from typing import Callable, Iterable, Iterator, List, Optional, TypeVar
 
-import fsspec
-from fsspec import AbstractFileSystem
+import fsspec  # type: ignore
+from fsspec import AbstractFileSystem  # type: ignore
 
-from compass_sdk.constants import UUID_NAMESPACE
-from compass_sdk.models import (
+from cohere.compass.constants import UUID_NAMESPACE
+from cohere.compass.models import (
     CompassDocument,
     CompassDocumentMetadata,
     CompassSdkStage,
@@ -24,7 +24,7 @@ def imap_queued(
     executor: Executor, f: Callable[[T], U], it: Iterable[T], max_queued: int
 ) -> Iterator[U]:
     assert max_queued >= 1
-    futures_set = set()
+    futures_set: set[futures.Future[U]] = set()
 
     for x in it:
         futures_set.add(executor.submit(f, x))
@@ -47,13 +47,13 @@ def get_fs(document_path: str) -> AbstractFileSystem:
     """
     if document_path.find("://") >= 0:
         file_system = document_path.split("://")[0]
-        fs = fsspec.filesystem(file_system)
+        fs = fsspec.filesystem(file_system)  # type: ignore
     else:
-        fs = fsspec.filesystem("local")
+        fs = fsspec.filesystem("local")  # type: ignore
     return fs
 
 
-def open_document(document_path) -> CompassDocument:
+def open_document(document_path: str) -> CompassDocument:
     """
     Opens a document regardless of the file system (local, GCS, S3, etc.) and returns a file-like object
     :param document_path: the path to the document
@@ -62,9 +62,9 @@ def open_document(document_path) -> CompassDocument:
     doc = CompassDocument(metadata=CompassDocumentMetadata(filename=document_path))
     try:
         fs = get_fs(document_path)
-        with fs.open(document_path, "rb") as f:
+        with fs.open(document_path, "rb") as f:  # type: ignore
             val = f.read()
-            if val is not None and isinstance(val, bytes):
+            if isinstance(val, bytes):
                 doc.filebytes = val
             else:
                 raise Exception(f"Expected bytes, got {type(val)}")
@@ -86,7 +86,7 @@ def scan_folder(
     :return: a list of file paths
     """
     fs = get_fs(folder_path)
-    all_files = []
+    all_files: list[str] = []
     path_prepend = (
         f"{folder_path.split('://')[0]}://" if folder_path.find("://") >= 0 else ""
     )
@@ -101,8 +101,8 @@ def scan_folder(
     for ext in allowed_extensions:
         rec_glob = "**/" if recursive else ""
         pattern = os.path.join(glob.escape(folder_path), f"{rec_glob}*{ext}")
-        scanned_files = fs.glob(pattern, recursive=recursive)
-        all_files.extend([f"{path_prepend}{f}" for f in scanned_files])
+        scanned_files = fs.glob(pattern, recursive=recursive)  # type: ignore
+        all_files.extend([f"{path_prepend}{f}" for f in scanned_files])  # type: ignore
     return all_files
 
 

@@ -6,13 +6,13 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 # Local imports
-from compass_sdk.models import (
+from cohere.compass.models import (
     MetadataConfig,
     ParserConfig,
     ValidatedModel,
 )
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 
 class ProcessFileParameters(ValidatedModel):

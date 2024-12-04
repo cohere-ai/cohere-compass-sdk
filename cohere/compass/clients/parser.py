@@ -9,16 +9,16 @@ import os
 import requests
 
 # Local imports
-from compass_sdk import (
+from cohere.compass import (
     ProcessFileParameters,
 )
-from compass_sdk.constants import DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES
-from compass_sdk.models import (
+from cohere.compass.constants import DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES
+from cohere.compass.models import (
     CompassDocument,
     MetadataConfig,
     ParserConfig,
 )
-from compass_sdk.utils import imap_queued, open_document, scan_folder
+from cohere.compass.utils import imap_queued, open_document, scan_folder
 
 Fn_or_Dict = Union[Dict[str, Any], Callable[[CompassDocument], Dict[str, Any]]]
 
@@ -254,7 +254,7 @@ class CompassParserClient:
         )
 
         if res.ok:
-            docs = []
+            docs: list[CompassDocument] = []
             for doc in res.json()["docs"]:
                 if not doc.get("errors", []):
                     compass_doc = CompassDocument(**doc)

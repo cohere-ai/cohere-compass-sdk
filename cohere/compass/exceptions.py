@@ -1,7 +1,7 @@
 class CompassClientError(Exception):
     """Exception raised for all 4xx client errors in the Compass client."""
 
-    def __init__(self, message="Client error occurred."):
+    def __init__(self, message: str = "Client error occurred."):
         self.message = message
         super().__init__(self.message)
 
@@ -11,7 +11,7 @@ class CompassAuthError(CompassClientError):
 
     def __init__(
         self,
-        message=(
+        message: str = (
             "CompassAuthError - check your bearer token or username and password."
         ),
     ):
@@ -25,7 +25,7 @@ class CompassMaxErrorRateExceeded(Exception):
 
     def __init__(
         self,
-        message="The maximum error rate was exceeded. Stopping the insertion process.",
+        message: str = "The maximum error rate was exceeded. Stopping the insertion process.",
     ):
         self.message = message
         super().__init__(self.message)

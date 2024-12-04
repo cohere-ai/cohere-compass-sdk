@@ -10,7 +10,8 @@ import threading
 import uuid
 
 # 3rd party imports
-from joblib import Parallel, delayed
+# TODO find stubs for joblib and remove "type: ignore"
+from joblib import Parallel, delayed  # type: ignore
 from pydantic import BaseModel
 from requests.exceptions import InvalidSchema
 from tenacity import (
@@ -23,22 +24,22 @@ from tenacity import (
 import requests
 
 # Local imports
-from compass_sdk import (
+from cohere.compass import (
     GroupAuthorizationInput,
 )
-from compass_sdk.constants import (
+from cohere.compass.constants import (
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_CHUNKS_PER_REQUEST,
     DEFAULT_MAX_ERROR_RATE,
     DEFAULT_MAX_RETRIES,
     DEFAULT_SLEEP_RETRY_SECONDS,
 )
-from compass_sdk.exceptions import (
+from cohere.compass.exceptions import (
     CompassAuthError,
     CompassClientError,
     CompassMaxErrorRateExceeded,
 )
-from compass_sdk.models import (
+from cohere.compass.models import (
     Chunk,
     CompassDocument,
     CompassDocumentStatus,
@@ -60,7 +61,7 @@ from compass_sdk.models import (
 
 @dataclass
 class RetryResult:
-    result: Optional[dict] = None
+    result: Optional[dict[str, Any]] = None
     error: Optional[str] = None
 
 
@@ -75,9 +76,9 @@ class SessionWithDefaultTimeout(requests.Session):
         self._timeout = timeout
         super().__init__()
 
-    def request(self, method, url, **kwargs):
+    def request(self, *args: Any, **kwargs: Any):
         kwargs.setdefault("timeout", self._timeout)
-        return super().request(method, url, **kwargs)
+        return super().request(*args, **kwargs)
 
 
 class CompassClient:
@@ -231,7 +232,7 @@ class CompassClient:
         *,
         index_name: str,
         doc_id: str,
-        context: Dict,
+        context: dict[str, Any],
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ) -> Optional[RetryResult]:
@@ -291,7 +292,7 @@ class CompassClient:
         context: Dict[str, Any] = {},
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
-    ) -> Optional[str | Dict]:
+    ) -> Optional[str | dict[str, Any]]:
         """
         Parse and insert a document into an index in Compass
         :param index_name: the name of the index
@@ -362,8 +363,8 @@ class CompassClient:
         """
 
         def put_request(
-            request_data: List[Tuple[CompassDocument, Document]],
-            previous_errors: List[CompassDocument],
+            request_data: list[Tuple[CompassDocument, Document]],
+            previous_errors: list[dict[str, str]],
             num_doc: int,
         ) -> None:
             nonlocal num_succeeded, errors
@@ -420,11 +421,11 @@ class CompassClient:
                     f"in the last {errors_sliding_window_size} API calls. Stopping the insertion process."
                 )
 
-        error_window = deque(
+        error_window: deque[str | None] = deque(
             maxlen=errors_sliding_window_size
         )  # Keep track of the results of the last N API calls
         num_succeeded = 0
-        errors = []
+        errors: list[dict[str, str]] = []
         requests_iter = self._get_request_blocks(docs, max_chunks_per_request)
 
         try:
@@ -556,7 +557,7 @@ class CompassClient:
     def _get_request_blocks(
         docs: Iterator[CompassDocument],
         max_chunks_per_request: int,
-    ) -> Iterator:
+    ):
         """
         Create request blocks to send to the Compass API
         :param docs: the documents to send
@@ -564,9 +565,10 @@ class CompassClient:
         :return: an iterator over the request blocks
         """
 
-        request_block, errors = [], []
+        request_block: list[tuple[CompassDocument, Document]] = []
+        errors: list[dict[str, str]] = []
         num_chunks = 0
-        for num_doc, doc in enumerate(docs, 1):
+        for _, doc in enumerate(docs, 1):
             if doc.status != CompassDocumentStatus.Success:
                 logger.error(f"Document {doc.metadata.doc_id} has errors: {doc.errors}")
                 for error in doc.errors:
@@ -679,7 +681,7 @@ class CompassClient:
         api_name: str,
         max_retries: int,
         sleep_retry_seconds: int,
-        data: Optional[Union[Dict, BaseModel]] = None,
+        data: Optional[Union[Dict[str, Any], BaseModel]] = None,
         **url_params: str,
     ) -> RetryResult:
         """
@@ -710,11 +712,13 @@ class CompassClient:
                 if data:
                     if isinstance(data, BaseModel):
                         data_dict = data.model_dump(mode="json")
-                    elif isinstance(data, Dict):
+                    else:
                         data_dict = data
 
                 headers = None
-                auth = (self.username, self.password)
+                auth = None
+                if self.username and self.password:
+                    auth = (self.username, self.password)
                 if self.bearer_token:
                     headers = {"Authorization": f"Bearer {self.bearer_token}"}
                     auth = None
