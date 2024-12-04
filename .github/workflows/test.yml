@@ -51,17 +51,15 @@ jobs:
           cache-dependency-path: |
             poetry.lock
 
-      - name: Install dependencies (tests)
+      - name: Install poetry
         run: |
-          pip install pytest pytest-asyncio pytest-mock requests-mock
+          pip install poetry
 
       - name: Install dependencies
-        working-directory: .
         run: |
-          pip install -e .
+          poetry install
 
       - name: Run tests
         working-directory: .
         run: |
-          echo $COHERE_API_KEY
-          pytest -sv tests/test_compass_client.py
+          poetry run pytest -sv
