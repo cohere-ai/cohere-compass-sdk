@@ -46,6 +46,7 @@ from compass_sdk.models import (
     CreateDataSource,
     DataSource,
     Document,
+    DocumentStatus,
     PaginatedList,
     ParseableDocument,
     PushDocumentsInput,
@@ -119,6 +120,8 @@ class CompassClient:
             "list_datasources": self.session.get,
             "delete_datasources": self.session.delete,
             "get_datasource": self.session.get,
+            "sync_datasource": self.session.post,
+            "list_datasources_objects_states": self.session.get,
         }
         self.api_endpoint = {
             "create_index": "/api/v1/indexes/{index_name}",
@@ -138,6 +141,8 @@ class CompassClient:
             "list_datasources": "/api/v1/datasources",
             "delete_datasources": "/api/v1/datasources/{datasource_id}",
             "get_datasource": "/api/v1/datasources/{datasource_id}",
+            "sync_datasource": "/api/v1/datasources/{datasource_id}/_sync",
+            "list_datasources_objects_states": "/api/v1/datasources/{datasource_id}/documents?skip={skip}&limit={limit}",
         }
 
     def create_index(self, *, index_name: str):
@@ -460,7 +465,7 @@ class CompassClient:
         *,
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
-    ):
+    ) -> Union[PaginatedList[DataSource], str]:
         result = self._send_request(
             api_name="list_datasources",
             max_retries=max_retries,
@@ -469,7 +474,7 @@ class CompassClient:
 
         if result.error:
             return result.error
-        return PaginatedList.model_validate(result.result)
+        return PaginatedList[DataSource].model_validate(result.result)
 
     def get_datasource(
         self,
@@ -506,6 +511,46 @@ class CompassClient:
         if result.error:
             return result.error
         return result.result
+
+    def sync_datasource(
+        self,
+        *,
+        datasource_id: str,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+    ):
+        result = self._send_request(
+            api_name="sync_datasource",
+            datasource_id=datasource_id,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+
+        if result.error:
+            return result.error
+        return result.result
+
+    def list_datasources_objects_states(
+        self,
+        *,
+        datasource_id: str,
+        skip: int = 0,
+        limit: int = 100,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+    ) -> Union[PaginatedList[DocumentStatus], str]:
+        result = self._send_request(
+            api_name="list_datasources_objects_states",
+            datasource_id=datasource_id,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+            skip=str(skip),
+            limit=str(limit),
+        )
+
+        if result.error:
+            return result.error
+        return PaginatedList[DocumentStatus].model_validate(result.result)
 
     @staticmethod
     def _get_request_blocks(
@@ -680,7 +725,8 @@ class CompassClient:
 
                 if response.ok:
                     error = None
-                    return RetryResult(result=response.json(), error=None)
+                    result = response.json() if response.text else None
+                    return RetryResult(result=result, error=None)
                 else:
                     response.raise_for_status()
 

@@ -14,6 +14,8 @@ Content: typing.TypeAlias = typing.Dict[str, typing.Any]
 
 class PaginatedList(pydantic.BaseModel, typing.Generic[T]):
     value: typing.List[T]
+    skip: typing.Optional[int]
+    limit: typing.Optional[int]
 
 
 class OneDriveConfig(pydantic.BaseModel):
@@ -47,3 +49,12 @@ class DataSource(pydantic.BaseModel):
 class CreateDataSource(pydantic.BaseModel):
     datasource: DataSource
     state_key: typing.Optional[str] = None
+
+
+class DocumentStatus(pydantic.BaseModel):
+    document_id: str
+    source_id: typing.Optional[str]
+    state: str
+    destinations: typing.List[str]
+    created_at: datetime.datetime
+    updated_at: typing.Optional[datetime.datetime]
