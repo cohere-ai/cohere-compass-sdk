@@ -292,7 +292,7 @@ class CompassClient:
         context: Dict[str, Any] = {},
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
-    ) -> Optional[str | dict[str, Any]]:
+    ) -> Optional[Union[str, Dict[str, Any]]]:
         """
         Parse and insert a document into an index in Compass
         :param index_name: the name of the index
@@ -421,7 +421,7 @@ class CompassClient:
                     f"in the last {errors_sliding_window_size} API calls. Stopping the insertion process."
                 )
 
-        error_window: deque[str | None] = deque(
+        error_window: deque[Optional[str]] = deque(
             maxlen=errors_sliding_window_size
         )  # Keep track of the results of the last N API calls
         num_succeeded = 0

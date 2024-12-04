@@ -1,5 +1,5 @@
 # Python imports
-from enum import Enum, StrEnum
+from enum import Enum
 from os import getenv
 from typing import Any, List, Optional
 import math
@@ -32,7 +32,7 @@ class DocumentFormat(str, Enum):
         return cls.Markdown
 
 
-class PDFParsingStrategy(StrEnum):
+class PDFParsingStrategy(str, Enum):
     QuickText = "QuickText"
     ImageToMarkdown = "ImageToMarkdown"
 
@@ -41,7 +41,7 @@ class PDFParsingStrategy(StrEnum):
         return cls.QuickText
 
 
-class PresentationParsingStrategy(StrEnum):
+class PresentationParsingStrategy(str, Enum):
     Unstructured = "Unstructured"
     ImageToMarkdown = "ImageToMarkdown"
 

@@ -9,8 +9,6 @@ import pydantic
 
 T = typing.TypeVar("T")
 
-Content: typing.TypeAlias = typing.Dict[str, typing.Any]
-
 
 class PaginatedList(pydantic.BaseModel, typing.Generic[T]):
     value: typing.List[T]
