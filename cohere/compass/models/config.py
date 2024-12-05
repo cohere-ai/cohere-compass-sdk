@@ -1,14 +1,14 @@
 # Python imports
-from enum import Enum, StrEnum
+from enum import Enum
 from os import getenv
-from typing import List, Optional
+from typing import Any, List, Optional
 import math
 
 # 3rd party imports
 from pydantic import BaseModel, ConfigDict
 
 # Local imports
-from compass_sdk.constants import (
+from cohere.compass.constants import (
     COHERE_API_ENV_VAR,
     DEFAULT_COMMANDR_EXTRACTABLE_ATTRIBUTES,
     DEFAULT_COMMANDR_PROMPT,
@@ -20,7 +20,7 @@ from compass_sdk.constants import (
     METADATA_HEURISTICS_ATTRIBUTES,
     SKIP_INFER_TABLE_TYPES,
 )
-from compass_sdk.models import ValidatedModel
+from cohere.compass.models import ValidatedModel
 
 
 class DocumentFormat(str, Enum):
@@ -28,25 +28,25 @@ class DocumentFormat(str, Enum):
     Text = "text"
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value: Any):
         return cls.Markdown
 
 
-class PDFParsingStrategy(StrEnum):
+class PDFParsingStrategy(str, Enum):
     QuickText = "QuickText"
     ImageToMarkdown = "ImageToMarkdown"
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value: Any):
         return cls.QuickText
 
 
-class PresentationParsingStrategy(StrEnum):
+class PresentationParsingStrategy(str, Enum):
     Unstructured = "Unstructured"
     ImageToMarkdown = "ImageToMarkdown"
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value: Any):
         return cls.Unstructured
 
 
@@ -55,7 +55,7 @@ class ParsingStrategy(str, Enum):
     Hi_Res = "hi_res"
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value: Any):
         return cls.Fast
 
 
@@ -66,7 +66,7 @@ class ParsingModel(str, Enum):
     )
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value: Any):
         return cls.Marker
 
 
@@ -136,7 +136,7 @@ class MetadataStrategy(str, Enum):
     Custom = "custom"
 
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value: Any):
         return cls.No_Metadata
 
 

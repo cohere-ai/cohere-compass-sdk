@@ -8,7 +8,7 @@ import uuid
 from pydantic import BaseModel, Field, PositiveInt, StringConstraints
 
 # Local imports
-from compass_sdk.models import ValidatedModel
+from cohere.compass.models import ValidatedModel
 
 
 class CompassDocumentMetadata(ValidatedModel):
@@ -18,7 +18,7 @@ class CompassDocumentMetadata(ValidatedModel):
 
     doc_id: str = ""
     filename: str = ""
-    meta: List = field(default_factory=list)
+    meta: list[Any] = field(default_factory=list)
     parent_doc_id: str = ""
 
 
