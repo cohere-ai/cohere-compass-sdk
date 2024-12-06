@@ -6,7 +6,7 @@ from cohere.compass.models import CompassDocument
 
 def test_delete_url_formatted_with_doc_and_index(requests_mock: Mocker):
     compass = CompassClient(index_url="http://test.com")
-    compass.delete_document(index_name="test_index", doc_id="test_id")
+    compass.delete_document(index_name="test_index", document_id="test_id")
     assert (
         requests_mock.request_history[0].url
         == "http://test.com/api/v1/indexes/test_index/documents/test_id"
@@ -32,7 +32,7 @@ def test_put_documents_payload_and_url_exist(requests_mock: Mocker):
         == "http://test.com/api/v1/indexes/test_index/documents"
     )
     assert requests_mock.request_history[0].method == "PUT"
-    assert "docs" in requests_mock.request_history[0].json()
+    assert "documents" in requests_mock.request_history[0].json()
 
 
 def test_put_document_payload_and_url_exist(requests_mock: Mocker):
@@ -43,7 +43,7 @@ def test_put_document_payload_and_url_exist(requests_mock: Mocker):
         == "http://test.com/api/v1/indexes/test_index/documents"
     )
     assert requests_mock.request_history[0].method == "PUT"
-    assert "docs" in requests_mock.request_history[0].json()
+    assert "documents" in requests_mock.request_history[0].json()
 
 
 def test_list_indices_is_valid(requests_mock: Mocker):
@@ -55,7 +55,7 @@ def test_list_indices_is_valid(requests_mock: Mocker):
 
 def test_get_documents_is_valid(requests_mock: Mocker):
     compass = CompassClient(index_url="http://test.com")
-    compass.get_document(index_name="test_index", doc_id="test_id")
+    compass.get_document(index_name="test_index", document_id="test_id")
     assert requests_mock.request_history[0].method == "GET"
     assert (
         requests_mock.request_history[0].url
@@ -76,7 +76,7 @@ def test_refresh_is_valid(requests_mock: Mocker):
 def test_add_context_is_valid(requests_mock: Mocker):
     compass = CompassClient(index_url="http://test.com")
     compass.add_context(
-        index_name="test_index", doc_id="test_id", context={"fake": "context"}
+        index_name="test_index", document_id="test_id", context={"fake": "context"}
     )
     assert requests_mock.request_history[0].method == "POST"
     assert (
