@@ -570,7 +570,9 @@ class CompassClient:
         num_chunks = 0
         for _, doc in enumerate(docs, 1):
             if doc.status != CompassDocumentStatus.Success:
-                logger.error(f"Document {doc.metadata.document_id} has errors: {doc.errors}")
+                logger.error(
+                    f"Document {doc.metadata.document_id} has errors: {doc.errors}"
+                )
                 for error in doc.errors:
                     errors.append({doc.metadata.document_id: list(error.values())[0]})
             else:

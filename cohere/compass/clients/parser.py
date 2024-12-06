@@ -270,36 +270,36 @@ class CompassParserClient:
         return docs
 
     @staticmethod
-    def _adapt_doc_id_compass_doc(doc: Dict[Any,Any]) -> CompassDocument:
+    def _adapt_doc_id_compass_doc(doc: Dict[Any, Any]) -> CompassDocument:
         """
         Adapt the doc_id to document_id
         """
 
-        metadata = doc['metadata']
-        if not 'document_id' in metadata:
-            metadata['document_id'] = metadata.pop('doc_id')
-            metadata['parent_document_id'] = metadata.pop('parent_doc_id')
+        metadata = doc["metadata"]
+        if "document_id" not in metadata:
+            metadata["document_id"] = metadata.pop("doc_id")
+            metadata["parent_document_id"] = metadata.pop("parent_doc_id")
 
-        chunks = doc['chunks']
+        chunks = doc["chunks"]
         for chunk in chunks:
-            if not 'parent_document_id' in chunk:
-                chunk['parent_document_id'] = chunk.pop('parent_doc_id')
-            if not 'document_id' in chunk:
-                chunk['document_id'] = chunk.pop('doc_id')
-            if not 'path' in chunk:
-                chunk['path'] = doc['metadata']['filename']
-                
+            if "parent_document_id" not in chunk:
+                chunk["parent_document_id"] = chunk.pop("parent_doc_id")
+            if "document_id" not in chunk:
+                chunk["document_id"] = chunk.pop("doc_id")
+            if "path" not in chunk:
+                chunk["path"] = doc["metadata"]["filename"]
+
         res = CompassDocument(
-            filebytes=doc['filebytes'], 
+            filebytes=doc["filebytes"],
             metadata=metadata,
-            content=doc['content'],
-            content_type=doc['content_type'],
-            elements=doc['elements'],
+            content=doc["content"],
+            content_type=doc["content_type"],
+            elements=doc["elements"],
             chunks=chunks,
-            index_fields=doc['index_fields'],
-            errors=doc['errors'],
-            ignore_metadata_errors=doc['ignore_metadata_errors'],
-            markdown=doc['markdown']
+            index_fields=doc["index_fields"],
+            errors=doc["errors"],
+            ignore_metadata_errors=doc["ignore_metadata_errors"],
+            markdown=doc["markdown"],
         )
 
         return res

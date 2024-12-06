@@ -147,7 +147,6 @@ class Chunk(BaseModel):
     origin: Optional[Dict[str, Any]] = None
     assets: Optional[List[DocumentChunkAsset]] = None
     asset_ids: Optional[List[str]] = None
-    
 
 
 class Document(BaseModel):
