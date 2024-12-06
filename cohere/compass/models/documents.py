@@ -16,10 +16,10 @@ class CompassDocumentMetadata(ValidatedModel):
     Compass document metadata
     """
 
-    doc_id: str = ""
+    document_id: str = ""
     filename: str = ""
     meta: list[Any] = field(default_factory=list)
-    parent_doc_id: str = ""
+    parent_document_id: str = ""
 
 
 class CompassDocumentChunkAsset(BaseModel):
@@ -30,14 +30,15 @@ class CompassDocumentChunkAsset(BaseModel):
 class CompassDocumentChunk(BaseModel):
     chunk_id: str
     sort_id: str
-    doc_id: str
-    parent_doc_id: str
+    document_id: str
+    parent_document_id: str
     content: Dict[str, Any]
     origin: Optional[Dict[str, Any]] = None
     assets: Optional[list[CompassDocumentChunkAsset]] = None
+    path: Optional[str] = ""
 
     def parent_doc_is_split(self):
-        return self.doc_id != self.parent_doc_id
+        return self.document_id != self.parent_document_id
 
 
 class CompassDocumentStatus(str, Enum):
@@ -140,10 +141,13 @@ class DocumentChunkAsset(BaseModel):
 class Chunk(BaseModel):
     chunk_id: str
     sort_id: int
+    parent_document_id: str
+    path: str = ""
     content: Dict[str, Any]
     origin: Optional[Dict[str, Any]] = None
-    assets: Optional[list[DocumentChunkAsset]] = None
-    parent_doc_id: str
+    assets: Optional[List[DocumentChunkAsset]] = None
+    asset_ids: Optional[List[str]] = None
+    
 
 
 class Document(BaseModel):
@@ -151,12 +155,13 @@ class Document(BaseModel):
     A document that can be indexed in Compass (i.e., a list of indexable chunks)
     """
 
-    doc_id: str
+    document_id: str
     path: str
-    parent_doc_id: str
+    parent_document_id: str
     content: Dict[str, Any]
     chunks: List[Chunk]
-    index_fields: List[str] = field(default_factory=list)
+    index_fields: Optional[List[str]] = None
+    authorized_groups: Optional[List[str]] = None
 
 
 class ParseableDocument(BaseModel):
@@ -183,6 +188,6 @@ class PutDocumentsInput(BaseModel):
     A Compass request to put a list of Document
     """
 
-    docs: List[Document]
+    documents: List[Document]
     authorized_groups: Optional[List[str]] = None
     merge_groups_on_conflict: bool = False

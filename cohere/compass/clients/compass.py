@@ -128,12 +128,12 @@ class CompassClient:
             "create_index": "/api/v1/indexes/{index_name}",
             "list_indexes": "/api/v1/indexes",
             "delete_index": "/api/v1/indexes/{index_name}",
-            "delete_document": "/api/v1/indexes/{index_name}/documents/{doc_id}",
-            "get_document": "/api/v1/indexes/{index_name}/documents/{doc_id}",
+            "delete_document": "/api/v1/indexes/{index_name}/documents/{document_id}",
+            "get_document": "/api/v1/indexes/{index_name}/documents/{document_id}",
             "put_documents": "/api/v1/indexes/{index_name}/documents",
             "search_documents": "/api/v1/indexes/{index_name}/documents/_search",
             "search_chunks": "/api/v1/indexes/{index_name}/documents/_search_chunks",
-            "add_context": "/api/v1/indexes/{index_name}/documents/add_context/{doc_id}",
+            "add_context": "/api/v1/indexes/{index_name}/documents/add_context/{document_id}",
             "refresh": "/api/v1/indexes/{index_name}/_refresh",
             "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
             "edit_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",
@@ -185,31 +185,31 @@ class CompassClient:
             index_name=index_name,
         )
 
-    def delete_document(self, *, index_name: str, doc_id: str):
+    def delete_document(self, *, index_name: str, document_id: str):
         """
         Delete a document from Compass
         :param index_name: the name of the index
-        :doc_id: the id of the document
+        :document_id: the id of the document
         :return: the response from the Compass API
         """
         return self._send_request(
             api_name="delete_document",
-            doc_id=doc_id,
+            document_id=document_id,
             max_retries=DEFAULT_MAX_RETRIES,
             sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
             index_name=index_name,
         )
 
-    def get_document(self, *, index_name: str, doc_id: str):
+    def get_document(self, *, index_name: str, document_id: str):
         """
         Get a document from Compass
         :param index_name: the name of the index
-        :doc_id: the id of the document
+        :document_id: the id of the document
         :return: the response from the Compass API
         """
         return self._send_request(
             api_name="get_document",
-            doc_id=doc_id,
+            document_id=document_id,
             max_retries=DEFAULT_MAX_RETRIES,
             sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
             index_name=index_name,
@@ -231,7 +231,7 @@ class CompassClient:
         self,
         *,
         index_name: str,
-        doc_id: str,
+        document_id: str,
         context: dict[str, Any],
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
@@ -240,7 +240,7 @@ class CompassClient:
         Update the content field of an existing document with additional context
 
         :param index_name: the name of the index
-        :param doc_id: the document to modify
+        :param document_id: the document to modify
         :param context: A dictionary of key:value pairs to insert into the content field of a document
         :param max_retries: the maximum number of times to retry a doc insertion
         :param sleep_retry_seconds: number of seconds to go to sleep before retrying a doc insertion
@@ -248,7 +248,7 @@ class CompassClient:
 
         return self._send_request(
             api_name="add_context",
-            doc_id=doc_id,
+            document_id=document_id,
             data=context,
             max_retries=max_retries,
             sleep_retry_seconds=sleep_retry_seconds,
@@ -373,7 +373,7 @@ class CompassClient:
                 compass_doc for compass_doc, _ in request_data
             ]
             put_docs_input = PutDocumentsInput(
-                docs=[input_doc for _, input_doc in request_data],
+                documents=[input_doc for _, input_doc in request_data],
                 authorized_groups=authorized_groups,
                 merge_groups_on_conflict=merge_groups_on_conflict,
             )
@@ -401,7 +401,7 @@ class CompassClient:
                     )
                     errors.append(
                         {
-                            doc.metadata.doc_id: f"{doc.metadata.filename}: {results.error}"
+                            doc.metadata.document_id: f"{doc.metadata.filename}: {results.error}"
                         }
                     )
             else:
@@ -570,9 +570,9 @@ class CompassClient:
         num_chunks = 0
         for _, doc in enumerate(docs, 1):
             if doc.status != CompassDocumentStatus.Success:
-                logger.error(f"Document {doc.metadata.doc_id} has errors: {doc.errors}")
+                logger.error(f"Document {doc.metadata.document_id} has errors: {doc.errors}")
                 for error in doc.errors:
-                    errors.append({doc.metadata.doc_id: list(error.values())[0]})
+                    errors.append({doc.metadata.document_id: list(error.values())[0]})
             else:
                 num_chunks += (
                     len(doc.chunks)
@@ -588,8 +588,8 @@ class CompassClient:
                     (
                         doc,
                         Document(
-                            doc_id=doc.metadata.doc_id,
-                            parent_doc_id=doc.metadata.parent_doc_id,
+                            document_id=doc.metadata.document_id,
+                            parent_document_id=doc.metadata.parent_document_id,
                             path=doc.metadata.filename,
                             content=doc.content,
                             chunks=[Chunk(**c.model_dump()) for c in doc.chunks],
