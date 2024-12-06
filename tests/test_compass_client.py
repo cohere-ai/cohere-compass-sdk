@@ -32,7 +32,7 @@ def test_put_documents_payload_and_url_exist(requests_mock: Mocker):
         == "http://test.com/api/v1/indexes/test_index/documents"
     )
     assert requests_mock.request_history[0].method == "PUT"
-    assert "docs" in requests_mock.request_history[0].json()
+    assert "documents" in requests_mock.request_history[0].json()
 
 
 def test_put_document_payload_and_url_exist(requests_mock: Mocker):
@@ -43,7 +43,7 @@ def test_put_document_payload_and_url_exist(requests_mock: Mocker):
         == "http://test.com/api/v1/indexes/test_index/documents"
     )
     assert requests_mock.request_history[0].method == "PUT"
-    assert "docs" in requests_mock.request_history[0].json()
+    assert "documents" in requests_mock.request_history[0].json()
 
 
 def test_list_indices_is_valid(requests_mock: Mocker):
