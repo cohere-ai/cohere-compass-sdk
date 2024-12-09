@@ -14,7 +14,7 @@ class AssetInfo(BaseModel):
 class RetrievedChunk(BaseModel):
     chunk_id: str
     sort_id: int
-    parent_doc_id: str
+    parent_document_id: str
     content: Dict[str, Any]
     origin: Optional[Dict[str, Any]] = None
     assets_info: Optional[list[AssetInfo]] = None
@@ -22,9 +22,9 @@ class RetrievedChunk(BaseModel):
 
 
 class RetrievedDocument(BaseModel):
-    doc_id: str
+    document_id: str
     path: str
-    parent_doc_id: str
+    parent_document_id: str
     content: Dict[str, Any]
     index_fields: Optional[List[str]] = None
     authorized_groups: Optional[List[str]] = None
@@ -32,8 +32,8 @@ class RetrievedDocument(BaseModel):
     score: float
 
 
-class RetrieveChunkExtended(RetrievedChunk):
-    doc_id: str
+class RetrievedChunkExtended(RetrievedChunk):
+    document_id: str
     path: str
     index_fields: Optional[List[str]] = None
 
@@ -43,7 +43,7 @@ class SearchDocumentsResponse(BaseModel):
 
 
 class SearchChunksResponse(BaseModel):
-    hits: List[RetrieveChunkExtended]
+    hits: List[RetrievedChunkExtended]
 
 
 class SearchFilter(BaseModel):

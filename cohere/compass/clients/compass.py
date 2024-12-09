@@ -112,7 +112,7 @@ class CompassClient:
             "put_documents": self.session.put,
             "search_documents": self.session.post,
             "search_chunks": self.session.post,
-            "add_context": self.session.post,
+            "add_attributes": self.session.post,
             "refresh": self.session.post,
             "upload_documents": self.session.post,
             "edit_group_authorization": self.session.post,
@@ -133,7 +133,7 @@ class CompassClient:
             "put_documents": "/api/v1/indexes/{index_name}/documents",
             "search_documents": "/api/v1/indexes/{index_name}/documents/_search",
             "search_chunks": "/api/v1/indexes/{index_name}/documents/_search_chunks",
-            "add_context": "/api/v1/indexes/{index_name}/documents/add_context/{document_id}",
+            "add_attributes": "/api/v1/indexes/{index_name}/documents/{document_id}/_add_attributes",
             "refresh": "/api/v1/indexes/{index_name}/_refresh",
             "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
             "edit_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",
@@ -227,7 +227,7 @@ class CompassClient:
             index_name="",
         )
 
-    def add_context(
+    def add_attributes(
         self,
         *,
         index_name: str,
@@ -247,7 +247,7 @@ class CompassClient:
         """
 
         return self._send_request(
-            api_name="add_context",
+            api_name="add_attributes",
             document_id=document_id,
             data=context,
             max_retries=max_retries,
@@ -289,7 +289,7 @@ class CompassClient:
         filebytes: bytes,
         content_type: str,
         document_id: uuid.UUID,
-        context: Dict[str, Any] = {},
+        attributes: Dict[str, Any] = {},
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ) -> Optional[Union[str, Dict[str, Any]]]:
@@ -317,7 +317,7 @@ class CompassClient:
             content_type=content_type,
             content_length_bytes=len(filebytes),
             content_encoded_bytes=b64,
-            context=context,
+            attributes=attributes,
         )
 
         result = self._send_request(

@@ -34,6 +34,6 @@ class GroupAuthorizationActions(str, Enum):
 
 
 class GroupAuthorizationInput(BaseModel):
-    doc_ids: List[str]
+    document_ids: List[str]
     authorized_groups: List[str]
     action: GroupAuthorizationActions
