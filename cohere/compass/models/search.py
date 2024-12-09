@@ -32,7 +32,7 @@ class RetrievedDocument(BaseModel):
     score: float
 
 
-class RetrieveChunkExtended(RetrievedChunk):
+class RetrievedChunkExtended(RetrievedChunk):
     document_id: str
     path: str
     index_fields: Optional[List[str]] = None
@@ -43,7 +43,7 @@ class SearchDocumentsResponse(BaseModel):
 
 
 class SearchChunksResponse(BaseModel):
-    hits: List[RetrieveChunkExtended]
+    hits: List[RetrievedChunkExtended]
 
 
 class SearchFilter(BaseModel):
