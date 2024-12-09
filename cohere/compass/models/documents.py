@@ -175,7 +175,7 @@ class ParseableDocument(BaseModel):
     content_type: str
     content_length_bytes: PositiveInt  # File size must be a non-negative integer
     content_encoded_bytes: str  # Base64-encoded file contents
-    context: Dict[str, Any] = Field(default_factory=dict)
+    attributes: Dict[str, Any] = Field(default_factory=dict)
 
 
 class PushDocumentsInput(BaseModel):

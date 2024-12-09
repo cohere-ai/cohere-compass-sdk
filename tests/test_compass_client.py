@@ -73,14 +73,14 @@ def test_refresh_is_valid(requests_mock: Mocker):
     )
 
 
-def test_add_context_is_valid(requests_mock: Mocker):
+def test_add_attributes_is_valid(requests_mock: Mocker):
     compass = CompassClient(index_url="http://test.com")
-    compass.add_context(
+    compass.add_attributes(
         index_name="test_index", document_id="test_id", context={"fake": "context"}
     )
     assert requests_mock.request_history[0].method == "POST"
     assert (
         requests_mock.request_history[0].url
-        == "http://test.com/api/v1/indexes/test_index/documents/add_context/test_id"
+        == "http://test.com/api/v1/indexes/test_index/documents/test_id/_add_attributes"
     )
     assert requests_mock.request_history[0].body == b'{"fake": "context"}'
