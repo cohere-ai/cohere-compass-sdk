@@ -65,20 +65,7 @@ class RetryResult:
     error: Optional[str] = None
 
 
-_DEFAULT_TIMEOUT = 30
-
-
 logger = logging.getLogger(__name__)
-
-
-class SessionWithDefaultTimeout(requests.Session):
-    def __init__(self, timeout: int):
-        self._timeout = timeout
-        super().__init__()
-
-    def request(self, *args: Any, **kwargs: Any):
-        kwargs.setdefault("timeout", self._timeout)
-        return super().request(*args, **kwargs)
 
 
 class CompassClient:
@@ -89,7 +76,7 @@ class CompassClient:
         username: Optional[str] = None,
         password: Optional[str] = None,
         bearer_token: Optional[str] = None,
-        default_timeout: int = _DEFAULT_TIMEOUT,
+        http_session: Optional[requests.Session] = None,
     ):
         """
         A compass client to interact with the Compass API
@@ -100,7 +87,7 @@ class CompassClient:
         self.index_url = index_url
         self.username = username or os.getenv("COHERE_COMPASS_USERNAME")
         self.password = password or os.getenv("COHERE_COMPASS_PASSWORD")
-        self.session = SessionWithDefaultTimeout(default_timeout)
+        self.session = http_session or requests.Session()
         self.bearer_token = bearer_token
 
         self.api_method = {
