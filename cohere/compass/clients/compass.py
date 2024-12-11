@@ -729,7 +729,7 @@ class CompassClient:
                     raise CompassAuthError(message=str(e))
                 elif 400 <= e.response.status_code < 500:
                     error = f"Client error occurred: {e.response.text}"
-                    raise CompassClientError(message=error)
+                    raise CompassClientError(message=error, code=e.response.status_code)
                 else:
                     error = str(e) + " " + e.response.text
                     logger.error(

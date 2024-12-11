@@ -1,8 +1,10 @@
+
 class CompassClientError(Exception):
     """Exception raised for all 4xx client errors in the Compass client."""
 
-    def __init__(self, message: str = "Client error occurred."):
+    def __init__(self, message: str = "Client error occurred.", code: int = 400):
         self.message = message
+        self.code = code
         super().__init__(self.message)
 
 
