@@ -55,4 +55,4 @@ class DocumentStatus(pydantic.BaseModel):
     state: str
     destinations: typing.List[str]
     created_at: datetime.datetime
-    updated_at: typing.Optional[datetime.datetime]
+    updated_at: typing.Optional[datetime.datetime] = None
