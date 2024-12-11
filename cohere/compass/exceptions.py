@@ -1,4 +1,3 @@
-
 class CompassClientError(Exception):
     """Exception raised for all 4xx client errors in the Compass client."""
 
