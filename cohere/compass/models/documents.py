@@ -147,6 +147,7 @@ class CompassDocument(ValidatedModel):
 
 
 class DocumentChunkAsset(BaseModel):
+    asset_type: AssetType
     content_type: str
     asset_data: str
 
