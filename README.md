@@ -120,3 +120,13 @@ when you commit your changes locally:
 ```bash
 pip install pre-commit
 ```
+
+## Running tests locally
+To run tests locally you'll have to install some testing dependencies:
+`pip install pytest pytest-asyncio pytest-mock requests-mock`
+
+And install the project locally:
+`pip install -e .`
+
+Then you can run the tests with:
+`pytest -sv tests/test_compass_client.py`
