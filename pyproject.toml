@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "compass-sdk"
-version = "0.9.1"
+version = "0.9.4"
 authors = []
 description = "Compass SDK"
 readme = "README.md"
 packages = [{include = "cohere"}]
 
 [tool.poetry.dependencies]
-fsspec = "^2024.10.0"
+fsspec = ">=2024.9.0"
 joblib = "1.4.2"
 pydantic = ">=2.6.3"
 python = ">=3.9,<4.0"
