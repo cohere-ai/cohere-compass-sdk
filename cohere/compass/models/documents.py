@@ -22,7 +22,20 @@ class CompassDocumentMetadata(ValidatedModel):
     parent_document_id: str = ""
 
 
+class AssetType(str, Enum):
+    def __str__(self) -> str:
+        return self.value
+
+    # A page that has been rendered as an image
+    PAGE_IMAGE = "page_image"
+    # A Markdown representation of a page's content
+    PAGE_MARKDOWN = "page_markdown"
+    # A dump of the text extracted from a document
+    DOCUMENT_TEXT = "document_text"
+
+
 class CompassDocumentChunkAsset(BaseModel):
+    asset_type: AssetType
     content_type: str
     asset_data: str
 
@@ -134,6 +147,7 @@ class CompassDocument(ValidatedModel):
 
 
 class DocumentChunkAsset(BaseModel):
+    asset_type: AssetType
     content_type: str
     asset_data: str
 
