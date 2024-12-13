@@ -5,11 +5,8 @@ from typing import Any, Dict, List, Optional
 # 3rd party imports
 from pydantic import BaseModel
 
-from cohere.compass.models.documents import AssetType
-
 
 class AssetInfo(BaseModel):
-    asset_type: AssetType
     content_type: str
     presigned_url: str
 
