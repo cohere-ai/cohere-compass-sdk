@@ -1,12 +1,14 @@
 # Python imports
 from enum import Enum
 from typing import Any, Dict, List, Optional
+from cohere.compass.models.documents import AssetType
 
 # 3rd party imports
 from pydantic import BaseModel
 
 
 class AssetInfo(BaseModel):
+    asset_type: AssetType
     content_type: str
     presigned_url: str
 
