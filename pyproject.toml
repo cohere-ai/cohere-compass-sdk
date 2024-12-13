@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "compass-sdk"
-version = "0.9.3"
+version = "0.9.4"
 authors = []
 description = "Compass SDK"
 readme = "README.md"
