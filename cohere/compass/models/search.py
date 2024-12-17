@@ -1,55 +1,72 @@
 # Python imports
 from enum import Enum
-from typing import Any, Dict, List, Optional
-from cohere.compass.models.documents import AssetType
+from typing import Any, Optional
 
 # 3rd party imports
 from pydantic import BaseModel
 
+from cohere.compass.models.documents import AssetType
+
 
 class AssetInfo(BaseModel):
+    """Information about an asset."""
+
     asset_type: AssetType
     content_type: str
     presigned_url: str
 
 
 class RetrievedChunk(BaseModel):
+    """Chunk of a document retrieved from search."""
+
     chunk_id: str
     sort_id: int
     parent_document_id: str
-    content: Dict[str, Any]
-    origin: Optional[Dict[str, Any]] = None
+    content: dict[str, Any]
+    origin: Optional[dict[str, Any]] = None
     assets_info: Optional[list[AssetInfo]] = None
     score: float
 
 
 class RetrievedDocument(BaseModel):
+    """Document retrieved from search."""
+
     document_id: str
     path: str
     parent_document_id: str
-    content: Dict[str, Any]
-    index_fields: Optional[List[str]] = None
-    authorized_groups: Optional[List[str]] = None
-    chunks: List[RetrievedChunk]
+    content: dict[str, Any]
+    index_fields: Optional[list[str]] = None
+    authorized_groups: Optional[list[str]] = None
+    chunks: list[RetrievedChunk]
     score: float
 
 
 class RetrievedChunkExtended(RetrievedChunk):
+    """Additional information about a chunk retrieved from search."""
+
     document_id: str
     path: str
-    index_fields: Optional[List[str]] = None
+    index_fields: Optional[list[str]] = None
 
 
 class SearchDocumentsResponse(BaseModel):
-    hits: List[RetrievedDocument]
+    """Response object for search_documents API."""
+
+    hits: list[RetrievedDocument]
 
 
 class SearchChunksResponse(BaseModel):
-    hits: List[RetrievedChunkExtended]
+    """Response object for search_chunks API."""
+
+    hits: list[RetrievedChunkExtended]
 
 
 class SearchFilter(BaseModel):
+    """Filter to apply on search results."""
+
     class FilterType(str, Enum):
+        """Types of filters supported."""
+
         EQ = "$eq"
         LT_EQ = "$lte"
         GT_EQ = "$gte"
@@ -61,10 +78,8 @@ class SearchFilter(BaseModel):
 
 
 class SearchInput(BaseModel):
-    """
-    Search query input
-    """
+    """Input to search APIs."""
 
     query: str
     top_k: int
-    filters: Optional[List[SearchFilter]] = None
+    filters: Optional[list[SearchFilter]] = None

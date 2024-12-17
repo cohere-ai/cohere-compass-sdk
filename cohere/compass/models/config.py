@@ -1,8 +1,8 @@
 # Python imports
+import math
 from enum import Enum
 from os import getenv
-from typing import Any, List, Optional
-import math
+from typing import Any, Optional
 
 # 3rd party imports
 from pydantic import BaseModel, ConfigDict
@@ -24,6 +24,8 @@ from cohere.compass.models import ValidatedModel
 
 
 class DocumentFormat(str, Enum):
+    """Enum for specifying the output format of the parsed document."""
+
     Markdown = "markdown"
     Text = "text"
 
@@ -33,6 +35,8 @@ class DocumentFormat(str, Enum):
 
 
 class PDFParsingStrategy(str, Enum):
+    """Enum for specifying the parsing strategy for PDF files."""
+
     QuickText = "QuickText"
     ImageToMarkdown = "ImageToMarkdown"
 
@@ -42,6 +46,8 @@ class PDFParsingStrategy(str, Enum):
 
 
 class PresentationParsingStrategy(str, Enum):
+    """Enum for specifying the parsing strategy for presentation files."""
+
     Unstructured = "Unstructured"
     ImageToMarkdown = "ImageToMarkdown"
 
@@ -51,6 +57,8 @@ class PresentationParsingStrategy(str, Enum):
 
 
 class ParsingStrategy(str, Enum):
+    """Enum for specifying the parsing strategy to use."""
+
     Fast = "fast"
     Hi_Res = "hi_res"
 
@@ -60,10 +68,13 @@ class ParsingStrategy(str, Enum):
 
 
 class ParsingModel(str, Enum):
-    Marker = "marker"  # Default model, it is actually a combination of models used by the Marker PDF parser
-    YoloX_Quantized = (
-        "yolox_quantized"  # Only PDF parsing working option from Unstructured
-    )
+    """Enum for specifying the parsing model to use."""
+
+    # Default model, which is actually a combination of models used by the "Marker" PDF
+    # parser
+    Marker = "marker"
+    # Only PDF parsing working option from Unstructured
+    YoloX_Quantized = "yolox_quantized"
 
     @classmethod
     def _missing_(cls, value: Any):
@@ -72,22 +83,26 @@ class ParsingModel(str, Enum):
 
 class ParserConfig(BaseModel):
     """
-    CompassParser configuration. Important parameters:
+    A model class for specifying parsing configuration.
+
+    Important parameters:
+
     :param parsing_strategy: the parsing strategy to use:
         - 'auto' (default): automatically determine the best strategy
         - 'fast': leverage traditional NLP extraction techniques to quickly pull all the
-         text elements. “Fast” strategy is not good for image based file types.
-        - 'hi_res': identifies the layout of the document using detectron2. The advantage of “hi_res”
-         is that it uses the document layout to gain additional information about document elements.
-         We recommend using this strategy if your use case is highly sensitive to correct
-         classifications for document elements.
-        - 'ocr_only': leverage Optical Character Recognition to extract text from the image based files.
+          text elements. “Fast” strategy is not good for image based file types.
+        - 'hi_res': identifies the layout of the document using detectron2. The
+          advantage of “hi_res” is that it uses the document layout to gain additional
+          information about document elements.  We recommend using this strategy if your
+          use case is highly sensitive to correct classifications for document elements.
+        - 'ocr_only': leverage Optical Character Recognition to extract text from the
+          image based files.
     :param parsing_model: the parsing model to use. One of:
-        - yolox_quantized (default): single-stage object detection model, quantized. Runs faster than YoloX
-        See https://unstructured-io.github.io/unstructured/best_practices/models.html for more details.
-        We have temporarily removed the option to use other models because
-        of ongoing stability issues.
-
+        - yolox_quantized (default): single-stage object detection model, quantized.
+          Runs faster than YoloX. See
+          https://unstructured-io.github.io/unstructured/best_practices/models.html for
+          more details. We have temporarily removed the option to use other models
+          because of ongoing stability issues.
     """
 
     model_config = ConfigDict(
@@ -99,9 +114,9 @@ class ParserConfig(BaseModel):
     parse_tables: bool = True
     parse_images: bool = True
     parsed_images_output_dir: Optional[str] = None
-    allowed_image_types: Optional[List[str]] = None
+    allowed_image_types: Optional[list[str]] = None
     min_chars_per_element: int = DEFAULT_MIN_CHARS_PER_ELEMENT
-    skip_infer_table_types: List[str] = SKIP_INFER_TABLE_TYPES
+    skip_infer_table_types: list[str] = SKIP_INFER_TABLE_TYPES
     parsing_strategy: ParsingStrategy = ParsingStrategy.Fast
     parsing_model: ParsingModel = ParsingModel.YoloX_Quantized
 
@@ -128,6 +143,8 @@ class ParserConfig(BaseModel):
 
 
 class MetadataStrategy(str, Enum):
+    """Enum for specifying the strategy for metadata detection."""
+
     No_Metadata = "no_metadata"
     Naive_Title = "naive_title"
     KeywordSearch = "keyword_search"
@@ -142,20 +159,27 @@ class MetadataStrategy(str, Enum):
 
 class MetadataConfig(ValidatedModel):
     """
-    Configuration class for metadata detection.
+    A model class for specifying configuration related to document metadata detection.
+
     :param metadata_strategy: the metadata detection strategy to use. One of:
         - No_Metadata: no metadata is inferred
         - Heuristics: metadata is inferred using heuristics
         - Bart: metadata is inferred using the BART summarization model
         - Command_R: metadata is inferred using the Command-R summarization model
     :param cohere_api_key: the Cohere API key to use for metadata detection
-    :param commandr_model_name: the name of the Command-R model to use for metadata detection
+    :param commandr_model_name: the name of the Command-R model to use for metadata
+    detection
     :param commandr_prompt: the prompt to use for the Command-R model
-    :param commandr_extractable_attributes: the extractable attributes for the Command-R model
-    :param commandr_max_tokens: the maximum number of tokens to use for the Command-R model
-    :param keyword_search_attributes: the attributes to search for in the document when using keyword search
-    :param keyword_search_separator: the separator to use for nested attributes when using keyword search
-    :param ignore_errors: if set to True, metadata detection errors will not be raised or stop the parsing process
+    :param commandr_extractable_attributes: the extractable attributes for the Command-R
+        model
+    :param commandr_max_tokens: the maximum number of tokens to use for the Command-R
+        model
+    :param keyword_search_attributes: the attributes to search for in the document when
+        using keyword search
+    :param keyword_search_separator: the separator to use for nested attributes when
+        using keyword search
+    :param ignore_errors: if set to True, metadata detection errors will not be raised
+        or stop the parsing process
 
     """
 
@@ -164,7 +188,7 @@ class MetadataConfig(ValidatedModel):
     commandr_model_name: str = "command-r"
     commandr_prompt: str = DEFAULT_COMMANDR_PROMPT
     commandr_max_tokens: int = 500
-    commandr_extractable_attributes: List[str] = DEFAULT_COMMANDR_EXTRACTABLE_ATTRIBUTES
-    keyword_search_attributes: List[str] = METADATA_HEURISTICS_ATTRIBUTES
+    commandr_extractable_attributes: list[str] = DEFAULT_COMMANDR_EXTRACTABLE_ATTRIBUTES
+    keyword_search_attributes: list[str] = METADATA_HEURISTICS_ATTRIBUTES
     keyword_search_separator: str = "."
     ignore_errors: bool = True

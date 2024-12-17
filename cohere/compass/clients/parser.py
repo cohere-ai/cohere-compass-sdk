@@ -1,9 +1,10 @@
 # Python imports
-from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 import json
 import logging
 import os
+from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Callable, Optional, Union
 
 # 3rd party imports
 import requests
@@ -20,7 +21,7 @@ from cohere.compass.models import (
 )
 from cohere.compass.utils import imap_queued, open_document, scan_folder
 
-Fn_or_Dict = Union[Dict[str, Any], Callable[[CompassDocument], Dict[str, Any]]]
+Fn_or_Dict = Union[dict[str, Any], Callable[[CompassDocument], dict[str, Any]]]
 
 
 logger = logging.getLogger(__name__)
@@ -28,20 +29,20 @@ logger = logging.getLogger(__name__)
 
 class CompassParserClient:
     """
-    Client to interact with the CompassParser API. It allows to process files using the
-    parser and metadata configurations specified in the parameters. The client is
-    stateful, that is, it can be initialized with parser and metadata configurations
-    that will be used for all subsequent files processed by the client.  Also,
-    independently of the default configurations, the client allows to pass specific
-    configurations for each file when calling the process_file or process_files methods.
-    The client is responsible for opening the files and sending them to the
-    CompassParser API for processing. The resulting documents are returned as
-    CompassDocument objects.
+    Client to interact with the CompassParser API.
+
+    It allows to process files using the parser and metadata configurations specified in
+    the parameters. The client is stateful, that is, it can be initialized with parser
+    and metadata configurations that will be used for all subsequent files processed by
+    the client.  Also, independently of the default configurations, the client allows to
+    pass specific configurations for each file when calling the process_file or
+    process_files methods.  The client is responsible for opening the files and sending
+    them to the CompassParser API for processing. The resulting documents are returned
+    as CompassDocument objects.
 
     :param parser_url: URL of the CompassParser API
     :param parser_config: Default parser configuration to use when processing files
     :param metadata_config: Default metadata configuration to use when processing files
-
     """
 
     def __init__(
@@ -55,12 +56,13 @@ class CompassParserClient:
         num_workers: int = 4,
     ):
         """
-        Initializes the CompassParserClient with the specified parser_url,
-        parser_config, and metadata_config.  The parser_config and metadata_config are
-        optional, and if not provided, the default configurations will be used.  If the
-        parser/metadata configs are provided, they will be used for all subsequent files
-        processed by the client unless specific configs are passed when calling the
-        process_file or process_files methods.
+        Initialize the CompassParserClient.
+
+        The parser_config and metadata_config are optional, and if not provided, the
+        default configurations will be used. If the parser/metadata configs are
+        provided, they will be used for all subsequent files processed by the client
+        unless specific configs are passed when calling the process_file or
+        process_files methods.
 
         :param parser_url: the URL of the CompassParser API
         :param parser_config: the parser configuration to use when processing files if
@@ -89,18 +91,19 @@ class CompassParserClient:
         self,
         *,
         folder_path: str,
-        allowed_extensions: Optional[List[str]] = None,
+        allowed_extensions: Optional[list[str]] = None,
         recursive: bool = False,
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
         custom_context: Optional[Fn_or_Dict] = None,
     ):
         """
-        Processes all the files in the specified folder using the default parser and
-        metadata configurations passed when creating the client. The method iterates
-        over all the files in the folder and processes them using the process_file
-        method. The resulting documents are returned as a list of CompassDocument
-        objects.
+        Process all the files in the specified folder.
+
+        The files are processed using the default parser and metadata configurations
+        passed when creating the client. The method iterates over all the files in the
+        folder and processes them using the process_file method. The resulting documents
+        are returned as a list of CompassDocument objects.
 
         :param folder_path: the folder to process
         :param allowed_extensions: the list of allowed extensions to process
@@ -115,7 +118,7 @@ class CompassParserClient:
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
 
-        :return: the list of processed documents
+        :returns: the list of processed documents
         """
         filenames = scan_folder(
             folder_path=folder_path,
@@ -132,15 +135,14 @@ class CompassParserClient:
     def process_files(
         self,
         *,
-        filenames: List[str],
-        file_ids: Optional[List[str]] = None,
+        filenames: list[str],
+        file_ids: Optional[list[str]] = None,
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
         custom_context: Optional[Fn_or_Dict] = None,
     ) -> Iterable[CompassDocument]:
         """
-        Processes a list of files provided as filenames, using the specified parser and
-        metadata configurations.
+        Process a list of files.
 
         If the parser/metadata configs are not provided, then the default configs passed
         by parameter when creating the client will be used. This makes the
@@ -151,7 +153,7 @@ class CompassParserClient:
         All the documents passed as filenames and opened to obtain their bytes. Then,
         they are packed into a ProcessFilesParameters object that contains a list of
         ProcessFileParameters, each contain a file, its id, and the parser/metadata
-        config
+        config.
 
         :param filenames: List of filenames to process
         :param file_ids: List of ids for the files
@@ -162,10 +164,10 @@ class CompassParserClient:
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
 
-        :return: List of processed documents
+        :returns: List of processed documents
         """
 
-        def process_file(i: int) -> List[CompassDocument]:
+        def process_file(i: int) -> list[CompassDocument]:
             return self.process_file(
                 filename=filenames[i],
                 file_id=file_ids[i] if file_ids else None,
@@ -185,7 +187,7 @@ class CompassParserClient:
     @staticmethod
     def _get_metadata(
         doc: CompassDocument, custom_context: Optional[Fn_or_Dict] = None
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if custom_context is None:
             return {}
         elif callable(custom_context):
@@ -202,35 +204,39 @@ class CompassParserClient:
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
         custom_context: Optional[Fn_or_Dict] = None,
-    ) -> List[CompassDocument]:
+    ) -> list[CompassDocument]:
         """
-        Takes in a file, its id, and the parser/metadata config. If the config is None,
-        then it uses the default configs passed by parameter when creating the client.
-        This makes the CompassParserClient stateful for convenience, that is, one can
-        pass in the parser/metadata config only once when creating the
-        CompassParserClient, and process files without having to pass the config every
-        time
+        Process a file.
 
-        :param filename: Filename to process
-        :param file_id: Id for the file
-        :param content_type: Content type of the file
-        :param parser_config: ParserConfig object with the config to use for parsing the file
+        The method takes in a file, its id, and the parser/metadata config. If the
+        config is None, then it uses the default configs passed by parameter when
+        creating the client.  This makes the CompassParserClient stateful for
+        convenience, that is, one can pass in the parser/metadata config only once when
+        creating the CompassParserClient, and process files without having to pass the
+        config every time.
+
+        :param filename: Filename to process.
+        :param file_id: Id for the file.
+        :param content_type: Content type of the file.
+        :param parser_config: ParserConfig object with the config to use for parsing the
+            file.
         :param metadata_config: MetadataConfig object with the config to use for
-            extracting metadata for each document
+            extracting metadata for each document.
         :param custom_context: Additional data to add to compass document. Fields will
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
 
-        :return: List of resulting documents
+        :returns: List of resulting documents
         """
         doc = open_document(filename)
         if doc.errors:
             logger.error(f"Error opening document: {doc.errors}")
             return []
         if len(doc.filebytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
+            max_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
             logger.error(
-                f"File too large, supported file size is {DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000} "
-                f"mb, filename {doc.metadata.filename}"
+                f"File too large, supported file size is {max_size_mb} mb, "
+                f"filename {doc.metadata.filename}"
             )
             return []
 
@@ -270,11 +276,7 @@ class CompassParserClient:
         return docs
 
     @staticmethod
-    def _adapt_doc_id_compass_doc(doc: Dict[Any, Any]) -> CompassDocument:
-        """
-        Adapt the doc_id to document_id
-        """
-
+    def _adapt_doc_id_compass_doc(doc: dict[Any, Any]) -> CompassDocument:
         metadata = doc["metadata"]
         if "document_id" not in metadata:
             metadata["document_id"] = metadata.pop("doc_id")
