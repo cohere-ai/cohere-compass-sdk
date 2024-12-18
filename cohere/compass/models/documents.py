@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Annotated, Any, Optional
 
 # 3rd party imports
-from pydantic import BaseModel, Field, PositiveInt, StringConstraints
+from pydantic import BaseModel, ConfigDict, PositiveInt, StringConstraints
 
 # Local imports
 from cohere.compass.models import ValidatedModel
@@ -195,6 +195,19 @@ class Document(BaseModel):
     authorized_groups: Optional[list[str]] = None
 
 
+class DocumentAttributes(BaseModel):
+    """Model class for document attributes."""
+
+    model_config = ConfigDict(extra="allow")
+
+    # Had to add this to please the linter, because BaseModel only defines __setattr__
+    # if TYPE_CHECKING is not set, i.e. at runtime, resulting in the type checking pass
+    # done by the linter failing to find the __setattr__ method. See:
+    # https://github.com/pydantic/pydantic/blob/main/pydantic/main.py#L878-L920
+    def __setattr__(self, name: str, value: Any):  # noqa: D105
+        return super().__setattr__(name, value)
+
+
 class ParseableDocument(BaseModel):
     """A document to be sent to Compass for parsing."""
 
@@ -205,7 +218,7 @@ class ParseableDocument(BaseModel):
     content_type: str
     content_length_bytes: PositiveInt  # File size must be a non-negative integer
     content_encoded_bytes: str  # Base64-encoded file contents
-    attributes: dict[str, Any] = Field(default_factory=dict)
+    attributes: DocumentAttributes
 
 
 class UploadDocumentsInput(BaseModel):

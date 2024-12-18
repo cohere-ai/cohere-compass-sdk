@@ -59,6 +59,7 @@ from cohere.compass.models import (
     UploadDocumentsInput,
 )
 from cohere.compass.models.datasources import PaginatedList
+from cohere.compass.models.documents import DocumentAttributes
 
 
 @dataclass
@@ -242,7 +243,7 @@ class CompassClient:
         *,
         index_name: str,
         document_id: str,
-        context: dict[str, Any],
+        attributes: DocumentAttributes,
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ) -> Optional[RetryResult]:
@@ -251,8 +252,7 @@ class CompassClient:
 
         :param index_name: the name of the index
         :param document_id: the document to modify
-        :param context: A dictionary of key-value pairs to insert into the content field
-            of a document
+        :param attributes: the attributes to add to the document
         :param max_retries: the maximum number of times to retry a doc insertion
         :param sleep_retry_seconds: number of seconds to go to sleep before retrying a
             doc insertion
@@ -260,7 +260,7 @@ class CompassClient:
         return self._send_request(
             api_name="add_attributes",
             document_id=document_id,
-            data=context,
+            data=attributes,
             max_retries=max_retries,
             sleep_retry_seconds=sleep_retry_seconds,
             index_name=index_name,
@@ -301,7 +301,7 @@ class CompassClient:
         filebytes: bytes,
         content_type: str,
         document_id: uuid.UUID,
-        attributes: dict[str, Any] = {},
+        attributes: DocumentAttributes = DocumentAttributes(),
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ) -> Optional[Union[str, dict[str, Any]]]:
@@ -766,7 +766,7 @@ class CompassClient:
         api_name: str,
         max_retries: int,
         sleep_retry_seconds: int,
-        data: Optional[Union[dict[str, Any], BaseModel]] = None,
+        data: Optional[BaseModel] = None,
         **url_params: str,
     ) -> RetryResult:
         """
@@ -794,12 +794,7 @@ class CompassClient:
             nonlocal error
 
             try:
-                data_dict = None
-                if data:
-                    if isinstance(data, BaseModel):
-                        data_dict = data.model_dump(mode="json")
-                    else:
-                        data_dict = data
+                data_dict = data.model_dump(mode="json") if data else None
 
                 headers = None
                 auth = None
