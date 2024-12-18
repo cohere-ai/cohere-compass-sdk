@@ -39,6 +39,7 @@ from cohere.compass.constants import (
 from cohere.compass.exceptions import (
     CompassAuthError,
     CompassClientError,
+    CompassError,
     CompassMaxErrorRateExceeded,
 )
 from cohere.compass.models import (
@@ -59,6 +60,7 @@ from cohere.compass.models import (
     UploadDocumentsInput,
 )
 from cohere.compass.models.datasources import PaginatedList
+from cohere.compass.models.documents import DocumentAttributes, PutDocumentsResponse
 
 
 @dataclass
@@ -117,7 +119,7 @@ class CompassClient:
             "add_attributes": self.session.post,
             "refresh": self.session.post,
             "upload_documents": self.session.post,
-            "edit_group_authorization": self.session.post,
+            "update_group_authorization": self.session.post,
             # Data Sources APIs
             "create_datasource": self.session.post,
             "list_datasources": self.session.get,
@@ -138,7 +140,7 @@ class CompassClient:
             "add_attributes": "/api/v1/indexes/{index_name}/documents/{document_id}/_add_attributes",  # noqa: E501
             "refresh": "/api/v1/indexes/{index_name}/_refresh",
             "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
-            "edit_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",  # noqa: E501
+            "update_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",  # noqa: E501
             # Data Sources APIs
             "create_datasource": "/api/v1/datasources",
             "list_datasources": "/api/v1/datasources",
@@ -162,7 +164,7 @@ class CompassClient:
             index_name=index_name,
         )
 
-    def refresh(self, *, index_name: str):
+    def refresh_index(self, *, index_name: str):
         """
         Refresh index.
 
@@ -242,7 +244,7 @@ class CompassClient:
         *,
         index_name: str,
         document_id: str,
-        context: dict[str, Any],
+        attributes: DocumentAttributes,
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ) -> Optional[RetryResult]:
@@ -251,8 +253,7 @@ class CompassClient:
 
         :param index_name: the name of the index
         :param document_id: the document to modify
-        :param context: A dictionary of key-value pairs to insert into the content field
-            of a document
+        :param attributes: the attributes to add to the document
         :param max_retries: the maximum number of times to retry a doc insertion
         :param sleep_retry_seconds: number of seconds to go to sleep before retrying a
             doc insertion
@@ -260,7 +261,7 @@ class CompassClient:
         return self._send_request(
             api_name="add_attributes",
             document_id=document_id,
-            data=context,
+            data=attributes,
             max_retries=max_retries,
             sleep_retry_seconds=sleep_retry_seconds,
             index_name=index_name,
@@ -301,7 +302,7 @@ class CompassClient:
         filebytes: bytes,
         content_type: str,
         document_id: uuid.UUID,
-        attributes: dict[str, Any] = {},
+        attributes: DocumentAttributes = DocumentAttributes(),
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ) -> Optional[Union[str, dict[str, Any]]]:
@@ -744,29 +745,32 @@ class CompassClient:
 
         return SearchChunksResponse.model_validate(result.result)
 
-    def edit_group_authorization(
+    def update_group_authorization(
         self, *, index_name: str, group_auth_input: GroupAuthorizationInput
-    ):
+    ) -> PutDocumentsResponse:
         """
         Edit group authorization for an index.
 
         :param index_name: the name of the index
         :param group_auth_input: the group authorization input
         """
-        return self._send_request(
-            api_name="edit_group_authorization",
+        result = self._send_request(
+            api_name="update_group_authorization",
             index_name=index_name,
             data=group_auth_input,
             max_retries=DEFAULT_MAX_RETRIES,
             sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
         )
+        if result.error:
+            raise CompassError(result.error)
+        return PutDocumentsResponse.model_validate(result.result)
 
     def _send_request(
         self,
         api_name: str,
         max_retries: int,
         sleep_retry_seconds: int,
-        data: Optional[Union[dict[str, Any], BaseModel]] = None,
+        data: Optional[BaseModel] = None,
         **url_params: str,
     ) -> RetryResult:
         """
@@ -794,12 +798,7 @@ class CompassClient:
             nonlocal error
 
             try:
-                data_dict = None
-                if data:
-                    if isinstance(data, BaseModel):
-                        data_dict = data.model_dump(mode="json")
-                    else:
-                        data_dict = data
+                data_dict = data.model_dump(mode="json") if data else None
 
                 headers = None
                 auth = None

@@ -12,7 +12,7 @@ from cohere.compass.models import (
     ValidatedModel,
 )
 
-__version__ = "0.10.2"
+__version__ = "0.11.0"
 
 
 class ProcessFileParameters(ValidatedModel):
@@ -33,14 +33,14 @@ class ProcessFilesParameters(ValidatedModel):
 
 
 class GroupAuthorizationActions(str, Enum):
-    """Enum for use with the edit_group_authorization API to specify the edit type."""
+    """Enum for use with the update_group_authorization API to specify the edit type."""
 
     ADD = "add"
     REMOVE = "remove"
 
 
 class GroupAuthorizationInput(BaseModel):
-    """Model for use with the edit_group_authorization API."""
+    """Model for use with the update_group_authorization API."""
 
     document_ids: list[str]
     authorized_groups: list[str]

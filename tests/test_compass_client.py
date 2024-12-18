@@ -2,6 +2,7 @@ from requests_mock import Mocker
 
 from cohere.compass.clients import CompassClient
 from cohere.compass.models import CompassDocument
+from cohere.compass.models.documents import DocumentAttributes
 
 
 def test_delete_url_formatted_with_doc_and_index(requests_mock: Mocker):
@@ -65,7 +66,7 @@ def test_get_documents_is_valid(requests_mock: Mocker):
 
 def test_refresh_is_valid(requests_mock: Mocker):
     compass = CompassClient(index_url="http://test.com")
-    compass.refresh(index_name="test_index")
+    compass.refresh_index(index_name="test_index")
     assert requests_mock.request_history[0].method == "POST"
     assert (
         requests_mock.request_history[0].url
@@ -74,9 +75,13 @@ def test_refresh_is_valid(requests_mock: Mocker):
 
 
 def test_add_attributes_is_valid(requests_mock: Mocker):
+    attrs = DocumentAttributes()
+    attrs.fake = "context"
     compass = CompassClient(index_url="http://test.com")
     compass.add_attributes(
-        index_name="test_index", document_id="test_id", context={"fake": "context"}
+        index_name="test_index",
+        document_id="test_id",
+        attributes=attrs,
     )
     assert requests_mock.request_history[0].method == "POST"
     assert (

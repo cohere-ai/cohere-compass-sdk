@@ -1,4 +1,10 @@
-class CompassClientError(Exception):
+class CompassError(Exception):
+    """Base class for all exceptions raised by the Compass client."""
+
+    pass
+
+
+class CompassClientError(CompassError):
     """Exception raised for all 4xx client errors in the Compass client."""
 
     def __init__(  # noqa: D107
