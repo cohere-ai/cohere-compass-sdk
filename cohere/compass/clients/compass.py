@@ -39,6 +39,7 @@ from cohere.compass.constants import (
 from cohere.compass.exceptions import (
     CompassAuthError,
     CompassClientError,
+    CompassError,
     CompassMaxErrorRateExceeded,
 )
 from cohere.compass.models import (
@@ -59,7 +60,7 @@ from cohere.compass.models import (
     UploadDocumentsInput,
 )
 from cohere.compass.models.datasources import PaginatedList
-from cohere.compass.models.documents import DocumentAttributes
+from cohere.compass.models.documents import DocumentAttributes, PutDocumentsResponse
 
 
 @dataclass
@@ -118,7 +119,7 @@ class CompassClient:
             "add_attributes": self.session.post,
             "refresh": self.session.post,
             "upload_documents": self.session.post,
-            "edit_group_authorization": self.session.post,
+            "update_group_authorization": self.session.post,
             # Data Sources APIs
             "create_datasource": self.session.post,
             "list_datasources": self.session.get,
@@ -139,7 +140,7 @@ class CompassClient:
             "add_attributes": "/api/v1/indexes/{index_name}/documents/{document_id}/_add_attributes",  # noqa: E501
             "refresh": "/api/v1/indexes/{index_name}/_refresh",
             "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
-            "edit_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",  # noqa: E501
+            "update_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",  # noqa: E501
             # Data Sources APIs
             "create_datasource": "/api/v1/datasources",
             "list_datasources": "/api/v1/datasources",
@@ -163,7 +164,7 @@ class CompassClient:
             index_name=index_name,
         )
 
-    def refresh(self, *, index_name: str):
+    def refresh_index(self, *, index_name: str):
         """
         Refresh index.
 
@@ -744,22 +745,25 @@ class CompassClient:
 
         return SearchChunksResponse.model_validate(result.result)
 
-    def edit_group_authorization(
+    def update_group_authorization(
         self, *, index_name: str, group_auth_input: GroupAuthorizationInput
-    ):
+    ) -> PutDocumentsResponse:
         """
         Edit group authorization for an index.
 
         :param index_name: the name of the index
         :param group_auth_input: the group authorization input
         """
-        return self._send_request(
-            api_name="edit_group_authorization",
+        result = self._send_request(
+            api_name="update_group_authorization",
             index_name=index_name,
             data=group_auth_input,
             max_retries=DEFAULT_MAX_RETRIES,
             sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
         )
+        if result.error:
+            raise CompassError(result.error)
+        return PutDocumentsResponse.model_validate(result.result)
 
     def _send_request(
         self,

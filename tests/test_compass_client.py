@@ -66,7 +66,7 @@ def test_get_documents_is_valid(requests_mock: Mocker):
 
 def test_refresh_is_valid(requests_mock: Mocker):
     compass = CompassClient(index_url="http://test.com")
-    compass.refresh(index_name="test_index")
+    compass.refresh_index(index_name="test_index")
     assert requests_mock.request_history[0].method == "POST"
     assert (
         requests_mock.request_history[0].url

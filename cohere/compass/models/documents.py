@@ -233,3 +233,20 @@ class PutDocumentsInput(BaseModel):
     documents: list[Document]
     authorized_groups: Optional[list[str]] = None
     merge_groups_on_conflict: bool = False
+
+
+class PutDocumentResult(BaseModel):
+    """
+    A model for the response of put_document.
+
+    This model is also used by the put_documents and edit_group_authorization APIs.
+    """
+
+    document_id: str
+    error: Optional[str]
+
+
+class PutDocumentsResponse(BaseModel):
+    """A model for the response of put_documents and edit_group_authorization APIs."""
+
+    results: list[PutDocumentResult]
