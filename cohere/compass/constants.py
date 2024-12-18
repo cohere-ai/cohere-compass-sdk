@@ -26,7 +26,7 @@ DEFAULT_COMMANDR_PROMPT = """
         Do not write the ```json (...) ``` tag. The output should be a valid JSON.  
         If you cannot find the information, write "" for the corresponding field. 
         Answer:
-        """
+        """  # noqa: E501, W291
 METADATA_HEURISTICS_ATTRIBUTES = [
     "title",
     "name",

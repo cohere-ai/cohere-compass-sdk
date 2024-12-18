@@ -1,14 +1,18 @@
+# Python imports
 import base64
 import glob
 import os
 import uuid
+from collections.abc import Iterable, Iterator
 from concurrent import futures
 from concurrent.futures import Executor
-from typing import Callable, Iterable, Iterator, List, Optional, TypeVar
+from typing import Callable, Optional, TypeVar
 
+# 3rd party imports
 import fsspec  # type: ignore
 from fsspec import AbstractFileSystem  # type: ignore
 
+# Local imports
 from cohere.compass.constants import UUID_NAMESPACE
 from cohere.compass.models import (
     CompassDocument,
@@ -23,6 +27,16 @@ U = TypeVar("U")
 def imap_queued(
     executor: Executor, f: Callable[[T], U], it: Iterable[T], max_queued: int
 ) -> Iterator[U]:
+    """
+    Similar to Python's `map`, but uses an executor to parallelize the calls.
+
+    :param executor: the executor to use.
+    :param f: the function to call.
+    :param it: the iterable to map over.
+    :param max_queued: the maximum number of futures to keep in flight.
+
+    :returns: an iterator over the results.
+    """
     assert max_queued >= 1
     futures_set: set[futures.Future[U]] = set()
 
@@ -41,9 +55,11 @@ def imap_queued(
 
 def get_fs(document_path: str) -> AbstractFileSystem:
     """
-    Get the filesystem object for the given document path
+    Get an fsspec's filesystem object for the given document path.
+
     :param document_path: the path to the document
-    :return: the filesystem object
+
+    :returns: the filesystem object.
     """
     if document_path.find("://") >= 0:
         file_system = document_path.split("://")[0]
@@ -55,9 +71,11 @@ def get_fs(document_path: str) -> AbstractFileSystem:
 
 def open_document(document_path: str) -> CompassDocument:
     """
-    Opens a document regardless of the file system (local, GCS, S3, etc.) and returns a file-like object
+    Open the document at the given path and return a CompassDocument object.
+
     :param document_path: the path to the document
-    :return: a file-like object
+
+    :returns: a CompassDocument object.
     """
     doc = CompassDocument(metadata=CompassDocumentMetadata(filename=document_path))
     try:
@@ -75,15 +93,19 @@ def open_document(document_path: str) -> CompassDocument:
 
 def scan_folder(
     folder_path: str,
-    allowed_extensions: Optional[List[str]] = None,
+    allowed_extensions: Optional[list[str]] = None,
     recursive: bool = False,
-) -> List[str]:
+) -> list[str]:
     """
-    Scans a folder for files with the given extensions
-    :param folder_path: the path to the folder
-    :param allowed_extensions: the allowed extensions
-    :param recursive: whether to scan the folder recursively or to only scan the top level
-    :return: a list of file paths
+    Scan a folder for files with the given extensions.
+
+    :param folder_path: the path of the folder to scan.
+    :param allowed_extensions: the extensions to look for. If None, all files will be
+        considered.
+    :param recursive: whether to scan the folder recursively or to stick to the top
+        level.
+
+    :returns: A list of file paths.
     """
     fs = get_fs(folder_path)
     all_files: list[str] = []
@@ -107,6 +129,16 @@ def scan_folder(
 
 
 def generate_doc_id_from_bytes(filebytes: bytes) -> uuid.UUID:
+    """
+    Generate a UUID based on the provided file bytes.
+
+    This function encodes the given file bytes into a base64 string and then generates a
+    UUID using the uuid5 method with a predefined namespace.
+
+    :param filebytes: The bytes of the file to generate the UUID from.
+
+    :returns: The generated UUID based on the file bytes.
+    """
     b64_string = base64.b64encode(filebytes).decode("utf-8")
     namespace = uuid.UUID(UUID_NAMESPACE)
     return uuid.uuid5(namespace, b64_string)

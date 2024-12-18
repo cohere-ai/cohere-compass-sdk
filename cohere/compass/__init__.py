@@ -1,6 +1,6 @@
 # Python imports
 from enum import Enum
-from typing import List, Optional
+from typing import Optional
 
 # 3rd party imports
 from pydantic import BaseModel
@@ -12,10 +12,12 @@ from cohere.compass.models import (
     ValidatedModel,
 )
 
-__version__ = "0.8.0"
+__version__ = "0.10.2"
 
 
 class ProcessFileParameters(ValidatedModel):
+    """Model for use with the process_file parser API."""
+
     parser_config: ParserConfig
     metadata_config: MetadataConfig
     doc_id: Optional[str] = None
@@ -23,17 +25,23 @@ class ProcessFileParameters(ValidatedModel):
 
 
 class ProcessFilesParameters(ValidatedModel):
-    doc_ids: Optional[List[str]] = None
+    """Model for use with the process_files parser API."""
+
+    doc_ids: Optional[list[str]] = None
     parser_config: ParserConfig
     metadata_config: MetadataConfig
 
 
 class GroupAuthorizationActions(str, Enum):
+    """Enum for use with the edit_group_authorization API to specify the edit type."""
+
     ADD = "add"
     REMOVE = "remove"
 
 
 class GroupAuthorizationInput(BaseModel):
-    document_ids: List[str]
-    authorized_groups: List[str]
+    """Model for use with the edit_group_authorization API."""
+
+    document_ids: list[str]
+    authorized_groups: list[str]
     action: GroupAuthorizationActions

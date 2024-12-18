@@ -1,13 +1,16 @@
 # Python imports
-from collections import deque
-from dataclasses import dataclass
-from statistics import mean
-from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 import base64
 import logging
 import os
 import threading
 import uuid
+from collections import deque
+from collections.abc import Iterator
+from dataclasses import dataclass
+from statistics import mean
+from typing import Any, Literal, Optional, Union
+
+import requests
 
 # 3rd party imports
 # TODO find stubs for joblib and remove "type: ignore"
@@ -21,7 +24,6 @@ from tenacity import (
     stop_after_attempt,
     wait_fixed,
 )
-import requests
 
 # Local imports
 from cohere.compass import (
@@ -48,19 +50,27 @@ from cohere.compass.models import (
     DataSource,
     Document,
     DocumentStatus,
-    PaginatedList,
     ParseableDocument,
-    PushDocumentsInput,
     PutDocumentsInput,
     SearchChunksResponse,
     SearchDocumentsResponse,
     SearchFilter,
     SearchInput,
+    UploadDocumentsInput,
 )
+from cohere.compass.models.datasources import PaginatedList
 
 
 @dataclass
 class RetryResult:
+    """
+    A class to represent the result of a retryable operation.
+
+    The class contains the following fields:
+    - result: The result of the operation if successful, otherwise None.
+    - error (Optional[str]): The error message if the operation failed, otherwise None.
+    """
+
     result: Optional[dict[str, Any]] = None
     error: Optional[str] = None
 
@@ -69,6 +79,8 @@ logger = logging.getLogger(__name__)
 
 
 class CompassClient:
+    """A compass client to interact with the Compass API."""
+
     def __init__(
         self,
         *,
@@ -79,10 +91,13 @@ class CompassClient:
         http_session: Optional[requests.Session] = None,
     ):
         """
-        A compass client to interact with the Compass API
-        :param index_url: the url of the Compass instance
-        :param username: the username for the Compass instance
-        :param password: the password for the Compass instance
+        Initialize the Compass client.
+
+        :param index_url: The base URL for the index API.
+        :param username (optional): The username for authentication.
+        :param password (optional): The password for authentication.
+        :param bearer_token (optional): The bearer token for authentication.
+        :param http_session (optional): An optional HTTP session to use for requests.
         """
         self.index_url = index_url
         self.username = username or os.getenv("COHERE_COMPASS_USERNAME")
@@ -120,24 +135,25 @@ class CompassClient:
             "put_documents": "/api/v1/indexes/{index_name}/documents",
             "search_documents": "/api/v1/indexes/{index_name}/documents/_search",
             "search_chunks": "/api/v1/indexes/{index_name}/documents/_search_chunks",
-            "add_attributes": "/api/v1/indexes/{index_name}/documents/{document_id}/_add_attributes",
+            "add_attributes": "/api/v1/indexes/{index_name}/documents/{document_id}/_add_attributes",  # noqa: E501
             "refresh": "/api/v1/indexes/{index_name}/_refresh",
             "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
-            "edit_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",
+            "edit_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",  # noqa: E501
             # Data Sources APIs
             "create_datasource": "/api/v1/datasources",
             "list_datasources": "/api/v1/datasources",
             "delete_datasources": "/api/v1/datasources/{datasource_id}",
             "get_datasource": "/api/v1/datasources/{datasource_id}",
             "sync_datasource": "/api/v1/datasources/{datasource_id}/_sync",
-            "list_datasources_objects_states": "/api/v1/datasources/{datasource_id}/documents?skip={skip}&limit={limit}",
+            "list_datasources_objects_states": "/api/v1/datasources/{datasource_id}/documents?skip={skip}&limit={limit}",  # noqa: E501
         }
 
     def create_index(self, *, index_name: str):
         """
-        Create an index in Compass
+        Create an index in Compass.
+
         :param index_name: the name of the index
-        :return: the response from the Compass API
+        :returns: the response from the Compass API
         """
         return self._send_request(
             api_name="create_index",
@@ -148,9 +164,10 @@ class CompassClient:
 
     def refresh(self, *, index_name: str):
         """
-        Refresh index
+        Refresh index.
+
         :param index_name: the name of the index
-        :return: the response from the Compass API
+        :returns: the response from the Compass API
         """
         return self._send_request(
             api_name="refresh",
@@ -161,9 +178,10 @@ class CompassClient:
 
     def delete_index(self, *, index_name: str):
         """
-        Delete an index from Compass
+        Delete an index from Compass.
+
         :param index_name: the name of the index
-        :return: the response from the Compass API
+        :returns: the response from the Compass API
         """
         return self._send_request(
             api_name="delete_index",
@@ -174,10 +192,12 @@ class CompassClient:
 
     def delete_document(self, *, index_name: str, document_id: str):
         """
-        Delete a document from Compass
+        Delete a document from Compass.
+
         :param index_name: the name of the index
-        :document_id: the id of the document
-        :return: the response from the Compass API
+        :param document_id: the id of the document
+
+        :returns: the response from the Compass API
         """
         return self._send_request(
             api_name="delete_document",
@@ -189,10 +209,12 @@ class CompassClient:
 
     def get_document(self, *, index_name: str, document_id: str):
         """
-        Get a document from Compass
+        Get a document from Compass.
+
         :param index_name: the name of the index
-        :document_id: the id of the document
-        :return: the response from the Compass API
+        :param document_id: the id of the document
+
+        :returns: the response from the Compass API
         """
         return self._send_request(
             api_name="get_document",
@@ -204,8 +226,9 @@ class CompassClient:
 
     def list_indexes(self):
         """
-        List all indexes in Compass
-        :return: the response from the Compass API
+        List all indexes in Compass.
+
+        :returns: the response from the Compass API
         """
         return self._send_request(
             api_name="list_indexes",
@@ -224,15 +247,16 @@ class CompassClient:
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ) -> Optional[RetryResult]:
         """
-        Update the content field of an existing document with additional context
+        Update the content field of an existing document with additional context.
 
         :param index_name: the name of the index
         :param document_id: the document to modify
-        :param context: A dictionary of key:value pairs to insert into the content field of a document
+        :param context: A dictionary of key-value pairs to insert into the content field
+            of a document
         :param max_retries: the maximum number of times to retry a doc insertion
-        :param sleep_retry_seconds: number of seconds to go to sleep before retrying a doc insertion
+        :param sleep_retry_seconds: number of seconds to go to sleep before retrying a
+            doc insertion
         """
-
         return self._send_request(
             api_name="add_attributes",
             document_id=document_id,
@@ -249,15 +273,16 @@ class CompassClient:
         doc: CompassDocument,
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
-        authorized_groups: Optional[List[str]] = None,
+        authorized_groups: Optional[list[str]] = None,
         merge_groups_on_conflict: bool = False,
-    ) -> Optional[List[Dict[str, str]]]:
+    ) -> Optional[list[dict[str, str]]]:
         """
-        Insert a parsed document into an index in Compass
+        Insert a parsed document into an index in Compass.
+
         :param index_name: the name of the index
         :param doc: the parsed compass document
         :param max_retries: the maximum number of times to retry a doc insertion
-        :param sleep_retry_seconds: number of seconds to go to sleep before retrying a doc insertion
+        :param sleep_retry_seconds: interval between the document insertion retries.
         """
         return self.insert_docs(
             index_name=index_name,
@@ -276,12 +301,13 @@ class CompassClient:
         filebytes: bytes,
         content_type: str,
         document_id: uuid.UUID,
-        attributes: Dict[str, Any] = {},
+        attributes: dict[str, Any] = {},
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
-    ) -> Optional[Union[str, Dict[str, Any]]]:
+    ) -> Optional[Union[str, dict[str, Any]]]:
         """
-        Parse and insert a document into an index in Compass
+        Parse and insert a document into an index in Compass.
+
         :param index_name: the name of the index
         :param filename: the filename of the document
         :param filebytes: the bytes of the document
@@ -289,11 +315,13 @@ class CompassClient:
         :param document_id: the id of the document (optional)
         :param context: represents an additional information about the document
         :param max_retries: the maximum number of times to retry a request if it fails
-        :param sleep_retry_seconds: the number of seconds to wait before retrying an API request
-        :return: an error message if the request failed, otherwise None
+        :param sleep_retry_seconds: interval between API request retries
+
+        :returns: an error message if the request failed, otherwise None
         """
         if len(filebytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
-            err = f"File too large, supported file size is {DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000} mb"
+            max_file_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
+            err = f"File too large, supported file size is {max_file_size_mb} mb"
             logger.error(err)
             return err
 
@@ -309,7 +337,7 @@ class CompassClient:
 
         result = self._send_request(
             api_name="upload_documents",
-            data=PushDocumentsInput(documents=[doc]),
+            data=UploadDocumentsInput(documents=[doc]),
             max_retries=max_retries,
             sleep_retry_seconds=sleep_retry_seconds,
             index_name=index_name,
@@ -331,32 +359,40 @@ class CompassClient:
         errors_sliding_window_size: Optional[int] = 10,
         skip_first_n_docs: int = 0,
         num_jobs: Optional[int] = None,
-        authorized_groups: Optional[List[str]] = None,
+        authorized_groups: Optional[list[str]] = None,
         merge_groups_on_conflict: bool = False,
-    ) -> Optional[List[Dict[str, str]]]:
+    ) -> Optional[list[dict[str, str]]]:
         """
-        Insert multiple parsed documents into an index in Compass
+        Insert multiple parsed documents into an index in Compass.
+
         :param index_name: the name of the index
         :param docs: the parsed documents
-        :param max_chunks_per_request: the maximum number of chunks to send in a single API request
+        :param max_chunks_per_request: the maximum number of chunks to send in a single
+            API request
         :param num_jobs: the number of parallel jobs to use
         :param max_error_rate: the maximum error rate allowed
         :param max_retries: the maximum number of times to retry a request if it fails
-        :param sleep_retry_seconds: the number of seconds to wait before retrying an API request
-        :param errors_sliding_window_size: the size of the sliding window to keep track of errors
-        :param skip_first_n_docs: number of docs to skip indexing. Useful when insertion failed after N documents
-        :param authorized_groups: the groups that are authorized to access the documents. These groups should exist in RBAC. None passed will make the documents public
-        :param merge_groups_on_conflict: when doc level security enable, allow upserting documents with static groups
+        :param sleep_retry_seconds: the number of seconds to wait before retrying an API
+            request
+        :param errors_sliding_window_size: the size of the sliding window to keep track
+            of errors
+        :param skip_first_n_docs: number of docs to skip indexing. Useful when insertion
+            failed after N documents
+        :param authorized_groups: the groups that are authorized to access the
+            documents. These groups should exist in RBAC. None passed will make the
+            documents public
+        :param merge_groups_on_conflict: when doc level security enable, allow upserting
+            documents with static groups
         """
 
         def put_request(
-            request_data: list[Tuple[CompassDocument, Document]],
+            request_data: list[tuple[CompassDocument, Document]],
             previous_errors: list[dict[str, str]],
             num_doc: int,
         ) -> None:
             nonlocal num_succeeded, errors
             errors.extend(previous_errors)
-            compass_docs: List[CompassDocument] = [
+            compass_docs: list[CompassDocument] = [
                 compass_doc for compass_doc, _ in request_data
             ]
             put_docs_input = PutDocumentsInput(
@@ -365,9 +401,10 @@ class CompassClient:
                 merge_groups_on_conflict=merge_groups_on_conflict,
             )
 
-            # It could be that all documents have errors, in which case we should not send a request
-            # to the Compass Server. This is a common case when the parsing of the documents fails.
-            # In this case, only errors will appear in the insertion_docs response
+            # It could be that all documents have errors, in which case we should not
+            # send a request to the Compass Server. This is a common case when the
+            # parsing of the documents fails.  In this case, only errors will appear in
+            # the insertion_docs response
             if not request_data:
                 return
 
@@ -381,21 +418,18 @@ class CompassClient:
 
             if results.error:
                 for doc in compass_docs:
+                    filename = doc.metadata.filename
+                    error = results.error
                     doc.errors.append(
-                        {
-                            CompassSdkStage.Indexing: f"{doc.metadata.filename}: {results.error}"
-                        }
+                        {CompassSdkStage.Indexing: f"{filename}: {error}"}
                     )
-                    errors.append(
-                        {
-                            doc.metadata.document_id: f"{doc.metadata.filename}: {results.error}"
-                        }
-                    )
+                    errors.append({doc.metadata.document_id: f"{filename}: {error}"})
             else:
                 num_succeeded += len(compass_docs)
 
-            # Keep track of the results of the last N API calls to calculate the error rate
-            # If the error rate is higher than the threshold, stop the insertion process
+            # Keep track of the results of the last N API calls to calculate the error
+            # rate If the error rate is higher than the threshold, stop the insertion
+            # process
             error_window.append(results.error)
             error_rate = (
                 mean([1 if x else 0 for x in error_window])
@@ -404,8 +438,9 @@ class CompassClient:
             )
             if error_rate > max_error_rate:
                 raise CompassMaxErrorRateExceeded(
-                    f"[Thread {threading.get_native_id()}]{error_rate * 100}% of insertions failed "
-                    f"in the last {errors_sliding_window_size} API calls. Stopping the insertion process."
+                    f"[Thread {threading.get_native_id()}] {error_rate * 100}% of "
+                    f"insertions failed in the last {errors_sliding_window_size} API "
+                    "calls. Stopping the insertion process."
                 )
 
         error_window: deque[Optional[str]] = deque(
@@ -436,7 +471,14 @@ class CompassClient:
         datasource: CreateDataSource,
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
-    ):
+    ) -> Union[DataSource, str]:
+        """
+        Create a new datasource in Compass.
+
+        :param datasource: the datasource to create
+        :param max_retries: the maximum number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+        """
         result = self._send_request(
             api_name="create_datasource",
             max_retries=max_retries,
@@ -454,6 +496,12 @@ class CompassClient:
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ) -> Union[PaginatedList[DataSource], str]:
+        """
+        List all datasources in Compass.
+
+        :param max_retries: the maximum number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+        """
         result = self._send_request(
             api_name="list_datasources",
             max_retries=max_retries,
@@ -471,6 +519,13 @@ class CompassClient:
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ):
+        """
+        Get a datasource in Compass.
+
+        :param datasource_id: the id of the datasource
+        :param max_retries: the maximum number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+        """
         result = self._send_request(
             api_name="get_datasource",
             datasource_id=datasource_id,
@@ -489,6 +544,13 @@ class CompassClient:
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ):
+        """
+        Delete a datasource in Compass.
+
+        :param datasource_id: the id of the datasource
+        :param max_retries: the maximum number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+        """
         result = self._send_request(
             api_name="delete_datasources",
             datasource_id=datasource_id,
@@ -507,6 +569,13 @@ class CompassClient:
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ):
+        """
+        Sync a datasource in Compass.
+
+        :param datasource_id: the id of the datasource
+        :param max_retries: the maximum number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+        """
         result = self._send_request(
             api_name="sync_datasource",
             datasource_id=datasource_id,
@@ -527,6 +596,15 @@ class CompassClient:
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
     ) -> Union[PaginatedList[DocumentStatus], str]:
+        """
+        List all objects states in a datasource in Compass.
+
+        :param datasource_id: the id of the datasource
+        :param skip: the number of objects to skip
+        :param limit: the number of objects to return
+        :param max_retries: the maximum number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+        """
         result = self._send_request(
             api_name="list_datasources_objects_states",
             datasource_id=datasource_id,
@@ -546,12 +624,13 @@ class CompassClient:
         max_chunks_per_request: int,
     ):
         """
-        Create request blocks to send to the Compass API
-        :param docs: the documents to send
-        :param max_chunks_per_request: the maximum number of chunks to send in a single API request
-        :return: an iterator over the request blocks
-        """
+        Create request blocks to send to the Compass API.
 
+        :param docs: the documents to send
+        :param max_chunks_per_request: the maximum number of chunks to send in a single
+            API request
+        :returns: an iterator over the request blocks
+        """
         request_block: list[tuple[CompassDocument, Document]] = []
         errors: list[dict[str, str]] = []
         num_chunks = 0
@@ -561,7 +640,9 @@ class CompassClient:
                     f"Document {doc.metadata.document_id} has errors: {doc.errors}"
                 )
                 for error in doc.errors:
-                    errors.append({doc.metadata.document_id: list(error.values())[0]})
+                    errors.append(
+                        {doc.metadata.document_id: next(iter(error.values()))}
+                    )
             else:
                 num_chunks += (
                     len(doc.chunks)
@@ -597,14 +678,8 @@ class CompassClient:
         index_name: str,
         query: str,
         top_k: int = 10,
-        filters: Optional[List[SearchFilter]] = None,
+        filters: Optional[list[SearchFilter]] = None,
     ):
-        """
-        Search your Compass index
-        :param index_name: the name of the index
-        :param query: query to search for
-        :param top_k: number of documents to return
-        """
         return self._send_request(
             api_name=api_name,
             index_name=index_name,
@@ -619,8 +694,18 @@ class CompassClient:
         index_name: str,
         query: str,
         top_k: int = 10,
-        filters: Optional[List[SearchFilter]] = None,
+        filters: Optional[list[SearchFilter]] = None,
     ) -> SearchDocumentsResponse:
+        """
+        Search documents in an index.
+
+        :param index_name: the name of the index
+        :param query: the search query
+        :param top_k: the number of documents to return
+        :param filters: the search filters to apply
+
+        :returns: the search results
+        """
         result = self._search(
             api_name="search_documents",
             index_name=index_name,
@@ -637,8 +722,18 @@ class CompassClient:
         index_name: str,
         query: str,
         top_k: int = 10,
-        filters: Optional[List[SearchFilter]] = None,
+        filters: Optional[list[SearchFilter]] = None,
     ) -> SearchChunksResponse:
+        """
+        Search chunks in an index.
+
+        :param index_name: the name of the index
+        :param query: the search query
+        :param top_k: the number of chunks to return
+        :param filters: the search filters to apply
+
+        :returns: the search results
+        """
         result = self._search(
             api_name="search_chunks",
             index_name=index_name,
@@ -653,7 +748,8 @@ class CompassClient:
         self, *, index_name: str, group_auth_input: GroupAuthorizationInput
     ):
         """
-        Edit group authorization for an index
+        Edit group authorization for an index.
+
         :param index_name: the name of the index
         :param group_auth_input: the group authorization input
         """
@@ -670,17 +766,18 @@ class CompassClient:
         api_name: str,
         max_retries: int,
         sleep_retry_seconds: int,
-        data: Optional[Union[Dict[str, Any], BaseModel]] = None,
+        data: Optional[Union[dict[str, Any], BaseModel]] = None,
         **url_params: str,
     ) -> RetryResult:
         """
-        Send a request to the Compass API
+        Send a request to the Compass API.
+
         :param function: the function to call
         :param index_name: the name of the index
         :param max_retries: the number of times to retry the request
         :param sleep_retry_seconds: the number of seconds to sleep between retries
         :param data: the data to send
-        :return: An error message if the request failed, otherwise None
+        :returns: An error message if the request failed, otherwise None.
         """
 
         @retry(
@@ -733,7 +830,8 @@ class CompassClient:
                 else:
                     error = str(e) + " " + e.response.text
                     logger.error(
-                        f"Failed to send request to {api_name} {target_path}: {type(e)} {error}. Going to sleep for "
+                        f"Failed to send request to {api_name} {target_path}: "
+                        f"{type(e)} {error}. Going to sleep for "
                         f"{sleep_retry_seconds} seconds and retrying."
                     )
                     raise e
@@ -741,8 +839,8 @@ class CompassClient:
             except Exception as e:
                 error = str(e)
                 logger.error(
-                    f"Failed to send request to {api_name} {target_path}: {type(e)} {error}. Going to sleep for "
-                    f"{sleep_retry_seconds} seconds and retrying."
+                    f"Failed to send request to {api_name} {target_path}: {type(e)} "
+                    f"{error}. Sleeping for {sleep_retry_seconds} before retrying..."
                 )
                 raise e
 
