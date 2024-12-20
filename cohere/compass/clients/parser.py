@@ -54,6 +54,7 @@ class CompassParserClient:
         username: Optional[str] = None,
         password: Optional[str] = None,
         num_workers: int = 4,
+        retries: int = 3,
     ):
         """
         Initialize the CompassParserClient.
@@ -79,8 +80,9 @@ class CompassParserClient:
         self.username = username or os.getenv("COHERE_COMPASS_USERNAME")
         self.password = password or os.getenv("COHERE_COMPASS_PASSWORD")
         self.session = requests.Session()
-        self.thread_pool = ThreadPoolExecutor(num_workers)
+        self.thread_pool = ThreadPoolExecutor(num_workers * 2)
         self.num_workers = num_workers
+        self.retries = retries
 
         self.metadata_config = metadata_config
         logger.info(
@@ -181,6 +183,7 @@ class CompassParserClient:
             process_file,
             range(len(filenames)),
             max_queued=self.num_workers,
+            retries=self.retries,
         ):
             yield from results
 
