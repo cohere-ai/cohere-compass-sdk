@@ -8,12 +8,24 @@ from typing import Any, Callable, Optional, Union
 
 # 3rd party imports
 import requests
+from requests.exceptions import InvalidSchema
+from tenacity import (
+    retry,
+    retry_if_not_exception_type,
+    stop_after_attempt,
+    wait_fixed,
+)
 
 # Local imports
 from cohere.compass import (
     ProcessFileParameters,
 )
-from cohere.compass.constants import DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES
+from cohere.compass.constants import (
+    DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_SLEEP_RETRY_SECONDS,
+)
+from cohere.compass.exceptions import CompassClientError
 from cohere.compass.models import (
     CompassDocument,
     MetadataConfig,
@@ -195,6 +207,11 @@ class CompassParserClient:
         else:
             return custom_context
 
+    @retry(
+        stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
+        wait=wait_fixed(DEFAULT_SLEEP_RETRY_SECONDS),
+        retry=retry_if_not_exception_type((InvalidSchema, CompassClientError)),
+    )
     def process_file(
         self,
         *,
