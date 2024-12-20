@@ -53,7 +53,7 @@ class CompassParserClient:
         metadata_config: MetadataConfig = MetadataConfig(),
         username: Optional[str] = None,
         password: Optional[str] = None,
-        num_workers: int = 4,
+        num_workers: int = 1,
     ):
         """
         Initialize the CompassParserClient.
