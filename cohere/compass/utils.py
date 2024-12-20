@@ -32,7 +32,7 @@ def imap_queued(
 ) -> Iterator[U]:
     """
     Similar to Python's `map`, but uses an executor to parallelize the calls.
-	@@ -34,20 +41,43 @@ def imap_queued(
+
     :param f: the function to call.
     :param it: the iterable to map over.
     :param max_queued: the maximum number of futures to keep in flight.
