@@ -53,8 +53,9 @@ Fill in your URL, username, password, and path to test data below for an end to 
 of parsing and searching.
 
 ```Python
-from compass_sdk.clients import CompassClient, CompassParserClient
-from compass_sdk import MetadataStrategy, MetadataConfig
+from cohere.compass.clients.compass import CompassClient
+from cohere.compass.clients.parser import CompassParserClient
+from cohere.compass.models.config import MetadataStrategy, MetadataConfig
 
 # Using cohere_web_test folder for data
 url = "<COMPASS_URL>"
@@ -80,7 +81,7 @@ compass_client = CompassClient(index_url=url)
 compass_client.create_index(index_name=index)
 results = compass_client.insert_docs(index_name=index, docs=docs_to_index)
 
-results = compass_client.search(index_name=index, query="test", top_k=1)
+results = compass_client.search_chunks(index_name=index, query="test", top_k=1)
 print(f"Results preview: \n {results.result['hits'][-1]} ... \n \n ")
 ```
 
