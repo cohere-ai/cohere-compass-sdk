@@ -58,31 +58,29 @@ from cohere.compass.clients.parser import CompassParserClient
 from cohere.compass.models.config import MetadataStrategy, MetadataConfig
 
 # Using cohere_web_test folder for data
-url = "<COMPASS_URL>"
-username = "<COMPASS_USERNAME>"
-password = "<COMPASS_PASSWORD>"
+api_url = "<COMPASS_URL>"
+parser_url = "<PARSER URL>"
+bearer_token = "<PASS BEARER TOKEN IF ANY OTHERWISE LEAVE IT BLANK>"
 
 index = "test-index"
 data_to_index = "<PATH_TO_TEST_DATA>"
 
-
 # Parse the files before indexing
-parser_url = url + '/parse'
 parsing_client = CompassParserClient(parser_url = parser_url)
 metadata_config = MetadataConfig(
-    metadata_strategy=MetadataStrategy.Command_R,
+    metadata_strategy=MetadataStrategy.No_Metadata,
     commandr_extractable_attributes=["date", "link", "page_title", "authors"]
 )
 
-docs_to_index = parsing_client.process_folder(folder_path=data_to_index, metadata_config=metadata_config)
+docs_to_index = parsing_client.process_folder(folder_path=data_to_index, metadata_config=metadata_config, recursive=True)
 
 # Create index and insert files
-compass_client = CompassClient(index_url=url)
+compass_client = CompassClient(index_url=api_url, bearer_token=bearer_token)
 compass_client.create_index(index_name=index)
 results = compass_client.insert_docs(index_name=index, docs=docs_to_index)
 
-results = compass_client.search_chunks(index_name=index, query="test", top_k=1)
-print(f"Results preview: \n {results.result['hits'][-1]} ... \n \n ")
+result = compass_client.search_chunks(index_name=index, query="test", top_k=1)
+print(f"Results preview: \n {result.hits} ... \n \n ")
 ```
 
 ## Local Development
