@@ -1,6 +1,8 @@
+import pytest
 from requests_mock import Mocker
 
 from cohere.compass.clients import CompassClient
+from cohere.compass.exceptions import CompassClientError
 from cohere.compass.models import CompassDocument
 from cohere.compass.models.documents import DocumentAttributes
 
@@ -89,3 +91,19 @@ def test_add_attributes_is_valid(requests_mock: Mocker):
         == "http://test.com/api/v1/indexes/test_index/documents/test_id/_add_attributes"
     )
     assert requests_mock.request_history[0].body == b'{"fake": "context"}'
+
+
+def test_search_doc_handles_connection_aborted_error_correctly(requests_mock: Mocker):
+    compass = CompassClient(index_url="http://test.com")
+    url = "http://test.com/api/v1/indexes/test_index/documents/_search"
+    requests_mock.post(url, exc=ConnectionAbortedError)
+    with pytest.raises(CompassClientError):
+        compass.search_documents(index_name="test_index", query="test")
+
+
+def test_search_chunk_handles_connection_aborted_error_correctly(requests_mock: Mocker):
+    compass = CompassClient(index_url="http://test.com")
+    url = "http://test.com/api/v1/indexes/test_index/documents/_search_chunks"
+    requests_mock.post(url, exc=ConnectionAbortedError)
+    with pytest.raises(CompassClientError):
+        compass.search_chunks(index_name="test_index", query="test")

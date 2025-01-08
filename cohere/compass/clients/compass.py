@@ -835,6 +835,9 @@ class CompassClient:
                     )
                     raise e
 
+            except ConnectionAbortedError as e:
+                raise CompassClientError(message=str(e), code=None)
+
             except Exception as e:
                 error = str(e)
                 logger.error(
