@@ -12,7 +12,7 @@ from cohere.compass.models import (
     ValidatedModel,
 )
 
-__version__ = "0.11.0"
+__version__ = "0.12.0"
 
 
 class ProcessFileParameters(ValidatedModel):
