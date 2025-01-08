@@ -1,5 +1,6 @@
 # Python imports
 from enum import Enum
+from importlib import metadata
 from typing import Optional
 
 # 3rd party imports
@@ -12,7 +13,7 @@ from cohere.compass.models import (
     ValidatedModel,
 )
 
-__version__ = "0.11.0"
+__version__ = metadata.version("compass-sdk")
 
 
 class ProcessFileParameters(ValidatedModel):
