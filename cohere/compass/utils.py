@@ -1,6 +1,7 @@
 # Python imports
 import base64
 import glob
+import logging
 import os
 import uuid
 from collections.abc import Iterable, Iterator
@@ -23,6 +24,8 @@ from cohere.compass.models import (
 T = TypeVar("T")
 U = TypeVar("U")
 
+logger = logging.getLogger(__name__)
+
 
 def imap_queued(
     executor: Executor, f: Callable[[T], U], it: Iterable[T], max_queued: int
@@ -30,11 +33,9 @@ def imap_queued(
     """
     Similar to Python's `map`, but uses an executor to parallelize the calls.
 
-    :param executor: the executor to use.
     :param f: the function to call.
     :param it: the iterable to map over.
     :param max_queued: the maximum number of futures to keep in flight.
-
     :returns: an iterator over the results.
     """
     assert max_queued >= 1
@@ -46,11 +47,18 @@ def imap_queued(
             done, futures_set = futures.wait(
                 futures_set, return_when=futures.FIRST_COMPLETED
             )
+
             for future in done:
-                yield future.result()
+                try:
+                    yield future.result()
+                except Exception as e:
+                    logger.exception(f"Error in processing file: {e}")
 
     for future in futures.as_completed(futures_set):
-        yield future.result()
+        try:
+            yield future.result()
+        except Exception as e:
+            logger.exception(f"Error in processing file: {e}")
 
 
 def get_fs(document_path: str) -> AbstractFileSystem:
