@@ -57,7 +57,6 @@ from cohere.compass.clients.compass import CompassClient
 from cohere.compass.clients.parser import CompassParserClient
 from cohere.compass.models.config import MetadataStrategy, MetadataConfig
 
-# Using cohere_web_test folder for data
 api_url = "<COMPASS_URL>"
 parser_url = "<PARSER URL>"
 bearer_token = "<PASS BEARER TOKEN IF ANY OTHERWISE LEAVE IT BLANK>"
@@ -82,6 +81,66 @@ results = compass_client.insert_docs(index_name=index, docs=docs_to_index)
 result = compass_client.search_chunks(index_name=index, query="test", top_k=1)
 print(f"Results preview: \n {result.hits} ... \n \n ")
 ```
+
+### Adding filters to documents
+
+#### Adding filter via dict
+```python
+from cohere.compass.clients.compass import CompassClient
+from cohere.compass.clients.parser import CompassParserClient
+from cohere.compass.models.search import SearchFilter
+
+api_url = "<COMPASS_URL>"
+parser_url = "<PARSER URL>"
+data_to_index = "<PATH_TO_TEST_DATA>"
+index = "test-index"
+bearer_token = "<PASS BEARER TOKEN IF ANY OTHERWISE LEAVE IT BLANK>"
+
+parsing_client = CompassParserClient(parser_url = parser_url)
+custom_context_dict = {
+    "doc_purpose": "demo"
+}
+
+docs_to_index = parsing_client.process_folder(folder_path=data_to_index, recursive=True, custom_context=custom_context_dict)
+
+compass_client = CompassClient(index_url=api_url, bearer_token=bearer_token)
+filter = SearchFilter(type=SearchFilter.FilterType.EQ, field="content.doc_purpose", value="demo")
+result = compass_client.search_chunks(index_name=index, query="*", filters=[filter])
+print(f"Results preview: \n {result.hits} ... \n \n ")
+```
+
+#### Adding filter via function
+```python
+from cohere.compass.clients.compass import CompassClient
+from cohere.compass.clients.parser import CompassParserClient
+from cohere.compass.models.search import SearchFilter
+from cohere.compass.models.documents import CompassDocument
+
+api_url = "<COMPASS_URL>"
+parser_url = "<PARSER URL>"
+data_to_index = "<PATH_TO_TEST_DATA>"
+index = "test-index"
+bearer_token = "<PASS BEARER TOKEN IF ANY OTHERWISE LEAVE IT BLANK>"
+
+parsing_client = CompassParserClient(parser_url = parser_url)
+
+def custom_context_fn(input: CompassDocument):
+    content = input.content 
+    if len(input.chunks) > 2:  
+        content["new_doc_field"] = "more_than_two_chunks" 
+    else:
+        content["new_doc_field"] = "less_than_two_chunks"
+    return content
+
+
+docs_to_index = parsing_client.process_folder(folder_path=data_to_index, recursive=True, custom_context=custom_context_fn)
+
+compass_client = CompassClient(index_url=api_url, bearer_token=bearer_token)
+filter = SearchFilter(type=SearchFilter.FilterType.EQ, field="content.new_doc_field", value="less_than_two_chunks")
+result = compass_client.search_chunks(index_name=index, query="*", filters=[filter])
+print(f"Results preview: \n {result.hits} ... \n \n ")
+```
+
 
 ## Local Development
 
