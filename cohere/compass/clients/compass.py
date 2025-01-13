@@ -59,6 +59,7 @@ from cohere.compass.models import (
     SearchInput,
     UploadDocumentsInput,
 )
+from cohere.compass.models.config import IndexConfig
 from cohere.compass.models.datasources import PaginatedList
 from cohere.compass.models.documents import DocumentAttributes, PutDocumentsResponse
 
@@ -150,11 +151,14 @@ class CompassClient:
             "list_datasources_objects_states": "/api/v1/datasources/{datasource_id}/documents?skip={skip}&limit={limit}",  # noqa: E501
         }
 
-    def create_index(self, *, index_name: str):
+    def create_index(
+        self, *, index_name: str, index_config: Optional[IndexConfig] = None
+    ):
         """
         Create an index in Compass.
 
         :param index_name: the name of the index
+        :param index_config: the optional configuration for the index
         :returns: the response from the Compass API
         """
         return self._send_request(
@@ -162,6 +166,7 @@ class CompassClient:
             max_retries=DEFAULT_MAX_RETRIES,
             sleep_retry_seconds=DEFAULT_SLEEP_RETRY_SECONDS,
             index_name=index_name,
+            data=index_config,
         )
 
     def refresh_index(self, *, index_name: str):
@@ -798,7 +803,9 @@ class CompassClient:
             nonlocal error
 
             try:
-                data_dict = data.model_dump(mode="json") if data else None
+                data_dict = (
+                    data.model_dump(mode="json", exclude_none=True) if data else None
+                )
 
                 headers = None
                 auth = None
