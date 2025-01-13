@@ -192,3 +192,16 @@ class MetadataConfig(ValidatedModel):
     keyword_search_attributes: list[str] = METADATA_HEURISTICS_ATTRIBUTES
     keyword_search_separator: str = "."
     ignore_errors: bool = True
+
+
+class IndexConfig(BaseModel):
+    """
+    A model class for specifying configuration related to a search index.
+
+    :param number_of_shards: the total number of shards to split the index into
+    :param number_of_replicas: the number of replicas for each shard. Number of shards
+        will be multiplied by this number to determine the total number of shards used.
+    """
+
+    number_of_shards: Optional[int] = None
+    number_of_replicas: Optional[int] = None
