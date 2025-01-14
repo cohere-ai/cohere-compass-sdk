@@ -152,9 +152,8 @@ from requests.exceptions import HTTPError
 
 ROOT_BEARER_TOKEN = "<ROOT_BEARER_TOKEN>"
 API_URL = "<API_URL>"
-PARSER_URL = "<PARSER_URL>"
-
 compass_root = CompassRootClient(API_URL, ROOT_BEARER_TOKEN)
+
 user_names = ["<USER_NAME>"]
 group_name = "<GROUP_NAME>"
 role_name = "<ROLE_NAME>"
@@ -178,8 +177,27 @@ try:
 except HTTPError as e:
     if e.response.status_code == 409:
         print("A entity already exists", e.response.json())
+```
 
+### Deleting RBAC
+```python
+from cohere.compass.clients.rbac import CompassRootClient
 
+ROOT_BEARER_TOKEN = "<ROOT_BEARER_TOKEN>"
+API_URL = "<API_URL>"
+compass_root = CompassRootClient(API_URL, ROOT_BEARER_TOKEN)
+
+user_names = ["<USER_NAME>"]
+group_names = ["<GROUP_NAME>"]
+role_names = ["<ROLE_NAME>"]
+
+compass_root.delete_roles(role_ids=role_names)
+compass_root.delete_groups(group_names=group_names)
+compass_root.delete_users(user_names=user_names)
+
+role_mapping_role_name = "<ROLE_NAME>"
+role_mapping_group_name = "<GROUP_NAME>"
+compass_root.delete_role_mappings(role_name=role_mapping_role_name, group_name=role_mapping_group_name)
 ```
 
 ## Local Development
