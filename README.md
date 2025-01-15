@@ -141,6 +141,64 @@ result = compass_client.search_chunks(index_name=index, query="*", filters=[filt
 print(f"Results preview: \n {result.hits} ... \n \n ")
 ```
 
+### RBAC 
+
+```python
+from cohere.compass.clients.rbac import CompassRootClient
+from cohere.compass.clients.rbac import UserCreateRequest
+from cohere.compass.models.rbac import GroupCreateRequest, RoleCreateRequest, RoleMappingRequest, Permission, PolicyRequest
+from cohere.compass.clients.rbac import UserCreateResponse
+from requests.exceptions import HTTPError
+
+ROOT_BEARER_TOKEN = "<ROOT_BEARER_TOKEN>"
+API_URL = "<API_URL>"
+compass_root = CompassRootClient(API_URL, ROOT_BEARER_TOKEN)
+
+user_names = ["<USER_NAME>"]
+group_name = "<GROUP_NAME>"
+role_name = "<ROLE_NAME>"
+indexes = ["<ALLOWED_INDEX or REGEX>"]
+permission = Permission.WRITE # or Permission.READ
+ 
+try:
+    # Create users
+    users_create_request = [UserCreateRequest(name=user_name) for user_name in user_names]
+    users: list[UserCreateResponse] = compass_root.create_users(users=users_create_request)
+    
+    # Add users to group
+    compass_root.create_groups(groups=[GroupCreateRequest(name=group_name, user_names=user_names)])
+    
+    # Create a role
+    compass_root.create_roles(roles=[RoleCreateRequest(name=role_name, policies=[PolicyRequest(indexes=indexes, permission=permission)])])
+    # Map role to groups
+    compass_root.create_role_mappings(role_mappings=[RoleMappingRequest(role_name=role_name, group_name=group_name)])
+    # Token for the user to access the indexes
+    USER_TO_TOKENS = {user.name: user.token for user in users}
+except HTTPError as e:
+    if e.response.status_code == 409:
+        print("A entity already exists", e.response.json())
+```
+
+### Deleting RBAC
+```python
+from cohere.compass.clients.rbac import CompassRootClient
+
+ROOT_BEARER_TOKEN = "<ROOT_BEARER_TOKEN>"
+API_URL = "<API_URL>"
+compass_root = CompassRootClient(API_URL, ROOT_BEARER_TOKEN)
+
+user_names = ["<USER_NAME>"]
+group_names = ["<GROUP_NAME>"]
+role_names = ["<ROLE_NAME>"]
+
+compass_root.delete_roles(role_ids=role_names)
+compass_root.delete_groups(group_names=group_names)
+compass_root.delete_users(user_names=user_names)
+
+role_mapping_role_name = "<ROLE_NAME>"
+role_mapping_group_name = "<GROUP_NAME>"
+compass_root.delete_role_mappings(role_name=role_mapping_role_name, group_name=role_mapping_group_name)
+```
 
 ## Local Development
 
