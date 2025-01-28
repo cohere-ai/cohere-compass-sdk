@@ -65,13 +65,15 @@ from cohere.compass.models.documents import DocumentAttributes, PutDocumentsResp
 
 
 @dataclass
-class RetryResult:
+class _RetryResult:
     """
     A class to represent the result of a retryable operation.
 
     The class contains the following fields:
     - result: The result of the operation if successful, otherwise None.
     - error (Optional[str]): The error message if the operation failed, otherwise None.
+
+    Notice that this is an internal class and should not be exposed to clients.
     """
 
     result: Optional[dict[str, Any]] = None
@@ -252,7 +254,7 @@ class CompassClient:
         attributes: DocumentAttributes,
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
-    ) -> Optional[RetryResult]:
+    ) -> Optional[str]:
         """
         Update the content field of an existing document with additional context.
 
@@ -262,8 +264,10 @@ class CompassClient:
         :param max_retries: the maximum number of times to retry a doc insertion
         :param sleep_retry_seconds: number of seconds to go to sleep before retrying a
             doc insertion
+
+        :returns: an error message if the request failed, otherwise None
         """
-        return self._send_request(
+        result = self._send_request(
             api_name="add_attributes",
             document_id=document_id,
             data=attributes,
@@ -271,6 +275,9 @@ class CompassClient:
             sleep_retry_seconds=sleep_retry_seconds,
             index_name=index_name,
         )
+        if result.error:
+            return result.error
+        return None
 
     def insert_doc(
         self,
@@ -777,7 +784,7 @@ class CompassClient:
         sleep_retry_seconds: int,
         data: Optional[BaseModel] = None,
         **url_params: str,
-    ) -> RetryResult:
+    ) -> _RetryResult:
         """
         Send a request to the Compass API.
 
@@ -822,7 +829,7 @@ class CompassClient:
                 if response.ok:
                     error = None
                     result = response.json() if response.text else None
-                    return RetryResult(result=result, error=None)
+                    return _RetryResult(result=result, error=None)
                 else:
                     response.raise_for_status()
 
@@ -862,9 +869,9 @@ class CompassClient:
             if res:
                 return res
             else:
-                return RetryResult(result=None, error=error)
+                return _RetryResult(result=None, error=error)
         except RetryError:
             logger.error(
                 f"Failed to send request after {max_retries} attempts. Aborting."
             )
-            return RetryResult(result=None, error=error)
+            return _RetryResult(result=None, error=error)
