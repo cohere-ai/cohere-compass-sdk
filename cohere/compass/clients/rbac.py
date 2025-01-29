@@ -27,7 +27,13 @@ from cohere.compass.models import (
 
 
 class CompassRootClient:
-    """Client for interacting with Compass RBAC API as a root user."""
+    """
+    TO BE DEPRECATED.
+
+    Client for interacting with Compass RBAC API V1 (now Legacy) as a root user.
+
+    Prefer the CompassRootClient in access_control.py for new development.
+    """
 
     def __init__(self, compass_url: str, root_user_token: str):
         """
