@@ -94,6 +94,13 @@ class GroupsPage(BaseModel):
     page_info: PageInfo
 
 
+class DetailedUser(User):
+    """Model for detailed User information."""
+
+    groups: list[Group]
+    groups_page_info: PageInfo
+
+
 class DetailedRole(Role):
     """Model for detailed Role information."""
 

@@ -8,6 +8,7 @@ from requests import HTTPError
 from cohere.compass.models.access_control import (
     DetailedGroup,
     DetailedRole,
+    DetailedUser,
     Group,
     GroupMembership,
     GroupRole,
@@ -199,6 +200,59 @@ class CompassRootClient:
             headers=self.headers,
             entity_request=[User(user_name=user_name) for user_name in user_names],
             entity_response=UserWithToken,
+        )
+
+    def get_detailed_user(self, user_name: str) -> DetailedUser:
+        """
+        Get a detailed User.
+
+        :param user_name: Name of the User to get.
+
+        :return: DetailedUser containing the User and a Page of Groups plus PageInfo.
+        """
+        return self._fetch_entity(
+            url=f"{self.base_url}/v2/users",
+            headers=self.headers,
+            entity_response=DetailedUser,
+            entity_name=user_name,
+        )
+
+    def get_user_groups_page(
+        self,
+        user_name: str,
+        *,
+        filter: Optional[str] = None,
+        page_info: Optional[PageInfo] = None,
+        direction: Optional[PageDirection] = None,
+    ) -> GroupsPage:
+        """
+        Fetch a page of Groups a User is a Member of.
+
+        Defaults to fetching the first page.
+
+        :param user_name: Name of the User to fetch Groups for.
+        :param filter: Optional filter to apply to the Group set.
+        :param page_info: Optional pagination information.
+        :param direction: Optional direction to paginate in. Defaults to NEXT.
+
+        Important notes:
+
+        When fetching the first page, the `page_info` parameter
+        should be `None`. When fetching subsequent pages, the `page_info` parameter
+        should be the `page_info` from the existing page.
+
+        If filter and page_info.filter are both None, all Groups are eligible to be
+        fetched. If both are provided, the page_info.filter is used.
+
+        :return: Page of Groups for the User.
+        """
+        return self._fetch_page(
+            url=f"{self.base_url}/v2/users/{user_name}/groups",
+            headers=self.headers,
+            entity_response=GroupsPage,
+            filter=filter,
+            page_info=page_info,
+            direction=direction,
         )
 
     def delete_users(self, user_names: list[str]) -> list[User]:
