@@ -1,0 +1,54 @@
+name: Release on pyproject.toml Update
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "pyproject.toml"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Extract version from pyproject.toml
+        id: extract_version
+        run: |
+          VERSION=$(grep '^version =' pyproject.toml | awk -F' = ' '{print $2}' | tr -d '"')
+          echo "::set-output name=version::$VERSION"
+
+      - name: Check if tag exists
+        id: check_tag
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const tagName = 'v${{ steps.extract_version.outputs.version }}';
+            const { data: tags } = await github.git.listMatchingRefs({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `tags/${tagName}`
+            });
+            if (tags.length > 0) {
+              console.log(`Tag ${tagName} already exists. Skipping release creation.`);
+              core.setOutput('tag_exists', 'true');
+            } else {
+              console.log(`Tag ${tagName} does not exist. Proceeding with release creation.`);
+              core.setOutput('tag_exists', 'false');
+            }
+
+      - name: Create Release
+        if: steps.check_tag.outputs.tag_exists == 'false'
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.extract_version.outputs.version }}
+          release_name: Release v${{ steps.extract_version.outputs.version }}
+          draft: false
+          prerelease: false
