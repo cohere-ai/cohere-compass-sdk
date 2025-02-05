@@ -727,6 +727,9 @@ class CompassClient:
             filters=filters,
         )
 
+        if result.error:
+            raise CompassError(result.error)
+
         return SearchDocumentsResponse.model_validate(result.result)
 
     def search_chunks(
@@ -754,6 +757,9 @@ class CompassClient:
             top_k=top_k,
             filters=filters,
         )
+
+        if result.error:
+            raise CompassError(result.error)
 
         return SearchChunksResponse.model_validate(result.result)
 
