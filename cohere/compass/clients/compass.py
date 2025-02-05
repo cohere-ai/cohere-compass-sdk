@@ -111,6 +111,13 @@ class CompassClient:
         self.password = password or os.getenv("COHERE_COMPASS_PASSWORD")
         self.session = http_session or requests.Session()
         self.bearer_token = bearer_token
+
+        if default_max_retries < 0:
+            raise ValueError("default_max_retries must be a non-negative integer.")
+        if default_sleep_retry_seconds < 0:
+            raise ValueError(
+                "default_sleep_retry_seconds must be a non-negative integer."
+            )
         self.default_max_retries = default_max_retries
         self.default_sleep_retry_seconds = default_sleep_retry_seconds
 
@@ -837,7 +844,8 @@ class CompassClient:
             raise CompassError(result.error)
         return PutDocumentsResponse.model_validate(result.result)
 
-    def _send_request(
+    # todo Simplify this method so we don't have to ignore the C901 complexity warning.
+    def _send_request(  # noqa: C901
         self,
         api_name: str,
         max_retries: Optional[int] = None,
@@ -859,6 +867,10 @@ class CompassClient:
             max_retries = self.default_max_retries
         if not sleep_retry_seconds:
             sleep_retry_seconds = self.default_sleep_retry_seconds
+        if max_retries < 0:
+            raise ValueError("max_retries must be a non-negative integer.")
+        if sleep_retry_seconds < 0:
+            raise ValueError("sleep_retry_seconds must be a non-negative integer.")
 
         @retry(
             stop=stop_after_attempt(max_retries),
