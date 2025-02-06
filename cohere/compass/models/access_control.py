@@ -71,7 +71,7 @@ class Role(BaseModel):
     """Model for role details."""
 
     role_name: str
-    policies: list[Policy]
+    policies: list[Policy] = []
 
 
 class RolesPage(BaseModel):
