@@ -153,7 +153,7 @@ class CompassRootClient:
         CompassRootClient.raise_for_status(response)
         return [entity_response.model_validate(entity) for entity in response.json()]
 
-    def fetch_users_page(
+    def get_users_page(
         self,
         *,
         filter: Optional[str] = None,
@@ -187,18 +187,18 @@ class CompassRootClient:
             direction=direction,
         )
 
-    def create_users(self, user_names: list[str]) -> list[UserWithToken]:
+    def create_users(self, users: list[User]) -> list[UserWithToken]:
         """
         Create new Users.
 
-        :param user_names: List of User names to create.
+        :param users: List of Users to create.
 
-        :return: List of created Users.
+        :return: List of created UserWithToken.
         """
         return self._create_entities(
             url=f"{self.base_url}/v2/users",
             headers=self.headers,
-            entity_request=[User(user_name=user_name) for user_name in user_names],
+            entity_request=users,
             entity_response=UserWithToken,
         )
 
@@ -270,7 +270,7 @@ class CompassRootClient:
             entity_response=User,
         )
 
-    def fetch_roles_page(
+    def get_roles_page(
         self,
         *,
         filter: Optional[str] = None,
@@ -378,13 +378,13 @@ class CompassRootClient:
 
         :return: Updated Role.
         """
-        return self._update_entity(
-            url=f"{self.base_url}/v2/roles",
+        response = requests.put(
+            f"{self.base_url}/v2/roles/{role.role_name}",
+            json=[json.loads(entity.model_dump_json()) for entity in role.policies],
             headers=self.headers,
-            entity_name=role.role_name,
-            entity=role,
-            entity_response=Role,
         )
+        CompassRootClient.raise_for_status(response)
+        return Role.model_validate(response.json())
 
     def delete_roles(self, role_names: list[str]) -> list[Role]:
         """
@@ -401,7 +401,7 @@ class CompassRootClient:
             entity_response=Role,
         )
 
-    def fetch_groups_page(
+    def get_groups_page(
         self,
         *,
         filter: Optional[str] = None,
@@ -495,7 +495,7 @@ class CompassRootClient:
         """
         response = requests.post(
             f"{self.base_url}/v2/groups/{group_name}/users",
-            json={"user_names": user_names},
+            json=[{"user_name": user_name} for user_name in user_names],
             headers=self.headers,
         )
         CompassRootClient.raise_for_status(response)
@@ -568,7 +568,7 @@ class CompassRootClient:
         """
         response = requests.post(
             f"{self.base_url}/v2/groups/{group_name}/roles",
-            json={"role_names": role_names},
+            json=[{"role_name": role_name} for role_name in role_names],
             headers=self.headers,
         )
         CompassRootClient.raise_for_status(response)
