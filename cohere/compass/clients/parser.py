@@ -1,7 +1,6 @@
 # Python imports
 import json
 import logging
-import os
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Optional, Union
@@ -63,8 +62,6 @@ class CompassParserClient:
         parser_url: str,
         parser_config: ParserConfig = ParserConfig(),
         metadata_config: MetadataConfig = MetadataConfig(),
-        username: Optional[str] = None,
-        password: Optional[str] = None,
         bearer_token: Optional[str] = None,
         num_workers: int = 1,
     ):
@@ -84,16 +81,12 @@ class CompassParserClient:
         :param metadata_config: the metadata configuration to use when processing files
             if no metadata configuration is specified in the method calls (process_file
             or process_files)
-        :param username (optional): The username for authentication.
-        :param password (optional): The password for authentication.
         :param bearer_token (optional): The bearer token for authentication.
         """
         self.parser_url = (
             parser_url if not parser_url.endswith("/") else parser_url[:-1]
         )
         self.parser_config = parser_config
-        self.username = username or os.getenv("COHERE_COMPASS_USERNAME")
-        self.password = password or os.getenv("COHERE_COMPASS_PASSWORD")
         self.bearer_token = bearer_token
         self.session = requests.Session()
         self.thread_pool = ThreadPoolExecutor(num_workers)
@@ -273,18 +266,13 @@ class CompassParserClient:
         )
 
         headers = None
-        auth = None
-        if self.username and self.password:
-            auth = (self.username, self.password)
         if self.bearer_token:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
-            auth = None
 
         res = self.session.post(
             url=f"{self.parser_url}/v1/process_file",
             data={"data": json.dumps(params.model_dump())},
             files={"file": (filename, doc.filebytes)},
-            auth=auth,
             headers=headers,
         )
 
