@@ -90,8 +90,6 @@ class CompassClient:
         self,
         *,
         index_url: str,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
         bearer_token: Optional[str] = None,
         http_session: Optional[requests.Session] = None,
         default_max_retries: int = DEFAULT_MAX_RETRIES,
@@ -101,14 +99,10 @@ class CompassClient:
         Initialize the Compass client.
 
         :param index_url: The base URL for the index API.
-        :param username (optional): The username for authentication.
-        :param password (optional): The password for authentication.
         :param bearer_token (optional): The bearer token for authentication.
         :param http_session (optional): An optional HTTP session to use for requests.
         """
         self.index_url = index_url
-        self.username = username or os.getenv("COHERE_COMPASS_USERNAME")
-        self.password = password or os.getenv("COHERE_COMPASS_PASSWORD")
         self.session = http_session or requests.Session()
         self.bearer_token = bearer_token
 
@@ -845,7 +839,7 @@ class CompassClient:
         return PutDocumentsResponse.model_validate(result.result)
 
     # todo Simplify this method so we don't have to ignore the C901 complexity warning.
-    def _send_request(  # noqa: C901
+    def _send_request(
         self,
         api_name: str,
         max_retries: Optional[int] = None,
@@ -891,15 +885,11 @@ class CompassClient:
                 )
 
                 headers = None
-                auth = None
-                if self.username and self.password:
-                    auth = (self.username, self.password)
                 if self.bearer_token:
                     headers = {"Authorization": f"Bearer {self.bearer_token}"}
-                    auth = None
 
                 response = self.api_method[api_name](
-                    target_path, json=data_dict, auth=auth, headers=headers
+                    target_path, json=data_dict, headers=headers
                 )
 
                 if response.ok:
@@ -911,7 +901,7 @@ class CompassClient:
 
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code == 401:
-                    error = "Unauthorized. Please check your username and password."
+                    error = "Unauthorized. Please check your bearer token."
                     raise CompassAuthError(message=str(e))
                 elif 400 <= e.response.status_code < 500:
                     error = f"Client error occurred: {e.response.text}"
