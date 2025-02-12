@@ -189,6 +189,9 @@ class BaseCompassClient:
             "method": method,
         }
 
+    def _get_target_path(self, api_name: str, **url_params: str) -> str:
+        return self._API_ENDPOINTS[api_name].format(**url_params)
+
 
 class CompassClient(BaseCompassClient):
     """A compass client to interact with the Compass API."""
@@ -982,9 +985,7 @@ class CompassClient(BaseCompassClient):
 
         error = None
         try:
-            target_path = self.index_url + self._API_ENDPOINTS[api_name].format(
-                **url_params
-            )
+            target_path = self._get_target_path(api_name, **url_params)
             res = _send_request_with_retry()
             if res:
                 return res
