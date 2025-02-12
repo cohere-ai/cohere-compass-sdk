@@ -8,9 +8,11 @@ from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass
 from statistics import mean
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Optional, Union, ClassVar, TypedDict
 
+from aiohttp.client_exceptions import ClientResponseError
 import requests
+import aiohttp
 
 # 3rd party imports
 # TODO find stubs for joblib and remove "type: ignore"
@@ -83,7 +85,154 @@ class _RetryResult:
 logger = logging.getLogger(__name__)
 
 
-class CompassClient:
+_HttpMethods = Literal["GET", "POST", "PUT", "DELETE"]
+
+
+class _CompassRequest(TypedDict):
+    max_retries: int
+    sleep_retry_seconds: int
+    method: str
+    data: dict[str, Any] | None
+    headers: dict[str, str] | None
+
+
+class BaseCompassClient:
+    _API_METHODS: ClassVar[dict[str, _HttpMethods]] = {
+        "create_index": "PUT",
+        "list_indexes": "GET",
+        "delete_index": "DELETE",
+        "delete_document": "DELETE",
+        "get_document": "GET",
+        "put_documents": "PUT",
+        "search_documents": "POST",
+        "search_chunks": "POST",
+        "add_attributes": "POST",
+        "refresh": "POST",
+        "upload_documents": "POST",
+        "update_group_authorization": "POST",
+        # Data Sources APIs
+        "create_datasource": "POST",
+        "list_datasources": "GET",
+        "delete_datasources": "DELETE",
+        "get_datasource": "GET",
+        "sync_datasource": "POST",
+        "list_datasources_objects_states": "GET",
+    }
+    _API_ENDPOINTS: ClassVar[dict[str, str]] = {
+        "create_index": "/api/v1/indexes/{index_name}",
+        "list_indexes": "/api/v1/indexes",
+        "delete_index": "/api/v1/indexes/{index_name}",
+        "delete_document": "/api/v1/indexes/{index_name}/documents/{document_id}",
+        "get_document": "/api/v1/indexes/{index_name}/documents/{document_id}",
+        "put_documents": "/api/v1/indexes/{index_name}/documents",
+        "search_documents": "/api/v1/indexes/{index_name}/documents/_search",
+        "search_chunks": "/api/v1/indexes/{index_name}/documents/_search_chunks",
+        "add_attributes": "/api/v1/indexes/{index_name}/documents/{document_id}/_add_attributes",  # noqa: E501
+        "refresh": "/api/v1/indexes/{index_name}/_refresh",
+        "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
+        "update_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",  # noqa: E501
+        # Data Sources APIs
+        "create_datasource": "/api/v1/datasources",
+        "list_datasources": "/api/v1/datasources",
+        "delete_datasources": "/api/v1/datasources/{datasource_id}",
+        "get_datasource": "/api/v1/datasources/{datasource_id}",
+        "sync_datasource": "/api/v1/datasources/{datasource_id}/_sync",
+        "list_datasources_objects_states": "/api/v1/datasources/{datasource_id}/documents?skip={skip}&limit={limit}",  # noqa: E501
+    }
+
+    def __init__(
+        self,
+        *,
+        index_url: str,
+        bearer_token: Optional[str] = None,
+        default_max_retries: int = DEFAULT_MAX_RETRIES,
+        default_sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+    ):
+        self.index_url = index_url
+        self.bearer_token = bearer_token
+
+        if default_max_retries < 0:
+            raise ValueError("default_max_retries must be a non-negative integer.")
+        if default_sleep_retry_seconds < 0:
+            raise ValueError(
+                "default_sleep_retry_seconds must be a non-negative integer."
+            )
+        self.default_max_retries = default_max_retries
+        self.default_sleep_retry_seconds = default_sleep_retry_seconds
+
+    def _create_request(
+        self,
+        api_name: str,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+        data: Optional[BaseModel] = None,
+        **url_params: str,
+    ) -> _CompassRequest:
+        max_retries = max_retries or self.default_max_retries
+        sleep_retry_seconds = sleep_retry_seconds or self.default_sleep_retry_seconds
+        if max_retries < 0:
+            raise ValueError("max_retries must be a non-negative integer.")
+        if sleep_retry_seconds < 0:
+            raise ValueError("sleep_retry_seconds must be a non-negative integer.")
+
+        data_dict = data.model_dump(mode="json", exclude_none=True) if data else None
+
+        headers = None
+        if self.bearer_token:
+            headers = {"Authorization": f"Bearer {self.bearer_token}"}
+
+        method = self._API_METHODS[api_name]
+
+        return {
+            "max_retries": max_retries,
+            "sleep_retry_seconds": sleep_retry_seconds,
+            "data": data_dict,
+            "headers": headers,
+            "method": method,
+        }
+
+    def _get_target_path(self, api_name: str, **url_params: str) -> str:
+        return self._API_ENDPOINTS[api_name].format(**url_params)
+
+    def _handle_http_error(
+        self,
+        status_code: int,
+        message: str,
+        exc: Exception,
+        api_name: str,
+        target_path: str,
+        sleep_retry_seconds: Optional[int] = None,
+    ):
+        if status_code == 401:
+            error = "Unauthorized. Please check your bearer token."
+            raise CompassAuthError(message=str(exc))
+        elif 400 <= status_code < 500:
+            error = f"Client error occurred: {message}"
+            raise CompassClientError(message=error, code=status_code)
+        else:
+            error = str(exc) + " " + message
+            logger.error(
+                f"Failed to send request to {api_name} {target_path}: "
+                f"{type(exc)} {error}. Going to sleep for "
+                f"{sleep_retry_seconds} seconds and retrying."
+            )
+            raise exc
+
+    def _handle_retry_result(
+        self, result: _RetryResult | None, error: str | None
+    ) -> _RetryResult:
+        if result:
+            return result
+        return _RetryResult(result=None, error=error)
+
+    def _handle_retry_error(
+        self, error: str | None, max_retries: int | None
+    ) -> _RetryResult:
+        logger.error(f"Failed to send request after {max_retries} attempts. Aborting.")
+        return _RetryResult(result=None, error=error)
+
+
+class CompassClient(BaseCompassClient):
     """A compass client to interact with the Compass API."""
 
     def __init__(
@@ -102,61 +251,13 @@ class CompassClient:
         :param bearer_token (optional): The bearer token for authentication.
         :param http_session (optional): An optional HTTP session to use for requests.
         """
-        self.index_url = index_url
+        super().__init__(
+            index_url=index_url,
+            bearer_token=bearer_token,
+            default_max_retries=default_max_retries,
+            default_sleep_retry_seconds=default_sleep_retry_seconds,
+        )
         self.session = http_session or requests.Session()
-        self.bearer_token = bearer_token
-
-        if default_max_retries < 0:
-            raise ValueError("default_max_retries must be a non-negative integer.")
-        if default_sleep_retry_seconds < 0:
-            raise ValueError(
-                "default_sleep_retry_seconds must be a non-negative integer."
-            )
-        self.default_max_retries = default_max_retries
-        self.default_sleep_retry_seconds = default_sleep_retry_seconds
-
-        self.api_method = {
-            "create_index": self.session.put,
-            "list_indexes": self.session.get,
-            "delete_index": self.session.delete,
-            "delete_document": self.session.delete,
-            "get_document": self.session.get,
-            "put_documents": self.session.put,
-            "search_documents": self.session.post,
-            "search_chunks": self.session.post,
-            "add_attributes": self.session.post,
-            "refresh": self.session.post,
-            "upload_documents": self.session.post,
-            "update_group_authorization": self.session.post,
-            # Data Sources APIs
-            "create_datasource": self.session.post,
-            "list_datasources": self.session.get,
-            "delete_datasources": self.session.delete,
-            "get_datasource": self.session.get,
-            "sync_datasource": self.session.post,
-            "list_datasources_objects_states": self.session.get,
-        }
-        self.api_endpoint = {
-            "create_index": "/api/v1/indexes/{index_name}",
-            "list_indexes": "/api/v1/indexes",
-            "delete_index": "/api/v1/indexes/{index_name}",
-            "delete_document": "/api/v1/indexes/{index_name}/documents/{document_id}",
-            "get_document": "/api/v1/indexes/{index_name}/documents/{document_id}",
-            "put_documents": "/api/v1/indexes/{index_name}/documents",
-            "search_documents": "/api/v1/indexes/{index_name}/documents/_search",
-            "search_chunks": "/api/v1/indexes/{index_name}/documents/_search_chunks",
-            "add_attributes": "/api/v1/indexes/{index_name}/documents/{document_id}/_add_attributes",  # noqa: E501
-            "refresh": "/api/v1/indexes/{index_name}/_refresh",
-            "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
-            "update_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",  # noqa: E501
-            # Data Sources APIs
-            "create_datasource": "/api/v1/datasources",
-            "list_datasources": "/api/v1/datasources",
-            "delete_datasources": "/api/v1/datasources/{datasource_id}",
-            "get_datasource": "/api/v1/datasources/{datasource_id}",
-            "sync_datasource": "/api/v1/datasources/{datasource_id}/_sync",
-            "list_datasources_objects_states": "/api/v1/datasources/{datasource_id}/documents?skip={skip}&limit={limit}",  # noqa: E501
-        }
 
     def create_index(
         self,
@@ -857,18 +958,18 @@ class CompassClient:
         :param data: the data to send
         :returns: An error message if the request failed, otherwise None.
         """
-        if not max_retries:
-            max_retries = self.default_max_retries
-        if not sleep_retry_seconds:
-            sleep_retry_seconds = self.default_sleep_retry_seconds
-        if max_retries < 0:
-            raise ValueError("max_retries must be a non-negative integer.")
-        if sleep_retry_seconds < 0:
-            raise ValueError("sleep_retry_seconds must be a non-negative integer.")
+
+        compass_request = self._create_request(
+            api_name=api_name,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+            data=data,
+            **url_params,
+        )
 
         @retry(
-            stop=stop_after_attempt(max_retries),
-            wait=wait_fixed(sleep_retry_seconds),
+            stop=stop_after_attempt(compass_request["max_retries"]),
+            wait=wait_fixed(compass_request["sleep_retry_seconds"]),
             retry=retry_if_not_exception_type(
                 (
                     CompassClientError,
@@ -880,16 +981,11 @@ class CompassClient:
             nonlocal error
 
             try:
-                data_dict = (
-                    data.model_dump(mode="json", exclude_none=True) if data else None
-                )
-
-                headers = None
-                if self.bearer_token:
-                    headers = {"Authorization": f"Bearer {self.bearer_token}"}
-
-                response = self.api_method[api_name](
-                    target_path, json=data_dict, headers=headers
+                response = self.session.request(
+                    method=compass_request["method"],
+                    url=target_path,
+                    json=compass_request["data"],
+                    headers=compass_request["headers"],
                 )
 
                 if response.ok:
@@ -900,20 +996,14 @@ class CompassClient:
                     response.raise_for_status()
 
             except requests.exceptions.HTTPError as e:
-                if e.response.status_code == 401:
-                    error = "Unauthorized. Please check your bearer token."
-                    raise CompassAuthError(message=str(e))
-                elif 400 <= e.response.status_code < 500:
-                    error = f"Client error occurred: {e.response.text}"
-                    raise CompassClientError(message=error, code=e.response.status_code)
-                else:
-                    error = str(e) + " " + e.response.text
-                    logger.error(
-                        f"Failed to send request to {api_name} {target_path}: "
-                        f"{type(e)} {error}. Going to sleep for "
-                        f"{sleep_retry_seconds} seconds and retrying."
-                    )
-                    raise e
+                self._handle_http_error(
+                    e.response.status_code,
+                    e.response.text,
+                    e,
+                    api_name,
+                    target_path,
+                    sleep_retry_seconds,
+                )
 
             except ConnectionAbortedError as e:
                 raise CompassClientError(message=str(e), code=None)
@@ -928,16 +1018,176 @@ class CompassClient:
 
         error = None
         try:
-            target_path = self.index_url + self.api_endpoint[api_name].format(
-                **url_params
-            )
+            target_path = self._get_target_path(api_name, **url_params)
             res = _send_request_with_retry()
-            if res:
-                return res
-            else:
-                return _RetryResult(result=None, error=error)
+            return self._handle_retry_result(res, error)
+        except RetryError:
+            return self._handle_retry_error(error, max_retries)
+
+
+class AsyncCompassClient(BaseCompassClient):
+    def __init__(
+        self,
+        *,
+        index_url: str,
+        bearer_token: Optional[str] = None,
+        http_session: Optional[aiohttp.ClientSession] = None,
+        default_max_retries: int = DEFAULT_MAX_RETRIES,
+        default_sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+    ):
+        """
+        Initialize the Compass client.
+
+        :param index_url: The base URL for the index API.
+        :param bearer_token (optional): The bearer token for authentication.
+        :param http_session (optional): An optional HTTP session to use for requests.
+        """
+        super().__init__(
+            index_url=index_url,
+            bearer_token=bearer_token,
+            default_max_retries=default_max_retries,
+            default_sleep_retry_seconds=default_sleep_retry_seconds,
+        )
+        self.session = http_session or aiohttp.ClientSession()
+
+    async def search_documents(
+        self,
+        *,
+        index_name: str,
+        query: str,
+        top_k: int = 10,
+        filters: Optional[list[SearchFilter]] = None,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> SearchDocumentsResponse:
+        """
+        Search documents in an index.
+
+        :param index_name: the name of the index
+        :param query: the search query
+        :param top_k: the number of documents to return
+        :param filters: the search filters to apply
+
+        :returns: the search results
+        """
+        result = await self._search(
+            api_name="search_documents",
+            index_name=index_name,
+            query=query,
+            top_k=top_k,
+            filters=filters,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+
+        if result.error:
+            raise CompassError(result.error)
+
+        return SearchDocumentsResponse.model_validate(result.result)
+
+    async def _search(
+        self,
+        *,
+        api_name: Literal["search_documents", "search_chunks"],
+        index_name: str,
+        query: str,
+        top_k: int = 10,
+        filters: Optional[list[SearchFilter]] = None,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> _RetryResult:
+        return await self._send_request(
+            api_name=api_name,
+            index_name=index_name,
+            data=SearchInput(query=query, top_k=top_k, filters=filters),
+            max_retries=1,
+            sleep_retry_seconds=1,
+        )
+
+    async def _send_request(
+        self,
+        api_name: str,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+        data: Optional[BaseModel] = None,
+        **url_params: str,
+    ) -> _RetryResult:
+        """
+        Send a request to the Compass API.
+
+        :param function: the function to call
+        :param index_name: the name of the index
+        :param max_retries: the number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+        :param data: the data to send
+        :returns: An error message if the request failed, otherwise None.
+        """
+
+        compass_request = self._create_request(
+            api_name=api_name,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+            data=data,
+            **url_params,
+        )
+
+        @retry(
+            stop=stop_after_attempt(compass_request["max_retries"]),
+            wait=wait_fixed(compass_request["sleep_retry_seconds"]),
+            retry=retry_if_not_exception_type(
+                (
+                    CompassClientError,
+                    InvalidSchema,
+                )
+            ),
+        )
+        async def _send_request_with_retry():
+            nonlocal error
+
+            try:
+                response = await self.session.request(
+                    method=compass_request["method"],
+                    url=target_path,
+                    json=compass_request["data"],
+                    headers=compass_request["headers"],
+                )
+
+                if response.ok:
+                    error = None
+                    text = await response.text()
+                    result = await response.json() if text else None
+                    return _RetryResult(result=result, error=None)
+                else:
+                    response.raise_for_status()
+
+            except ClientResponseError as e:
+                self._handle_http_error(
+                    e.status,
+                    e.message,
+                    e,
+                    api_name,
+                    target_path,
+                    sleep_retry_seconds,
+                )
+
+            except ConnectionAbortedError as e:
+                raise CompassClientError(message=str(e), code=None)
+
+            except Exception as e:
+                error = str(e)
+                logger.error(
+                    f"Failed to send request to {api_name} {target_path}: {type(e)} "
+                    f"{error}. Sleeping for {sleep_retry_seconds} before retrying..."
+                )
+                raise e
+
+        error = None
+        try:
+            target_path = self._get_target_path(api_name, **url_params)
+            res = await _send_request_with_retry()
+            return self._handle_retry_result(res, error)
         except RetryError:
             logger.error(
                 f"Failed to send request after {max_retries} attempts. Aborting."
             )
-            return _RetryResult(result=None, error=error)
+            return self._handle_retry_error(error, max_retries)
