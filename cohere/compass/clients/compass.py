@@ -83,6 +83,30 @@ class _RetryResult:
 logger = logging.getLogger(__name__)
 
 
+_methods = Literal["GET", "POST", "PUT", "DELETE"]
+_api_methods: dict[str, _methods] = {
+    "create_index": "PUT",
+    "list_indexes": "GET",
+    "delete_index": "DELETE",
+    "delete_document": "DELETE",
+    "get_document": "GET",
+    "put_documents": "PUT",
+    "search_documents": "POST",
+    "search_chunks": "POST",
+    "add_attributes": "POST",
+    "refresh": "POST",
+    "upload_documents": "POST",
+    "update_group_authorization": "POST",
+    # Data Sources APIs
+    "create_datasource": "POST",
+    "list_datasources": "GET",
+    "delete_datasources": "DELETE",
+    "get_datasource": "GET",
+    "sync_datasource": "POST",
+    "list_datasources_objects_states": "GET",
+}
+
+
 class CompassClient:
     """A compass client to interact with the Compass API."""
 
@@ -115,27 +139,6 @@ class CompassClient:
         self.default_max_retries = default_max_retries
         self.default_sleep_retry_seconds = default_sleep_retry_seconds
 
-        self.api_method = {
-            "create_index": self.session.put,
-            "list_indexes": self.session.get,
-            "delete_index": self.session.delete,
-            "delete_document": self.session.delete,
-            "get_document": self.session.get,
-            "put_documents": self.session.put,
-            "search_documents": self.session.post,
-            "search_chunks": self.session.post,
-            "add_attributes": self.session.post,
-            "refresh": self.session.post,
-            "upload_documents": self.session.post,
-            "update_group_authorization": self.session.post,
-            # Data Sources APIs
-            "create_datasource": self.session.post,
-            "list_datasources": self.session.get,
-            "delete_datasources": self.session.delete,
-            "get_datasource": self.session.get,
-            "sync_datasource": self.session.post,
-            "list_datasources_objects_states": self.session.get,
-        }
         self.api_endpoint = {
             "create_index": "/api/v1/indexes/{index_name}",
             "list_indexes": "/api/v1/indexes",
@@ -888,8 +891,9 @@ class CompassClient:
                 if self.bearer_token:
                     headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
-                response = self.api_method[api_name](
-                    target_path, json=data_dict, headers=headers
+                method = _api_methods[api_name]
+                response = self.session.request(
+                    method=method, url=target_path, json=data_dict, headers=headers
                 )
 
                 if response.ok:
