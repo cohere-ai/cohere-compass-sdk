@@ -10,7 +10,9 @@ from dataclasses import dataclass
 from statistics import mean
 from typing import Any, Literal, Optional, Union, ClassVar, TypedDict
 
+from aiohttp.client_exceptions import ClientResponseError
 import requests
+import aiohttp
 
 # 3rd party imports
 # TODO find stubs for joblib and remove "type: ignore"
@@ -191,6 +193,30 @@ class BaseCompassClient:
 
     def _get_target_path(self, api_name: str, **url_params: str) -> str:
         return self._API_ENDPOINTS[api_name].format(**url_params)
+
+    def _handle_http_error(
+        self,
+        status_code: int,
+        message: str,
+        exc: Exception,
+        api_name: str,
+        target_path: str,
+        sleep_retry_seconds: Optional[int] = None,
+    ):
+        if status_code == 401:
+            error = "Unauthorized. Please check your bearer token."
+            raise CompassAuthError(message=str(exc))
+        elif 400 <= status_code < 500:
+            error = f"Client error occurred: {message}"
+            raise CompassClientError(message=error, code=status_code)
+        else:
+            error = str(exc) + " " + message
+            logger.error(
+                f"Failed to send request to {api_name} {target_path}: "
+                f"{type(exc)} {error}. Going to sleep for "
+                f"{sleep_retry_seconds} seconds and retrying."
+            )
+            raise e
 
 
 class CompassClient(BaseCompassClient):
@@ -957,20 +983,14 @@ class CompassClient(BaseCompassClient):
                     response.raise_for_status()
 
             except requests.exceptions.HTTPError as e:
-                if e.response.status_code == 401:
-                    error = "Unauthorized. Please check your bearer token."
-                    raise CompassAuthError(message=str(e))
-                elif 400 <= e.response.status_code < 500:
-                    error = f"Client error occurred: {e.response.text}"
-                    raise CompassClientError(message=error, code=e.response.status_code)
-                else:
-                    error = str(e) + " " + e.response.text
-                    logger.error(
-                        f"Failed to send request to {api_name} {target_path}: "
-                        f"{type(e)} {error}. Going to sleep for "
-                        f"{sleep_retry_seconds} seconds and retrying."
-                    )
-                    raise e
+                self._handle_http_error(
+                    e.response.status_code,
+                    e.response.text,
+                    e,
+                    api_name,
+                    target_path,
+                    sleep_retry_seconds,
+                )
 
             except ConnectionAbortedError as e:
                 raise CompassClientError(message=str(e), code=None)
@@ -987,6 +1007,123 @@ class CompassClient(BaseCompassClient):
         try:
             target_path = self._get_target_path(api_name, **url_params)
             res = _send_request_with_retry()
+            if res:
+                return res
+            else:
+                return _RetryResult(result=None, error=error)
+        except RetryError:
+            logger.error(
+                f"Failed to send request after {max_retries} attempts. Aborting."
+            )
+            return _RetryResult(result=None, error=error)
+
+
+class AsyncCompassClient(BaseCompassClient):
+    def __init__(
+        self,
+        *,
+        index_url: str,
+        bearer_token: Optional[str] = None,
+        http_session: Optional[aiohttp.ClientSession] = None,
+        default_max_retries: int = DEFAULT_MAX_RETRIES,
+        default_sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+    ):
+        """
+        Initialize the Compass client.
+
+        :param index_url: The base URL for the index API.
+        :param bearer_token (optional): The bearer token for authentication.
+        :param http_session (optional): An optional HTTP session to use for requests.
+        """
+        super().__init__(
+            index_url=index_url,
+            bearer_token=bearer_token,
+            default_max_retries=default_max_retries,
+            default_sleep_retry_seconds=default_sleep_retry_seconds,
+        )
+        self.session = http_session or aiohttp.ClientSession()
+
+    async def _send_request(
+        self,
+        api_name: str,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+        data: Optional[BaseModel] = None,
+        **url_params: str,
+    ) -> _RetryResult:
+        """
+        Send a request to the Compass API.
+
+        :param function: the function to call
+        :param index_name: the name of the index
+        :param max_retries: the number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+        :param data: the data to send
+        :returns: An error message if the request failed, otherwise None.
+        """
+
+        compass_request = self._create_request(
+            api_name=api_name,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+            data=data,
+            **url_params,
+        )
+
+        @retry(
+            stop=stop_after_attempt(compass_request["max_retries"]),
+            wait=wait_fixed(compass_request["sleep_retry_seconds"]),
+            retry=retry_if_not_exception_type(
+                (
+                    CompassClientError,
+                    InvalidSchema,
+                )
+            ),
+        )
+        async def _send_request_with_retry():
+            nonlocal error
+
+            try:
+                response = await self.session.request(
+                    method=compass_request["method"],
+                    url=target_path,
+                    json=compass_request["data"],
+                    headers=compass_request["headers"],
+                )
+
+                if response.ok:
+                    error = None
+                    text = await response.text()
+                    result = await response.json() if text else None
+                    return _RetryResult(result=result, error=None)
+                else:
+                    response.raise_for_status()
+
+            except ClientResponseError as e:
+                self._handle_http_error(
+                    e.status,
+                    e.message,
+                    e,
+                    api_name,
+                    target_path,
+                    sleep_retry_seconds,
+                )
+
+            except ConnectionAbortedError as e:
+                raise CompassClientError(message=str(e), code=None)
+
+            except Exception as e:
+                error = str(e)
+                logger.error(
+                    f"Failed to send request to {api_name} {target_path}: {type(e)} "
+                    f"{error}. Sleeping for {sleep_retry_seconds} before retrying..."
+                )
+                raise e
+
+        error = None
+        try:
+            target_path = self._get_target_path(api_name, **url_params)
+            res = await _send_request_with_retry()
             if res:
                 return res
             else:
