@@ -1,5 +1,6 @@
 # Python imports
 import base64
+import abc
 import logging
 import os
 import threading
@@ -8,7 +9,7 @@ from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass
 from statistics import mean
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Optional, Union, ClassVar
 
 import requests
 
@@ -83,31 +84,75 @@ class _RetryResult:
 logger = logging.getLogger(__name__)
 
 
-_methods = Literal["GET", "POST", "PUT", "DELETE"]
-_api_methods: dict[str, _methods] = {
-    "create_index": "PUT",
-    "list_indexes": "GET",
-    "delete_index": "DELETE",
-    "delete_document": "DELETE",
-    "get_document": "GET",
-    "put_documents": "PUT",
-    "search_documents": "POST",
-    "search_chunks": "POST",
-    "add_attributes": "POST",
-    "refresh": "POST",
-    "upload_documents": "POST",
-    "update_group_authorization": "POST",
-    # Data Sources APIs
-    "create_datasource": "POST",
-    "list_datasources": "GET",
-    "delete_datasources": "DELETE",
-    "get_datasource": "GET",
-    "sync_datasource": "POST",
-    "list_datasources_objects_states": "GET",
-}
+_HttpMethods = Literal["GET", "POST", "PUT", "DELETE"]
 
 
-class CompassClient:
+class BaseCompassClient:
+    _API_METHODS: ClassVar[dict[str, _HttpMethods]] = {
+        "create_index": "PUT",
+        "list_indexes": "GET",
+        "delete_index": "DELETE",
+        "delete_document": "DELETE",
+        "get_document": "GET",
+        "put_documents": "PUT",
+        "search_documents": "POST",
+        "search_chunks": "POST",
+        "add_attributes": "POST",
+        "refresh": "POST",
+        "upload_documents": "POST",
+        "update_group_authorization": "POST",
+        # Data Sources APIs
+        "create_datasource": "POST",
+        "list_datasources": "GET",
+        "delete_datasources": "DELETE",
+        "get_datasource": "GET",
+        "sync_datasource": "POST",
+        "list_datasources_objects_states": "GET",
+    }
+    _API_ENDPOINTS: ClassVar[dict[str, str]] = {
+        "create_index": "/api/v1/indexes/{index_name}",
+        "list_indexes": "/api/v1/indexes",
+        "delete_index": "/api/v1/indexes/{index_name}",
+        "delete_document": "/api/v1/indexes/{index_name}/documents/{document_id}",
+        "get_document": "/api/v1/indexes/{index_name}/documents/{document_id}",
+        "put_documents": "/api/v1/indexes/{index_name}/documents",
+        "search_documents": "/api/v1/indexes/{index_name}/documents/_search",
+        "search_chunks": "/api/v1/indexes/{index_name}/documents/_search_chunks",
+        "add_attributes": "/api/v1/indexes/{index_name}/documents/{document_id}/_add_attributes",  # noqa: E501
+        "refresh": "/api/v1/indexes/{index_name}/_refresh",
+        "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
+        "update_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",  # noqa: E501
+        # Data Sources APIs
+        "create_datasource": "/api/v1/datasources",
+        "list_datasources": "/api/v1/datasources",
+        "delete_datasources": "/api/v1/datasources/{datasource_id}",
+        "get_datasource": "/api/v1/datasources/{datasource_id}",
+        "sync_datasource": "/api/v1/datasources/{datasource_id}/_sync",
+        "list_datasources_objects_states": "/api/v1/datasources/{datasource_id}/documents?skip={skip}&limit={limit}",  # noqa: E501
+    }
+
+    def __init__(
+        self,
+        *,
+        index_url: str,
+        bearer_token: Optional[str] = None,
+        default_max_retries: int = DEFAULT_MAX_RETRIES,
+        default_sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+    ):
+        self.index_url = index_url
+        self.bearer_token = bearer_token
+
+        if default_max_retries < 0:
+            raise ValueError("default_max_retries must be a non-negative integer.")
+        if default_sleep_retry_seconds < 0:
+            raise ValueError(
+                "default_sleep_retry_seconds must be a non-negative integer."
+            )
+        self.default_max_retries = default_max_retries
+        self.default_sleep_retry_seconds = default_sleep_retry_seconds
+
+
+class CompassClient(BaseCompassClient):
     """A compass client to interact with the Compass API."""
 
     def __init__(
@@ -126,40 +171,13 @@ class CompassClient:
         :param bearer_token (optional): The bearer token for authentication.
         :param http_session (optional): An optional HTTP session to use for requests.
         """
-        self.index_url = index_url
+        super().__init__(
+            index_url=index_url,
+            bearer_token=bearer_token,
+            default_max_retries=default_max_retries,
+            default_sleep_retry_seconds=default_sleep_retry_seconds,
+        )
         self.session = http_session or requests.Session()
-        self.bearer_token = bearer_token
-
-        if default_max_retries < 0:
-            raise ValueError("default_max_retries must be a non-negative integer.")
-        if default_sleep_retry_seconds < 0:
-            raise ValueError(
-                "default_sleep_retry_seconds must be a non-negative integer."
-            )
-        self.default_max_retries = default_max_retries
-        self.default_sleep_retry_seconds = default_sleep_retry_seconds
-
-        self.api_endpoint = {
-            "create_index": "/api/v1/indexes/{index_name}",
-            "list_indexes": "/api/v1/indexes",
-            "delete_index": "/api/v1/indexes/{index_name}",
-            "delete_document": "/api/v1/indexes/{index_name}/documents/{document_id}",
-            "get_document": "/api/v1/indexes/{index_name}/documents/{document_id}",
-            "put_documents": "/api/v1/indexes/{index_name}/documents",
-            "search_documents": "/api/v1/indexes/{index_name}/documents/_search",
-            "search_chunks": "/api/v1/indexes/{index_name}/documents/_search_chunks",
-            "add_attributes": "/api/v1/indexes/{index_name}/documents/{document_id}/_add_attributes",  # noqa: E501
-            "refresh": "/api/v1/indexes/{index_name}/_refresh",
-            "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
-            "update_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",  # noqa: E501
-            # Data Sources APIs
-            "create_datasource": "/api/v1/datasources",
-            "list_datasources": "/api/v1/datasources",
-            "delete_datasources": "/api/v1/datasources/{datasource_id}",
-            "get_datasource": "/api/v1/datasources/{datasource_id}",
-            "sync_datasource": "/api/v1/datasources/{datasource_id}/_sync",
-            "list_datasources_objects_states": "/api/v1/datasources/{datasource_id}/documents?skip={skip}&limit={limit}",  # noqa: E501
-        }
 
     def create_index(
         self,
@@ -891,7 +909,7 @@ class CompassClient:
                 if self.bearer_token:
                     headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
-                method = _api_methods[api_name]
+                method = self._API_METHODS[api_name]
                 response = self.session.request(
                     method=method, url=target_path, json=data_dict, headers=headers
                 )
@@ -932,7 +950,7 @@ class CompassClient:
 
         error = None
         try:
-            target_path = self.index_url + self.api_endpoint[api_name].format(
+            target_path = self.index_url + self._API_ENDPOINTS[api_name].format(
                 **url_params
             )
             res = _send_request_with_retry()
