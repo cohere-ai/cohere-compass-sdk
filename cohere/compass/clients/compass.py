@@ -1050,6 +1050,60 @@ class AsyncCompassClient(BaseCompassClient):
         )
         self.session = http_session or aiohttp.ClientSession()
 
+    async def search_documents(
+        self,
+        *,
+        index_name: str,
+        query: str,
+        top_k: int = 10,
+        filters: Optional[list[SearchFilter]] = None,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> SearchDocumentsResponse:
+        """
+        Search documents in an index.
+
+        :param index_name: the name of the index
+        :param query: the search query
+        :param top_k: the number of documents to return
+        :param filters: the search filters to apply
+
+        :returns: the search results
+        """
+        result = await self._search(
+            api_name="search_documents",
+            index_name=index_name,
+            query=query,
+            top_k=top_k,
+            filters=filters,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+
+        if result.error:
+            raise CompassError(result.error)
+
+        return SearchDocumentsResponse.model_validate(result.result)
+
+    async def _search(
+        self,
+        *,
+        api_name: Literal["search_documents", "search_chunks"],
+        index_name: str,
+        query: str,
+        top_k: int = 10,
+        filters: Optional[list[SearchFilter]] = None,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> _RetryResult:
+        return await self._send_request(
+            api_name=api_name,
+            index_name=index_name,
+            data=SearchInput(query=query, top_k=top_k, filters=filters),
+            max_retries=1,
+            sleep_retry_seconds=1,
+        )
+
     async def _send_request(
         self,
         api_name: str,
