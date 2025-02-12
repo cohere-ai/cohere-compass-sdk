@@ -1,6 +1,5 @@
 # Python imports
 import base64
-import abc
 import logging
 import os
 import threading
@@ -9,7 +8,7 @@ from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass
 from statistics import mean
-from typing import Any, Literal, Optional, Union, ClassVar
+from typing import Any, Literal, Optional, Union, ClassVar, TypedDict
 
 import requests
 
@@ -87,6 +86,14 @@ logger = logging.getLogger(__name__)
 _HttpMethods = Literal["GET", "POST", "PUT", "DELETE"]
 
 
+class _CompassRequest(TypedDict):
+    max_retries: int
+    sleep_retry_seconds: int
+    method: str
+    data: dict[str, Any] | None
+    headers: dict[str, str] | None
+
+
 class BaseCompassClient:
     _API_METHODS: ClassVar[dict[str, _HttpMethods]] = {
         "create_index": "PUT",
@@ -150,6 +157,37 @@ class BaseCompassClient:
             )
         self.default_max_retries = default_max_retries
         self.default_sleep_retry_seconds = default_sleep_retry_seconds
+
+    def _create_request(
+        self,
+        api_name: str,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+        data: Optional[BaseModel] = None,
+        **url_params: str,
+    ) -> _CompassRequest:
+        max_retries = max_retries or self.default_max_retries
+        sleep_retry_seconds = sleep_retry_seconds or self.default_sleep_retry_seconds
+        if max_retries < 0:
+            raise ValueError("max_retries must be a non-negative integer.")
+        if sleep_retry_seconds < 0:
+            raise ValueError("sleep_retry_seconds must be a non-negative integer.")
+
+        data_dict = data.model_dump(mode="json", exclude_none=True) if data else None
+
+        headers = None
+        if self.bearer_token:
+            headers = {"Authorization": f"Bearer {self.bearer_token}"}
+
+        method = self._API_METHODS[api_name]
+
+        return {
+            "max_retries": max_retries,
+            "sleep_retry_seconds": sleep_retry_seconds,
+            "data": data_dict,
+            "headers": headers,
+            "method": method,
+        }
 
 
 class CompassClient(BaseCompassClient):
@@ -878,18 +916,18 @@ class CompassClient(BaseCompassClient):
         :param data: the data to send
         :returns: An error message if the request failed, otherwise None.
         """
-        if not max_retries:
-            max_retries = self.default_max_retries
-        if not sleep_retry_seconds:
-            sleep_retry_seconds = self.default_sleep_retry_seconds
-        if max_retries < 0:
-            raise ValueError("max_retries must be a non-negative integer.")
-        if sleep_retry_seconds < 0:
-            raise ValueError("sleep_retry_seconds must be a non-negative integer.")
+
+        compass_request = self._create_request(
+            api_name=api_name,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+            data=data,
+            **url_params,
+        )
 
         @retry(
-            stop=stop_after_attempt(max_retries),
-            wait=wait_fixed(sleep_retry_seconds),
+            stop=stop_after_attempt(compass_request["max_retries"]),
+            wait=wait_fixed(compass_request["sleep_retry_seconds"]),
             retry=retry_if_not_exception_type(
                 (
                     CompassClientError,
@@ -901,17 +939,11 @@ class CompassClient(BaseCompassClient):
             nonlocal error
 
             try:
-                data_dict = (
-                    data.model_dump(mode="json", exclude_none=True) if data else None
-                )
-
-                headers = None
-                if self.bearer_token:
-                    headers = {"Authorization": f"Bearer {self.bearer_token}"}
-
-                method = self._API_METHODS[api_name]
                 response = self.session.request(
-                    method=method, url=target_path, json=data_dict, headers=headers
+                    method=compass_request["method"],
+                    url=target_path,
+                    json=compass_request["data"],
+                    headers=compass_request["headers"],
                 )
 
                 if response.ok:
