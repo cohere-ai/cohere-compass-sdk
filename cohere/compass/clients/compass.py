@@ -1131,12 +1131,9 @@ class AsyncCompassClient(BaseCompassClient):
         try:
             target_path = self._get_target_path(api_name, **url_params)
             res = await _send_request_with_retry()
-            if res:
-                return res
-            else:
-                return _RetryResult(result=None, error=error)
+            return self._handle_retry_result(res, error)
         except RetryError:
             logger.error(
                 f"Failed to send request after {max_retries} attempts. Aborting."
             )
-            return _RetryResult(result=None, error=error)
+            return self._handle_retry_error(error, max_retries)
