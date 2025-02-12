@@ -216,7 +216,18 @@ class BaseCompassClient:
                 f"{type(exc)} {error}. Going to sleep for "
                 f"{sleep_retry_seconds} seconds and retrying."
             )
-            raise e
+            raise exc
+
+    def _handle_retry_result(
+        self, result: _RetryResult | None, error: str | None
+    ) -> _RetryResult:
+        if result:
+            return result
+        return _RetryResult(result=None, error=error)
+
+    def _handle_retry_error(self, error: str | None, max_retries: int) -> _RetryResult:
+        logger.error(f"Failed to send request after {max_retries} attempts. Aborting.")
+        return _RetryResult(result=None, error=error)
 
 
 class CompassClient(BaseCompassClient):
@@ -1007,15 +1018,9 @@ class CompassClient(BaseCompassClient):
         try:
             target_path = self._get_target_path(api_name, **url_params)
             res = _send_request_with_retry()
-            if res:
-                return res
-            else:
-                return _RetryResult(result=None, error=error)
+            return self._handle_retry_result(res, error)
         except RetryError:
-            logger.error(
-                f"Failed to send request after {max_retries} attempts. Aborting."
-            )
-            return _RetryResult(result=None, error=error)
+            self._handle_retry_error(error, max_retries)
 
 
 class AsyncCompassClient(BaseCompassClient):
