@@ -723,7 +723,7 @@ class CompassClient(BaseCompassClient[RetryResult]):
 
         error = None
         try:
-            target_path = self._get_target_path(api_name, **url_params)
+            target_path = self._get_api_path(api_name, **url_params)
             res = _send_request_with_retry()
             return self._handle_retry_result(res, error)
         except RetryError:

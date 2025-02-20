@@ -315,7 +315,7 @@ class BaseCompassClient(ABC, Generic[T]):
             "method": method,
         }
 
-    def _get_target_path(self, api_name: str, **url_params: str) -> str:
+    def _get_api_path(self, api_name: str, **url_params: str) -> str:
         return self._API_ENDPOINTS[api_name].format(**url_params)
 
     def _handle_http_error(
