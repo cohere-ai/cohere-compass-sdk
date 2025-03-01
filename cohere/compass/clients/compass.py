@@ -908,7 +908,7 @@ class CompassClient:
                     raise CompassClientError(message=error, code=e.response.status_code)
                 else:
                     error = str(e) + " " + e.response.text
-                    logger.error(
+                    logger.warning(
                         f"Failed to send request to {api_name} {target_path}: "
                         f"{type(e)} {error}. Going to sleep for "
                         f"{sleep_retry_seconds} seconds and retrying."
@@ -920,7 +920,7 @@ class CompassClient:
 
             except Exception as e:
                 error = str(e)
-                logger.error(
+                logger.warning(
                     f"Failed to send request to {api_name} {target_path}: {type(e)} "
                     f"{error}. Sleeping for {sleep_retry_seconds} before retrying..."
                 )
