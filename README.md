@@ -49,37 +49,79 @@ npm i -g markdown-toc # use sudo if you use a system-wide node installation.
 
 ## Getting Started
 
+### Prerequisites
+
+- Python 3.9+ (recommended)
+- [Poetry](https://python-poetry.org/) for dependency management
+- A running Compass server/endpoint (for both parser and index)
+- (Optional) `markdown-toc` if you plan to update the table of contents
+
+### Installation
+
+```bash
+git clone https://github.com/cohere-ai/cohere-compass-sdk.git
+cd cohere-compass-sdk
+poetry install
+```
+
+### End to end run
+
 Fill in your URL, username, password, and path to test data below for an end to end run
 of parsing and searching.
 
+#### Create a Parsing Client
 ```Python
-from cohere.compass.clients.compass import CompassClient
 from cohere.compass.clients.parser import CompassParserClient
 from cohere.compass.models.config import MetadataStrategy, MetadataConfig
 
-api_url = "<COMPASS_URL>"
-parser_url = "<PARSER URL>"
-bearer_token = "<PASS BEARER TOKEN IF ANY OTHERWISE LEAVE IT BLANK>"
+parser_url = "http://localhost:8081"  # Example parser URL
+parsing_client = CompassParserClient(parser_url=parser_url)
 
-index = "test-index"
-data_to_index = "<PATH_TO_TEST_DATA>"
-
-# Parse the files before indexing
-parsing_client = CompassParserClient(parser_url = parser_url)
 metadata_config = MetadataConfig(
     metadata_strategy=MetadataStrategy.No_Metadata,
     commandr_extractable_attributes=["date", "link", "page_title", "authors"]
 )
 
-docs_to_index = parsing_client.process_folder(folder_path=data_to_index, metadata_config=metadata_config, recursive=True)
+# Folder containing files to parse - supports multiple file types including:
+# - PDF files
+# - Word documents (.docx)
+# - CSV files
+# - JSON files
+# - Text files
+data_to_index = "/path/to/documents"  # folder containing files to parse
+docs_to_index = parsing_client.process_folder(
+    folder_path=data_to_index,
+    metadata_config=metadata_config,
+    recursive=True
+)
+```
 
-# Create index and insert files
+#### Create an Index and Insert Documents
+
+```python
+from cohere.compass.clients.compass import CompassClient
+
+api_url = "http://localhost:8080"    # Example Compass API URL
+bearer_token = "<YOUR_BEARER_TOKEN>"
+
+index = "test-index"
 compass_client = CompassClient(index_url=api_url, bearer_token=bearer_token)
 compass_client.create_index(index_name=index)
-results = compass_client.insert_docs(index_name=index, docs=docs_to_index)
 
-result = compass_client.search_chunks(index_name=index, query="test", top_k=1)
-print(f"Results preview: \n {result.hits} ... \n \n ")
+# Insert parsed documents
+docs_list = list(docs_to_index)  # Convert iterator to list
+print(f"Attempting to insert {len(docs_list)} documents")
+results = compass_client.insert_docs(index_name=index, docs=iter(docs_list))
+if results is None:
+    print("All documents successfully inserted!")
+else:
+    print("Some documents failed to insert:", results)
+```
+
+# Search Your Index
+```python
+result = compass_client.search_chunks(index_name=index, query="test query", top_k=1)
+print("Search results: \n", result.hits)
 ```
 
 ### Adding filters to documents
@@ -201,15 +243,6 @@ compass_root.delete_role_mappings(role_name=role_mapping_role_name, group_name=r
 ```
 
 ## Local Development
-
-### Create Python Virtual Environment
-
-We use Poetry to manage our Python environment. To create the virtual environment use
-the following command:
-
-```
-poetry install
-```
 
 ### Running Tests Locally
 
