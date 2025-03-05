@@ -1,0 +1,11 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Generate launch.json",
+            "type": "shell",
+            "command": "python3 ./generate_vscode_launch.py",
+            "problemMatcher": []
+        }
+    ]
+}

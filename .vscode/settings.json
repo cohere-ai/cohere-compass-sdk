@@ -1,9 +1,4 @@
 {
-    "workbench.colorCustomizations": {
-        "titleBar.activeBackground": "#A06C00",
-        "titleBar.inactiveBackground": "#A06C00"
-    },
-    "window.title": "📦 Compass SDK 📦",
     "python.testing.pytestArgs": [
         "tests"
     ],

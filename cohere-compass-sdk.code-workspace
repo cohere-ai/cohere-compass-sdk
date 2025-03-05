@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": ".",
+			"settings": {
+				"python.pythonPath": "./.venv/bin/python"
+			}
+		},
+		{
+			"path": "examples",
+			"settings": {
+				"python.pythonPath": "./.venv/bin/python"
+			}
+		}
+	],
+	"settings": {
+		"window.title": "📦 Compass SDK 📦"
+	}
+}
