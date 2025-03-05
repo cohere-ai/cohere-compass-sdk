@@ -5,8 +5,12 @@ def main():
     client = get_compass_api()
     print("Making a call to list indexes...")
     response = client.list_indexes()
-    assert response.error is None
-    assert response.result is not None
+    if response.error:
+        print(f"Error: {response.error}")
+        return
+    if not response.result:
+        print("Unexpected error: request didn't return any result.")
+        return
     indexes = response.result["indexes"]
 
     if not indexes:
