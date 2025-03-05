@@ -6,7 +6,7 @@ from cohere.compass.clients import CompassClient, CompassParserClient
 dotenv.load_dotenv()  # type: ignore
 
 
-def get_compass_client():
+def get_compass_api():
     """
     Create and return a CompassClient instance.
 
@@ -27,7 +27,7 @@ def get_compass_client():
     return CompassClient(index_url=api_url, bearer_token=bearer_token)
 
 
-def get_parser_client():
+def get_compass_parser():
     """
     Create and return an instance of CompassParserClient.
 
@@ -42,7 +42,7 @@ def get_parser_client():
     parser_url = os.getenv("COMPASS_PARSER_URL")
     if not parser_url:
         raise ValueError(
-            "COMPASS_API_URL environment variable must be set in your .env file."
+            "COMPASS_PARSER_URL environment variable must be set in your .env file."
         )
     bearer_token = os.getenv("COMPASS_PARSER_BEARER_TOKEN")
     return CompassParserClient(parser_url=parser_url, bearer_token=bearer_token)

@@ -25,7 +25,9 @@ pyright = "^1.1.396"
 ruff = "^0.9.9"
 
 [project.scripts]
+create_index = 'compass_sdk_examples.create_index:main'
 list_indexes = 'compass_sdk_examples.list_indexes:main'
+search_documents = 'compass_sdk_examples.search_documents:main'
 
 
 [tool.pyright]

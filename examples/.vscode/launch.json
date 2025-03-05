@@ -1,0 +1,28 @@
+// This file was generated automatically by generate_vscode_launch.py script. You can
+// run the script again to update this file with new launch configurations.
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug search_documents",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/compass_sdk_examples/search_documents.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug list_indexes",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/compass_sdk_examples/list_indexes.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug create_index",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/compass_sdk_examples/create_index.py",
+            "console": "integratedTerminal"
+        }
+    ]
+}
