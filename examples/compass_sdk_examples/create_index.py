@@ -5,7 +5,7 @@ from compass_sdk_examples.utils import get_compass_api, get_compass_parser
 
 def parse_args():
     """
-    Parse "index_name" and "folder_path" using argparse.
+    Parse the user arguments using argparse.
     """
     # Set up argument parsing
     parser = argparse.ArgumentParser(
