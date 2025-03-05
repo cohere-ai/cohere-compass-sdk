@@ -10,7 +10,7 @@ def parse_args():
     # Set up argument parsing
     parser = argparse.ArgumentParser(
         description="""
-This script creates an index in Compass and inserts documents into it.
+This script searches for documents in an existing index in Compass.
 """.strip(),
         add_help=True,
     )
@@ -19,7 +19,7 @@ This script creates an index in Compass and inserts documents into it.
     parser.add_argument(
         "--index-name",
         type=str,
-        help="Specify the name of the index to create.",
+        help="Specify the name of the index to search in.",
         required=True,
     )
     parser.add_argument(
