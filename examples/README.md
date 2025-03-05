@@ -26,9 +26,9 @@ the bearer tokens if your Compass instance has multi-tenancy enabled. Example
 .env file below:
 
 ```
-COMPASS_API_URL=http://rafid-gpu/api/
+COMPASS_API_URL=http://<your compass API URL>/
 COMPASS_API_BEARER_TOKEN=
-COMPASS_PARSER_URL=http://rafid-gpu/parse/
+COMPASS_PARSER_URL=http://<your compass parser URL>/
 COMPASS_PARSER_BEARER_TOKEN=
 ```
 
