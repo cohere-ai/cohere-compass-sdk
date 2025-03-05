@@ -52,6 +52,12 @@ npm i -g markdown-toc # use sudo if you use a system-wide node installation.
 Fill in your URL, username, password, and path to test data below for an end to end run
 of parsing and searching.
 
+### Installation
+
+```bash
+pip install git+https://github.com/cohere-ai/cohere-compass-sdk.git
+```
+
 ```Python
 from cohere.compass.clients.compass import CompassClient
 from cohere.compass.clients.parser import CompassParserClient
