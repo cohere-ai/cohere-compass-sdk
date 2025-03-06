@@ -825,7 +825,7 @@ class CompassClient:
         asset_id: str,
         max_retries: Optional[int] = None,
         sleep_retry_seconds: Optional[int] = None,
-    ):
+    ) -> tuple[Union[str, bytes, dict[str, Any]], str]:
         """
         Get an asset from a document in Compass.
 
@@ -833,7 +833,11 @@ class CompassClient:
         :param document_id: the id of the document
         :param asset_id: the id of the asset
 
-        :returns: the content of the asset.
+        :returns: A tuple of the content and content type of the asset. The variable
+        type of the content is either str, bytes, or dict[str, Any], depending on the
+        asset type. For example, if the asset is an image, the content type will be
+        bytes; if the asset is a markdown, the content type will be str; if the asset is
+        a json, the content type will be dict[str, Any].
 
         :raises CompassError: if the asset cannot be retrieved, either because it
         doesn't exist or the user doesn't have permission to access it.
@@ -850,7 +854,7 @@ class CompassClient:
         if result.error:
             raise CompassError(result.error)
 
-        return result.result, result.content_type
+        return result.result, result.content_type  # type: ignore
 
     def update_group_authorization(
         self,
@@ -938,28 +942,18 @@ class CompassClient:
                         # To handle response from get_document_asset() when the asset
                         # is an image.
                         result = response.content
-                        return _RetryResult(
-                            result=result,
-                            content_type=content_type,
-                            error=None,
-                        )
                     elif content_type == "text/markdown":
                         # To handle response from get_document_asset() when the asset
                         # is a markdown.
                         result = response.text
-                        return _RetryResult(
-                            result=result,
-                            content_type=content_type,
-                            error=None,
-                        )
                     else:
                         # To handle response from other APIs.
                         result = response.json() if response.text else None
-                        return _RetryResult(
-                            result=result,
-                            content_type=content_type,
-                            error=None,
-                        )
+                    return _RetryResult(
+                        result=result,
+                        content_type=content_type,
+                        error=None,
+                    )
                 else:
                     response.raise_for_status()
 

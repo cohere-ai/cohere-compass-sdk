@@ -68,7 +68,7 @@ def main():
     if content_type in ["image/jpeg", "image/png"]:
         with open(f"{asset_id}", "wb") as f:
             f.write(asset)  # type: ignore
-    elif content_type is not None and "text/json" in content_type:
+    elif "text/json" in content_type:
         print(json.dumps(asset, indent=2))
 
 
