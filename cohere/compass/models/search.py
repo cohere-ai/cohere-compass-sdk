@@ -11,6 +11,7 @@ from cohere.compass.models.documents import AssetType
 class AssetInfo(BaseModel):
     """Information about an asset."""
 
+    asset_id: Optional[str] = None
     asset_type: AssetType
     content_type: str
     presigned_url: str

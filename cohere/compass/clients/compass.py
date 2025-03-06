@@ -76,7 +76,8 @@ class _RetryResult:
     Notice that this is an internal class and should not be exposed to clients.
     """
 
-    result: Optional[dict[str, Any]] = None
+    result: Optional[Union[str, bytes, dict[str, Any]]] = None
+    content_type: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -124,6 +125,7 @@ class CompassClient:
             "put_documents": self.session.put,
             "search_documents": self.session.post,
             "search_chunks": self.session.post,
+            "get_document_asset": self.session.get,
             "add_attributes": self.session.post,
             "refresh": self.session.post,
             "upload_documents": self.session.post,
@@ -145,6 +147,7 @@ class CompassClient:
             "put_documents": "/api/v1/indexes/{index_name}/documents",
             "search_documents": "/api/v1/indexes/{index_name}/documents/_search",
             "search_chunks": "/api/v1/indexes/{index_name}/documents/_search_chunks",
+            "get_document_asset": "/api/v1/indexes/{index_name}/documents/{document_id}/assets/{asset_id}",  # noqa: E501
             "add_attributes": "/api/v1/indexes/{index_name}/documents/{document_id}/_add_attributes",  # noqa: E501
             "refresh": "/api/v1/indexes/{index_name}/_refresh",
             "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
@@ -398,7 +401,8 @@ class CompassClient:
 
         if result.error:
             return result.error
-        return result.result
+
+        return result.result  # type: ignore
 
     def insert_docs(
         self,
@@ -813,6 +817,45 @@ class CompassClient:
 
         return SearchChunksResponse.model_validate(result.result)
 
+    def get_document_asset(
+        self,
+        *,
+        index_name: str,
+        document_id: str,
+        asset_id: str,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> tuple[Union[str, bytes, dict[str, Any]], str]:
+        """
+        Get an asset from a document in Compass.
+
+        :param index_name: the name of the index
+        :param document_id: the id of the document
+        :param asset_id: the id of the asset
+
+        :returns: A tuple of the content and content type of the asset. The variable
+        type of the content is either str, bytes, or dict[str, Any], depending on the
+        asset type. For example, if the asset is an image, the content type will be
+        bytes; if the asset is a markdown, the content type will be str; if the asset is
+        a json, the content type will be dict[str, Any].
+
+        :raises CompassError: if the asset cannot be retrieved, either because it
+        doesn't exist or the user doesn't have permission to access it.
+        """
+        result = self._send_request(
+            api_name="get_document_asset",
+            index_name=index_name,
+            document_id=document_id,
+            asset_id=asset_id,
+            max_retries=1,
+            sleep_retry_seconds=1,
+        )
+
+        if result.error:
+            raise CompassError(result.error)
+
+        return result.result, result.content_type  # type: ignore
+
     def update_group_authorization(
         self,
         *,
@@ -839,7 +882,7 @@ class CompassClient:
         return PutDocumentsResponse.model_validate(result.result)
 
     # todo Simplify this method so we don't have to ignore the C901 complexity warning.
-    def _send_request(
+    def _send_request(  # noqa: C901
         self,
         api_name: str,
         max_retries: Optional[int] = None,
@@ -894,8 +937,23 @@ class CompassClient:
 
                 if response.ok:
                     error = None
-                    result = response.json() if response.text else None
-                    return _RetryResult(result=result, error=None)
+                    content_type = response.headers.get("content-type")
+                    if content_type in ("image/jpeg", "image/png"):
+                        # To handle response from get_document_asset() when the asset
+                        # is an image.
+                        result = response.content
+                    elif content_type == "text/markdown":
+                        # To handle response from get_document_asset() when the asset
+                        # is a markdown.
+                        result = response.text
+                    else:
+                        # To handle response from other APIs.
+                        result = response.json() if response.text else None
+                    return _RetryResult(
+                        result=result,
+                        content_type=content_type,
+                        error=None,
+                    )
                 else:
                     response.raise_for_status()
 

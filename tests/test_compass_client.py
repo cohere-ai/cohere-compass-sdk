@@ -121,3 +121,48 @@ def test_search_chunk_handles_connection_aborted_error_correctly(requests_mock: 
     requests_mock.post(url, exc=ConnectionAbortedError)
     with pytest.raises(CompassClientError):
         compass.search_chunks(index_name="test_index", query="test")
+
+
+def test_get_document_asset_with_json_asset(requests_mock: Mocker):
+    requests_mock.get(
+        "http://test.com/api/v1/indexes/test_index/documents/test_id/assets/test_asset_id",
+        json={"test": "test"},
+        headers={"Content-Type": "application/json"},
+    )
+    compass = CompassClient(index_url="http://test.com")
+    asset, content_type = compass.get_document_asset(
+        index_name="test_index", document_id="test_id", asset_id="test_asset_id"
+    )
+    assert isinstance(asset, dict)
+    assert asset == {"test": "test"}
+    assert content_type == "application/json"
+
+
+def test_get_document_asset_markdown(requests_mock: Mocker):
+    requests_mock.get(
+        "http://test.com/api/v1/indexes/test_index/documents/test_id/assets/test_asset_id",
+        text="# Test",
+        headers={"Content-Type": "text/markdown"},
+    )
+    compass = CompassClient(index_url="http://test.com")
+    asset, content_type = compass.get_document_asset(
+        index_name="test_index", document_id="test_id", asset_id="test_asset_id"
+    )
+    assert isinstance(asset, str)
+    assert asset == "# Test"
+    assert content_type == "text/markdown"
+
+
+def test_get_document_asset_image(requests_mock: Mocker):
+    requests_mock.get(
+        "http://test.com/api/v1/indexes/test_index/documents/test_id/assets/test_asset_id",
+        content=b"test",
+        headers={"Content-Type": "image/png"},
+    )
+    compass = CompassClient(index_url="http://test.com")
+    asset, content_type = compass.get_document_asset(
+        index_name="test_index", document_id="test_id", asset_id="test_asset_id"
+    )
+    assert isinstance(asset, bytes)
+    assert asset == b"test"
+    assert content_type == "image/png"

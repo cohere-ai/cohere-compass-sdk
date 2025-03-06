@@ -11,6 +11,9 @@ def main():
     if not response.result:
         print("Unexpected error: request didn't return any result.")
         return
+    if not isinstance(response.result, dict):
+        print("Unexpected error: result is not a dictionary.")
+        return
     indexes = response.result["indexes"]
 
     if not indexes:
