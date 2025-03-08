@@ -84,3 +84,25 @@ class SearchInput(BaseModel):
     query: str
     top_k: int
     filters: Optional[list[SearchFilter]] = None
+
+
+class DirectSearchInput(BaseModel):
+    """Input to direct search APIs."""
+
+    query: dict[str, Any]
+    size: int
+    scroll: Optional[str] = None
+
+
+class DirectSearchScrollInput(BaseModel):
+    """Input to direct search scroll API."""
+
+    scroll_id: str
+    scroll: str
+
+
+class DirectSearchResponse(BaseModel):
+    """Response object for direct search APIs."""
+
+    hits: list[RetrievedChunkExtended]
+    scroll_id: Optional[str] = None

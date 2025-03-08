@@ -166,3 +166,40 @@ def test_get_document_asset_image(requests_mock: Mocker):
     assert isinstance(asset, bytes)
     assert asset == b"test"
     assert content_type == "image/png"
+
+
+def test_direct_search_is_valid(requests_mock: Mocker):
+    # Register mock response for the direct_search endpoint
+    requests_mock.post(
+        "http://test.com/api/v1/indexes/test_index/_direct_search",
+        json={"hits": [], "scroll_id": "test_scroll_id"},
+    )
+
+    compass = CompassClient(index_url="http://test.com")
+    compass.direct_search(index_name="test_index", query={"match_all": {}})
+    assert requests_mock.request_history[0].method == "POST"
+    assert (
+        requests_mock.request_history[0].url
+        == "http://test.com/api/v1/indexes/test_index/_direct_search"
+    )
+    assert "query" in requests_mock.request_history[0].json()
+    assert "size" in requests_mock.request_history[0].json()
+
+
+def test_direct_search_scroll_is_valid(requests_mock: Mocker):
+    # Register mock response for the direct_search_scroll endpoint
+    requests_mock.post(
+        "http://test.com/api/v1/indexes/_direct_search/scroll",
+        json={"hits": [], "scroll_id": "test_scroll_id"},
+    )
+
+    compass = CompassClient(index_url="http://test.com")
+    compass.direct_search_scroll(scroll_id="test_scroll_id")
+    assert requests_mock.request_history[0].method == "POST"
+    assert (
+        requests_mock.request_history[0].url
+        == "http://test.com/api/v1/indexes/_direct_search/scroll"
+    )
+    request_body = requests_mock.request_history[0].json()
+    assert request_body["scroll_id"] == "test_scroll_id"
+    assert request_body["scroll"] == "1m"
