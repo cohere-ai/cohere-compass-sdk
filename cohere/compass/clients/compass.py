@@ -49,6 +49,9 @@ from cohere.compass.models import (
     CompassSdkStage,
     CreateDataSource,
     DataSource,
+    DirectSearchInput,
+    DirectSearchResponse,
+    DirectSearchScrollInput,
     Document,
     DocumentStatus,
     ParseableDocument,
@@ -115,7 +118,6 @@ class CompassClient:
             )
         self.default_max_retries = default_max_retries
         self.default_sleep_retry_seconds = default_sleep_retry_seconds
-
         self.api_method = {
             "create_index": self.session.put,
             "list_indexes": self.session.get,
@@ -130,6 +132,8 @@ class CompassClient:
             "refresh": self.session.post,
             "upload_documents": self.session.post,
             "update_group_authorization": self.session.post,
+            "direct_search": self.session.post,
+            "direct_search_scroll": self.session.post,
             # Data Sources APIs
             "create_datasource": self.session.post,
             "list_datasources": self.session.get,
@@ -152,6 +156,8 @@ class CompassClient:
             "refresh": "/api/v1/indexes/{index_name}/_refresh",
             "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
             "update_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",  # noqa: E501
+            "direct_search": "/api/v1/indexes/{index_name}/_direct_search",
+            "direct_search_scroll": "/api/v1/indexes/_direct_search/scroll",
             # Data Sources APIs
             "create_datasource": "/api/v1/datasources",
             "list_datasources": "/api/v1/datasources",
@@ -880,6 +886,77 @@ class CompassClient:
         if result.error:
             raise CompassError(result.error)
         return PutDocumentsResponse.model_validate(result.result)
+
+    def direct_search(
+        self,
+        *,
+        index_name: str,
+        query: dict[str, Any],
+        size: int = 100,
+        scroll: Optional[str] = None,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> DirectSearchResponse:
+        """
+        Perform a direct search query against the Compass API.
+
+        :param index_name: the name of the index
+        :param query: the direct search query (e.g. {"match_all": {}})
+        :param size: the number of results to return
+        :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        :param max_retries: the maximum number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+
+        :returns: the direct search results
+        :raises CompassError: if the search fails
+        """
+        data = DirectSearchInput(query=query, size=size, scroll=scroll)
+
+        result = self._send_request(
+            api_name="direct_search",
+            index_name=index_name,
+            data=data,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+
+        if result.error:
+            raise CompassError(result.error)
+
+        return DirectSearchResponse.model_validate(result.result)
+
+    def direct_search_scroll(
+        self,
+        *,
+        scroll_id: str,
+        scroll: str = "1m",
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> DirectSearchResponse:
+        """
+        Continue a search using a scroll ID from a previous direct_search call.
+
+        :param scroll_id: the scroll ID from a previous direct_search call
+        :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        :param max_retries: the maximum number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+
+        :returns: the next batch of search results
+        :raises CompassError: if the scroll search fails
+        """
+        data = DirectSearchScrollInput(scroll_id=scroll_id, scroll=scroll)
+
+        result = self._send_request(
+            api_name="direct_search_scroll",
+            data=data,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+
+        if result.error:
+            raise CompassError(result.error)
+
+        return DirectSearchResponse.model_validate(result.result)
 
     # todo Simplify this method so we don't have to ignore the C901 complexity warning.
     def _send_request(  # noqa: C901
