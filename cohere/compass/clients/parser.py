@@ -248,20 +248,15 @@ class CompassParserClient:
             logger.error(f"Error opening document: {doc.errors}")
             return []
 
-        parser_config = parser_config or self.parser_config
-        metadata_config = metadata_config or self.metadata_config
-
-        params = ProcessFileParameters(
-            parser_config=parser_config,
-            metadata_config=metadata_config,
-            doc_id=file_id,
-            content_type=content_type,
-        )
-
         return self._process_file_bytes(
-            params=params,
+            params=self._get_file_params(
+                parser_config=parser_config,
+                metadata_config=metadata_config,
+                file_id=file_id,
+                content_type=content_type,
+            ),
             filename=filename,
-            file_bytes=file_bytes,
+            file_bytes=doc.filebytes,
             custom_context=custom_context,
         )
 
@@ -306,19 +301,33 @@ class CompassParserClient:
 
         :returns: List of resulting documents
         """
+        return self._process_file_bytes(
+            params=self._get_file_params(
+                parser_config=parser_config,
+                metadata_config=metadata_config,
+                file_id=file_id,
+                content_type=content_type,
+            ),
+            filename=filename,
+            file_bytes=file_bytes,
+            custom_context=custom_context,
+        )
+
+    def _get_file_params(
+        self,
+        *,
+        parser_config: Optional[ParserConfig] = None,
+        metadata_config: Optional[MetadataConfig] = None,
+        file_id: Optional[str] = None,
+        content_type: Optional[str] = None,
+    ):
         parser_config = parser_config or self.parser_config
         metadata_config = metadata_config or self.metadata_config
-        params = ProcessFileParameters(
+        return ProcessFileParameters(
             parser_config=parser_config,
             metadata_config=metadata_config,
             doc_id=file_id,
             content_type=content_type,
-        )
-        return self._process_file_bytes(
-            params=params,
-            filename=filename,
-            file_bytes=file_bytes,
-            custom_context=custom_context,
         )
 
     def _process_file_bytes(
