@@ -270,7 +270,7 @@ class CompassParserClient:
         wait=wait_fixed(DEFAULT_SLEEP_RETRY_SECONDS),
         retry=retry_if_not_exception_type((InvalidSchema, CompassClientError)),
     )
-    def process_file(
+    def process_file_bytes(
         self,
         *,
         filename: str,
@@ -281,6 +281,31 @@ class CompassParserClient:
         metadata_config: Optional[MetadataConfig] = None,
         custom_context: Optional[Fn_or_Dict] = None,
     ) -> list[CompassDocument]:
+        """
+        Process a file.
+
+        The method takes in a file, its id, its byte array,
+        and the parser/metadata config.
+        If the config is None, then it uses the default configs passed by parameter when
+        creating the client.  This makes the CompassParserClient stateful for
+        convenience, that is, one can pass in the parser/metadata config only once when
+        creating the CompassParserClient, and process files without having to pass the
+        config every time.
+
+        :param filename: Filename to process.
+        :param file_bytes: byte content of the file
+        :param file_id: Id for the file.
+        :param content_type: Content type of the file.
+        :param parser_config: ParserConfig object with the config to use for parsing the
+            file.
+        :param metadata_config: MetadataConfig object with the config to use for
+            extracting metadata for each document.
+        :param custom_context: Additional data to add to compass document. Fields will
+            be filterable but not semantically searchable.  Can either be a dictionary
+            or a callable that takes a CompassDocument and returns a dictionary.
+
+        :returns: List of resulting documents
+        """
         parser_config = parser_config or self.parser_config
         metadata_config = metadata_config or self.metadata_config
         params = ProcessFileParameters(
