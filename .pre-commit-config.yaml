@@ -12,7 +12,7 @@ repos:
     hooks:
       - id: pyright
         name: pyright (root)
-        exclude: '^examples/'
+        exclude: ^(examples/)
       - id: pyright
         name: pyright (examples)
-        files: '^examples/'
+        files: ^(examples/compass_sdk_examples)
