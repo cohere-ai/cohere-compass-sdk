@@ -24,7 +24,7 @@ from cohere.compass.constants import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_SLEEP_RETRY_SECONDS,
 )
-from cohere.compass.exceptions import CompassClientError
+from cohere.compass.exceptions import CompassClientError, CompassError
 from cohere.compass.models import (
     CompassDocument,
     MetadataConfig,
@@ -150,7 +150,7 @@ class CompassParserClient:
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
         custom_context: Optional[Fn_or_Dict] = None,
-    ) -> Iterable[CompassDocument]:
+    ) -> Iterable[Union[CompassDocument, tuple[str, Exception]]]:
         """
         Process a list of files.
 
@@ -177,14 +177,18 @@ class CompassParserClient:
         :returns: List of processed documents
         """
 
-        def process_file(i: int) -> list[CompassDocument]:
-            return self.process_file(
-                filename=filenames[i],
-                file_id=file_ids[i] if file_ids else None,
-                parser_config=parser_config,
-                metadata_config=metadata_config,
-                custom_context=custom_context,
-            )
+        def process_file(i: int) -> Union[list[CompassDocument], tuple[str, Exception]]:
+            filename = filenames[i]
+            try:
+                return self.process_file(
+                    filename=filename,
+                    file_id=file_ids[i] if file_ids else None,
+                    parser_config=parser_config,
+                    metadata_config=metadata_config,
+                    custom_context=custom_context,
+                )
+            except Exception as e:
+                return filename, e
 
         for results in imap_queued(
             self.thread_pool,
@@ -192,7 +196,10 @@ class CompassParserClient:
             range(len(filenames)),
             max_queued=self.num_workers,
         ):
-            yield from results
+            if isinstance(results, list):
+                yield from results
+            else:
+                yield results
 
     @staticmethod
     def _get_metadata(
@@ -276,19 +283,25 @@ class CompassParserClient:
             headers=headers,
         )
 
-        if res.ok:
-            docs: list[CompassDocument] = []
-            for doc in res.json()["docs"]:
-                if not doc.get("errors", []):
-                    compass_doc = self._adapt_doc_id_compass_doc(doc)
-                    additional_metadata = CompassParserClient._get_metadata(
-                        doc=compass_doc, custom_context=custom_context
-                    )
-                    compass_doc.content = {**compass_doc.content, **additional_metadata}
-                    docs.append(compass_doc)
-        else:
-            docs = []
-            logger.error(f"Error processing file: {res.text}")
+        if not res.ok:
+            if res.status_code >= 400 and res.status_code < 500:
+                raise CompassClientError(
+                    f"Error processing file: {res.status_code} {res.text}"
+                )
+            else:
+                raise CompassError(
+                    f"Error processing file: {res.status_code} {res.text}"
+                )
+
+        docs: list[CompassDocument] = []
+        for doc in res.json()["docs"]:
+            if not doc.get("errors", []):
+                compass_doc = self._adapt_doc_id_compass_doc(doc)
+                additional_metadata = CompassParserClient._get_metadata(
+                    doc=compass_doc, custom_context=custom_context
+                )
+                compass_doc.content = {**compass_doc.content, **additional_metadata}
+                docs.append(compass_doc)
 
         return docs
 
