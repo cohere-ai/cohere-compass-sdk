@@ -14,6 +14,18 @@
 		}
 	],
 	"settings": {
-		"window.title": "📦 Compass SDK 📦"
+		"files.exclude": {
+			"**/.git": true,
+			"**/.pytest_cache": true,
+			"**/.ruff_cache": true,
+			"**/__pycache__": true,
+		},
+		"search.exclude": {
+			"**/.git": true,
+			"**/.pytest_cache": true,
+			"**/.ruff_cache": true,
+			"**/__pycache__": true,
+		},
+		"window.title": "📦 Compass SDK 📦",
 	}
 }

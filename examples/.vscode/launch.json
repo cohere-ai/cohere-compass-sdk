@@ -11,10 +11,31 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Debug scroll_all_chunks",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/compass_sdk_examples/scroll_all_chunks.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Debug list_indexes",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/compass_sdk_examples/list_indexes.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug get_document_asset",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/compass_sdk_examples/get_document_asset.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug parse_document",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/compass_sdk_examples/parse_document.py",
             "console": "integratedTerminal"
         },
         {
