@@ -8,7 +8,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict
 
 # Local imports
-from cohere.compass.constants import (
+from cohere_compass.constants import (
     COHERE_API_ENV_VAR,
     DEFAULT_COMMANDR_EXTRACTABLE_ATTRIBUTES,
     DEFAULT_COMMANDR_PROMPT,
@@ -20,7 +20,7 @@ from cohere.compass.constants import (
     METADATA_HEURISTICS_ATTRIBUTES,
     SKIP_INFER_TABLE_TYPES,
 )
-from cohere.compass.models import ValidatedModel
+from cohere_compass.models import ValidatedModel
 
 
 class DocumentFormat(str, Enum):

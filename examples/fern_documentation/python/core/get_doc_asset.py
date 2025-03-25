@@ -1,6 +1,6 @@
 import json
 
-from cohere.compass.clients import CompassClient
+from cohere_compass.clients import CompassClient
 
 COMPASS_API_URL = ...
 BEARER_TOKEN = ...

@@ -1,5 +1,5 @@
-from cohere.compass.clients.access_control import CompassRootClient
-from cohere.compass.models.access_control import Group, User
+from cohere_compass.clients.access_control import CompassRootClient
+from cohere_compass.models.access_control import Group, User
 from requests.exceptions import HTTPError
 
 COMPASS_API_URL = ...

@@ -1,7 +1,7 @@
 import uuid
 
-from cohere.compass.clients import CompassClient
-from cohere.compass.models import DocumentAttributes
+from cohere_compass.clients import CompassClient
+from cohere_compass.models import DocumentAttributes
 
 COMPASS_API_URL = ...
 BEARER_TOKEN = ...

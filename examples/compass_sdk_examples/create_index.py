@@ -1,6 +1,6 @@
 import argparse
 
-from cohere.compass.models import CompassDocument
+from cohere_compass.models import CompassDocument
 
 from compass_sdk_examples.utils import get_compass_api, get_compass_parser
 
@@ -42,7 +42,7 @@ def main():
 
     print(f"Creating index '{index_name}'...")
     client.create_index(index_name=index_name)
-    print("Index 'cohere-papers' created.")
+    print(f"Index '{index_name}' created.")
 
     print(f"Inserting documents from {folder_path} into index '{index_name}'...")
     parser = get_compass_parser()
@@ -54,8 +54,8 @@ def main():
             print(f"Failed to parse {filename}: {ex}")
         else:
             docs.append(d)
-    client.insert_docs(index_name="cohere-papers", docs=iter(docs))
-    print("Documents inserted into index 'cohere-papers'.")
+    client.insert_docs(index_name=index_name, docs=iter(docs))
+    print(f"Documents inserted into index '{index_name}'.")
 
 
 if __name__ == "__main__":

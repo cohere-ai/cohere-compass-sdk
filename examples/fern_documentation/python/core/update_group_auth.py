@@ -1,5 +1,5 @@
-from cohere.compass import GroupAuthorizationInput
-from cohere.compass.clients import CompassClient
+from cohere_compass import GroupAuthorizationInput
+from cohere_compass.clients import CompassClient
 
 COMPASS_API_URL = ...
 BEARER_TOKEN = ...

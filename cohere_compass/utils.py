@@ -14,8 +14,8 @@ import fsspec  # type: ignore
 from fsspec import AbstractFileSystem  # type: ignore
 
 # Local imports
-from cohere.compass.constants import UUID_NAMESPACE
-from cohere.compass.models import (
+from cohere_compass.constants import UUID_NAMESPACE
+from cohere_compass.models import (
     CompassDocument,
     CompassDocumentMetadata,
     CompassSdkStage,

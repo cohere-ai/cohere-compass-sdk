@@ -1,11 +1,11 @@
 import pytest
 from requests_mock import Mocker
 
-from cohere.compass.clients import CompassClient
-from cohere.compass.exceptions import CompassClientError
-from cohere.compass.models import CompassDocument
-from cohere.compass.models.config import IndexConfig
-from cohere.compass.models.documents import DocumentAttributes
+from cohere_compass.clients import CompassClient
+from cohere_compass.exceptions import CompassClientError
+from cohere_compass.models import CompassDocument
+from cohere_compass.models.config import IndexConfig
+from cohere_compass.models.documents import DocumentAttributes
 
 
 def test_delete_url_formatted_with_doc_and_index(requests_mock: Mocker):

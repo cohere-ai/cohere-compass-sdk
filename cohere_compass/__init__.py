@@ -7,7 +7,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 # Local imports
-from cohere.compass.models import (
+from cohere_compass.models import (
     MetadataConfig,
     ParserConfig,
     ValidatedModel,
