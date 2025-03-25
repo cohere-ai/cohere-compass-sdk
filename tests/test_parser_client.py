@@ -1,6 +1,6 @@
 from requests_mock import Mocker
 
-from cohere.compass.clients import CompassParserClient
+from cohere_compass.clients import CompassParserClient
 
 
 def test_process_file_bytes(requests_mock: Mocker) -> None:
