@@ -254,24 +254,104 @@ class CompassParserClient:
         if doc.errors:
             logger.error(f"Error opening document: {doc.errors}")
             return []
-        if len(doc.filebytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
-            max_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
-            logger.error(
-                f"File too large, supported file size is {max_size_mb} mb, "
-                f"filename {doc.metadata.filename}"
-            )
-            return []
 
+        return self._process_file_bytes(
+            params=self._get_file_params(
+                parser_config=parser_config,
+                metadata_config=metadata_config,
+                file_id=file_id,
+                content_type=content_type,
+            ),
+            filename=filename,
+            file_bytes=doc.filebytes,
+            custom_context=custom_context,
+        )
+
+    @retry(
+        stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
+        wait=wait_fixed(DEFAULT_SLEEP_RETRY_SECONDS),
+        retry=retry_if_not_exception_type((InvalidSchema, CompassClientError)),
+    )
+    def process_file_bytes(
+        self,
+        *,
+        filename: str,
+        file_bytes: bytes,
+        file_id: Optional[str] = None,
+        content_type: Optional[str] = None,
+        parser_config: Optional[ParserConfig] = None,
+        metadata_config: Optional[MetadataConfig] = None,
+        custom_context: Optional[Fn_or_Dict] = None,
+    ) -> list[CompassDocument]:
+        """
+        Process a file.
+
+        The method takes in a file, its id, its byte array,
+        and the parser/metadata config.
+        If the config is None, then it uses the default configs passed by parameter when
+        creating the client.  This makes the CompassParserClient stateful for
+        convenience, that is, one can pass in the parser/metadata config only once when
+        creating the CompassParserClient, and process files without having to pass the
+        config every time.
+
+        :param filename: filename to process.
+        :param file_bytes: byte content of the file
+        :param file_id: ID for the file.
+        :param content_type: Content type of the file.
+        :param parser_config: ParserConfig object with the config to use for parsing the
+            file.
+        :param metadata_config: MetadataConfig object with the config to use for
+            extracting metadata for each document.
+        :param custom_context: Additional data to add to compass document. Fields will
+            be filterable but not semantically searchable.  Can either be a dictionary
+            or a callable that takes a CompassDocument and returns a dictionary.
+
+        :returns: List of resulting documents
+        """
+        return self._process_file_bytes(
+            params=self._get_file_params(
+                parser_config=parser_config,
+                metadata_config=metadata_config,
+                file_id=file_id,
+                content_type=content_type,
+            ),
+            filename=filename,
+            file_bytes=file_bytes,
+            custom_context=custom_context,
+        )
+
+    def _get_file_params(
+        self,
+        *,
+        parser_config: Optional[ParserConfig] = None,
+        metadata_config: Optional[MetadataConfig] = None,
+        file_id: Optional[str] = None,
+        content_type: Optional[str] = None,
+    ):
         parser_config = parser_config or self.parser_config
         metadata_config = metadata_config or self.metadata_config
-
-        params = ProcessFileParameters(
+        return ProcessFileParameters(
             parser_config=parser_config,
             metadata_config=metadata_config,
             doc_id=file_id,
             content_type=content_type,
         )
 
+    def _process_file_bytes(
+        self,
+        *,
+        params: ProcessFileParameters,
+        filename: str,
+        file_bytes: bytes,
+        custom_context: Optional[Fn_or_Dict] = None,
+    ) -> list[CompassDocument]:
+        if len(file_bytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
+            max_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
+            logger.error(
+                f"File too large, supported file size is {max_size_mb} mb"
+                + f"filename {filename}"
+            )
+            return []
         headers = None
         if self.bearer_token:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
@@ -279,7 +359,7 @@ class CompassParserClient:
         res = self.session.post(
             url=f"{self.parser_url}/v1/process_file",
             data={"data": json.dumps(params.model_dump())},
-            files={"file": (filename, doc.filebytes)},
+            files={"file": (filename, file_bytes)},
             headers=headers,
         )
 
