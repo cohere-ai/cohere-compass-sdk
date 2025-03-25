@@ -8,7 +8,7 @@ from typing import Annotated, Any, Optional
 from pydantic import BaseModel, ConfigDict, PositiveInt, StringConstraints
 
 # Local imports
-from cohere.compass.models import ValidatedModel
+from cohere_compass.models import ValidatedModel
 
 
 class CompassDocumentMetadata(ValidatedModel):

@@ -5,7 +5,7 @@ import requests
 from pydantic import BaseModel
 from requests import HTTPError
 
-from cohere.compass.models.access_control import (
+from cohere_compass.models.access_control import (
     DetailedGroup,
     DetailedRole,
     DetailedUser,

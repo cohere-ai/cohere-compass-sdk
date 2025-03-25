@@ -1,7 +1,7 @@
 from typing import Optional
 
-from cohere.compass.clients.access_control import CompassRootClient
-from cohere.compass.models.access_control import Group, PageDirection, PageInfo
+from cohere_compass.clients.access_control import CompassRootClient
+from cohere_compass.models.access_control import Group, PageDirection, PageInfo
 
 COMPASS_API_URL = ...
 ROOT_USER_TOKEN = ...

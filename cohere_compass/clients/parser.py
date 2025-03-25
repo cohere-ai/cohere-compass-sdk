@@ -16,21 +16,21 @@ from tenacity import (
 )
 
 # Local imports
-from cohere.compass import (
+from cohere_compass import (
     ProcessFileParameters,
 )
-from cohere.compass.constants import (
+from cohere_compass.constants import (
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_RETRIES,
     DEFAULT_SLEEP_RETRY_SECONDS,
 )
-from cohere.compass.exceptions import CompassClientError, CompassError
-from cohere.compass.models import (
+from cohere_compass.exceptions import CompassClientError, CompassError
+from cohere_compass.models import (
     CompassDocument,
     MetadataConfig,
     ParserConfig,
 )
-from cohere.compass.utils import imap_queued, open_document, scan_folder
+from cohere_compass.utils import imap_queued, open_document, scan_folder
 
 Fn_or_Dict = Union[dict[str, Any], Callable[[CompassDocument], dict[str, Any]]]
 

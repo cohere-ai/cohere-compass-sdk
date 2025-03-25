@@ -5,7 +5,7 @@ from typing import Any, Optional
 # 3rd party imports
 from pydantic import BaseModel
 
-from cohere.compass.models.documents import AssetType
+from cohere_compass.models.documents import AssetType
 
 
 class AssetInfo(BaseModel):

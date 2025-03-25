@@ -1,7 +1,7 @@
 from typing import Optional
 
-from cohere.compass.clients import CompassClient
-from cohere.compass.models import RetrievedChunkExtended
+from cohere_compass.clients import CompassClient
+from cohere_compass.models import RetrievedChunkExtended
 
 COMPASS_API_URL = ...
 BEARER_TOKEN = ...

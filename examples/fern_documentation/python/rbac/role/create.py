@@ -1,5 +1,5 @@
-from cohere.compass.clients.access_control import CompassRootClient
-from cohere.compass.models.access_control import Permission, Policy, Role
+from cohere_compass.clients.access_control import CompassRootClient
+from cohere_compass.models.access_control import Permission, Policy, Role
 
 COMPASS_API_URL = ...
 ROOT_USER_TOKEN = ...

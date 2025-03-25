@@ -4,7 +4,7 @@ version = "0.20.0"
 authors = []
 description = "Compass SDK"
 readme = "README.md"
-packages = [{ include = "cohere" }]
+packages = [{ include = "cohere_compass" }]
 
 [tool.poetry.dependencies]
 fsspec = ">=2024.6.1"
@@ -52,7 +52,7 @@ ignore = [
     "D104", # ignore missing docstring in public package
     "D212", # ignore multi-line docstring summary should start at the first line	
 ]
-isort = { known-first-party = ["cohere.compass"] }
+isort = { known-first-party = ["cohere_compass"] }
 mccabe = { max-complexity = 15 }
 
 [tool.ruff.lint.per-file-ignores]

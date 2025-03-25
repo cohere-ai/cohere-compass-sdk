@@ -26,23 +26,23 @@ from tenacity import (
 )
 
 # Local imports
-from cohere.compass import (
+from cohere_compass import (
     GroupAuthorizationInput,
 )
-from cohere.compass.constants import (
+from cohere_compass.constants import (
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_CHUNKS_PER_REQUEST,
     DEFAULT_MAX_ERROR_RATE,
     DEFAULT_MAX_RETRIES,
     DEFAULT_SLEEP_RETRY_SECONDS,
 )
-from cohere.compass.exceptions import (
+from cohere_compass.exceptions import (
     CompassAuthError,
     CompassClientError,
     CompassError,
     CompassMaxErrorRateExceeded,
 )
-from cohere.compass.models import (
+from cohere_compass.models import (
     Chunk,
     CompassDocument,
     CompassDocumentStatus,
@@ -62,9 +62,9 @@ from cohere.compass.models import (
     SearchInput,
     UploadDocumentsInput,
 )
-from cohere.compass.models.config import IndexConfig
-from cohere.compass.models.datasources import PaginatedList
-from cohere.compass.models.documents import DocumentAttributes, PutDocumentsResponse
+from cohere_compass.models.config import IndexConfig
+from cohere_compass.models.datasources import PaginatedList
+from cohere_compass.models.documents import DocumentAttributes, PutDocumentsResponse
 
 
 @dataclass

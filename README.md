@@ -59,9 +59,9 @@ pip install git+https://github.com/cohere-ai/cohere-compass-sdk.git
 ```
 
 ```Python
-from cohere.compass.clients.compass import CompassClient
-from cohere.compass.clients.parser import CompassParserClient
-from cohere.compass.models.config import MetadataStrategy, MetadataConfig
+from cohere_compass.clients.compass import CompassClient
+from cohere_compass.clients.parser import CompassParserClient
+from cohere_compass.models.config import MetadataStrategy, MetadataConfig
 
 api_url = "<COMPASS_URL>"
 parser_url = "<PARSER URL>"
@@ -91,10 +91,11 @@ print(f"Results preview: \n {result.hits} ... \n \n ")
 ### Adding filters to documents
 
 #### Adding filter via dict
+
 ```python
-from cohere.compass.clients.compass import CompassClient
-from cohere.compass.clients.parser import CompassParserClient
-from cohere.compass.models.search import SearchFilter
+from cohere_compass.clients.compass import CompassClient
+from cohere_compass.clients.parser import CompassParserClient
+from cohere_compass.models.search import SearchFilter
 
 api_url = "<COMPASS_URL>"
 parser_url = "<PARSER URL>"
@@ -116,11 +117,12 @@ print(f"Results preview: \n {result.hits} ... \n \n ")
 ```
 
 #### Adding filter via function
+
 ```python
-from cohere.compass.clients.compass import CompassClient
-from cohere.compass.clients.parser import CompassParserClient
-from cohere.compass.models.search import SearchFilter
-from cohere.compass.models.documents import CompassDocument
+from cohere_compass.clients.compass import CompassClient
+from cohere_compass.clients.parser import CompassParserClient
+from cohere_compass.models.search import SearchFilter
+from cohere_compass.models.documents import CompassDocument
 
 api_url = "<COMPASS_URL>"
 parser_url = "<PARSER URL>"
@@ -131,9 +133,9 @@ bearer_token = "<PASS BEARER TOKEN IF ANY OTHERWISE LEAVE IT BLANK>"
 parsing_client = CompassParserClient(parser_url = parser_url)
 
 def custom_context_fn(input: CompassDocument):
-    content = input.content 
-    if len(input.chunks) > 2:  
-        content["new_doc_field"] = "more_than_two_chunks" 
+    content = input.content
+    if len(input.chunks) > 2:
+        content["new_doc_field"] = "more_than_two_chunks"
     else:
         content["new_doc_field"] = "less_than_two_chunks"
     return content
@@ -147,13 +149,13 @@ result = compass_client.search_chunks(index_name=index, query="*", filters=[filt
 print(f"Results preview: \n {result.hits} ... \n \n ")
 ```
 
-### RBAC 
+### RBAC
 
 ```python
-from cohere.compass.clients.rbac import CompassRootClient
-from cohere.compass.clients.rbac import UserCreateRequest
-from cohere.compass.models.rbac import GroupCreateRequest, RoleCreateRequest, RoleMappingRequest, Permission, PolicyRequest
-from cohere.compass.clients.rbac import UserCreateResponse
+from cohere_compass.clients.rbac import CompassRootClient
+from cohere_compass.clients.rbac import UserCreateRequest
+from cohere_compass.models.rbac import GroupCreateRequest, RoleCreateRequest, RoleMappingRequest, Permission, PolicyRequest
+from cohere_compass.clients.rbac import UserCreateResponse
 from requests.exceptions import HTTPError
 
 ROOT_BEARER_TOKEN = "<ROOT_BEARER_TOKEN>"
@@ -165,15 +167,15 @@ group_name = "<GROUP_NAME>"
 role_name = "<ROLE_NAME>"
 indexes = ["<ALLOWED_INDEX or REGEX>"]
 permission = Permission.WRITE # or Permission.READ
- 
+
 try:
     # Create users
     users_create_request = [UserCreateRequest(name=user_name) for user_name in user_names]
     users: list[UserCreateResponse] = compass_root.create_users(users=users_create_request)
-    
+
     # Add users to group
     compass_root.create_groups(groups=[GroupCreateRequest(name=group_name, user_names=user_names)])
-    
+
     # Create a role
     compass_root.create_roles(roles=[RoleCreateRequest(name=role_name, policies=[PolicyRequest(indexes=indexes, permission=permission)])])
     # Map role to groups
@@ -186,8 +188,9 @@ except HTTPError as e:
 ```
 
 ### Deleting RBAC
+
 ```python
-from cohere.compass.clients.rbac import CompassRootClient
+from cohere_compass.clients.rbac import CompassRootClient
 
 ROOT_BEARER_TOKEN = "<ROOT_BEARER_TOKEN>"
 API_URL = "<API_URL>"

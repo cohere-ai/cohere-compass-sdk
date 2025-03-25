@@ -1,7 +1,7 @@
 import os
 
 import dotenv
-from cohere.compass.clients import CompassClient, CompassParserClient
+from cohere_compass.clients import CompassClient, CompassParserClient
 
 dotenv.load_dotenv()  # type: ignore
 
