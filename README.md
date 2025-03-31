@@ -71,7 +71,11 @@ index = "test-index"
 data_to_index = "<PATH_TO_TEST_DATA>"
 
 # Parse the files before indexing
-parsing_client = CompassParserClient(parser_url = parser_url)
+parsing_client = CompassParserClient(
+    parser_url=parser_url,
+    # Optional: customize number of worker threads (default: 5)
+    # num_workers=10
+)
 metadata_config = MetadataConfig(
     metadata_strategy=MetadataStrategy.No_Metadata,
     commandr_extractable_attributes=["date", "link", "page_title", "authors"]
@@ -296,6 +300,56 @@ deleted_groups = client.delete_groups([group.group_name])
 
 # deleting Users
 deleted_users = client.delete_users([user.user_name])
+```
+
+## Large File Support
+
+The Compass SDK now supports processing files larger than 50MB. When a file exceeds this limit, the SDK automatically:
+
+1. Splits the file into smaller chunks (each less than 50MB)
+2. Processes each chunk independently in parallel using multiple worker threads
+3. Adds metadata to each resulting document to track its relationship to the original file
+
+The chunking metadata is added to the `content` field of each resulting `CompassDocument`:
+
+- `compass_original_filename`: Original file path/name
+- `compass_chunk_number`: Which chunk this document came from (starting from 1)
+- `compass_total_chunks`: Total number of chunks for the original file
+
+This chunking process is handled automatically by the `process_file` and `process_files` methods. No changes are needed to your existing code.
+
+### Controlling Parallelism
+
+By default, the SDK uses 5 worker threads for parallel processing. You can adjust this when creating the client:
+
+```python
+from cohere_compass.clients import CompassParserClient
+
+# Increase worker threads for faster processing of large files
+client = CompassParserClient(
+    parser_url="your-parser-url",
+    num_workers=10  # Customize based on your system's capabilities
+)
+```
+
+Higher values can improve performance on systems with many CPU cores, while lower values may be better for systems with limited resources.
+
+### Example: Processing a Large File
+
+```python
+from cohere_compass.clients import CompassParserClient
+
+client = CompassParserClient(parser_url="your-parser-url")
+
+# This will automatically handle chunking if the file is larger than 50MB
+docs = client.process_file(filename="path/to/large_file.pdf")
+
+# You can see which chunk each document came from
+for doc in docs:
+    original_file = doc.content["compass_original_filename"]
+    chunk_num = doc.content["compass_chunk_number"]
+    total_chunks = doc.content["compass_total_chunks"]
+    print(f"Document from {original_file} (chunk {chunk_num}/{total_chunks})")
 ```
 
 ## Local Development

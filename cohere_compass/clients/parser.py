@@ -1,6 +1,7 @@
 # Python imports
 import json
 import logging
+import os
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Optional, Union
@@ -14,6 +15,7 @@ from tenacity import (
     stop_after_attempt,
     wait_fixed,
 )
+from tqdm import tqdm
 
 # Local imports
 from cohere_compass import (
@@ -23,6 +25,7 @@ from cohere_compass.constants import (
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_RETRIES,
     DEFAULT_SLEEP_RETRY_SECONDS,
+    DEFAULT_PROCESSING_CHUNK_SIZE,
 )
 from cohere_compass.exceptions import CompassClientError, CompassError
 from cohere_compass.models import (
@@ -30,7 +33,7 @@ from cohere_compass.models import (
     MetadataConfig,
     ParserConfig,
 )
-from cohere_compass.utils import imap_queued, open_document, scan_folder
+from cohere_compass.utils import imap_queued, open_document, scan_folder, get_file_size, open_document_in_chunks, generate_doc_id_from_bytes
 
 Fn_or_Dict = Union[dict[str, Any], Callable[[CompassDocument], dict[str, Any]]]
 
@@ -63,7 +66,8 @@ class CompassParserClient:
         parser_config: ParserConfig = ParserConfig(),
         metadata_config: MetadataConfig = MetadataConfig(),
         bearer_token: Optional[str] = None,
-        num_workers: int = 1,
+        num_workers: int = 5,
+        show_progress: bool = True,
     ):
         """
         Initialize the CompassParserClient.
@@ -82,6 +86,8 @@ class CompassParserClient:
             if no metadata configuration is specified in the method calls (process_file
             or process_files)
         :param bearer_token (optional): The bearer token for authentication.
+        :param num_workers: Number of worker threads for parallel processing.
+        :param show_progress: Whether to show progress bars by default (default: True).
         """
         self.parser_url = (
             parser_url if not parser_url.endswith("/") else parser_url[:-1]
@@ -91,6 +97,7 @@ class CompassParserClient:
         self.session = requests.Session()
         self.thread_pool = ThreadPoolExecutor(num_workers)
         self.num_workers = num_workers
+        self.show_progress = show_progress
 
         self.metadata_config = metadata_config
         logger.info(
@@ -106,6 +113,7 @@ class CompassParserClient:
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
         custom_context: Optional[Fn_or_Dict] = None,
+        show_progress: Optional[bool] = None,
     ):
         """
         Process all the files in the specified folder.
@@ -127,6 +135,7 @@ class CompassParserClient:
         :param custom_context: Additional data to add to compass document. Fields will
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
+        :param show_progress: Whether to show progress bars (default: client setting)
 
         :returns: the list of processed documents
         """
@@ -140,6 +149,7 @@ class CompassParserClient:
             parser_config=parser_config,
             metadata_config=metadata_config,
             custom_context=custom_context if custom_context else None,
+            show_progress=self.show_progress if show_progress is None else show_progress,
         )
 
     def process_files(
@@ -150,6 +160,7 @@ class CompassParserClient:
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
         custom_context: Optional[Fn_or_Dict] = None,
+        show_progress: Optional[bool] = None,
     ) -> Iterable[Union[CompassDocument, tuple[str, Exception]]]:
         """
         Process a list of files.
@@ -165,6 +176,8 @@ class CompassParserClient:
         ProcessFileParameters, each contain a file, its id, and the parser/metadata
         config.
 
+        Large files (>50MB) will be automatically chunked and processed in smaller parts.
+
         :param filenames: List of filenames to process
         :param file_ids: List of ids for the files
         :param parser_config: ParserConfig object (applies the same config to all docs)
@@ -173,29 +186,52 @@ class CompassParserClient:
         :param custom_context: Additional data to add to compass document. Fields will
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
+        :param show_progress: Whether to show progress bars (default: client setting)
 
         :returns: List of processed documents
         """
-
-        def process_file(i: int) -> Union[list[CompassDocument], tuple[str, Exception]]:
-            filename = filenames[i]
+        # Use the client's default setting if not specified
+        show_progress_value = self.show_progress if show_progress is None else show_progress
+        
+        # Create a list of tasks with filename and file_id
+        tasks = []
+        for i, filename in enumerate(filenames):
+            file_id = file_ids[i] if file_ids else None
+            tasks.append((filename, file_id))
+            
+        def process_file(task: tuple[str, Optional[str]]) -> Union[list[CompassDocument], tuple[str, Exception]]:
+            filename, file_id = task
             try:
                 return self.process_file(
                     filename=filename,
-                    file_id=file_ids[i] if file_ids else None,
+                    file_id=file_id,
                     parser_config=parser_config,
                     metadata_config=metadata_config,
                     custom_context=custom_context,
+                    show_progress=show_progress_value,
                 )
             except Exception as e:
                 return filename, e
 
-        for results in imap_queued(
+        # Use the existing thread pool and queuing mechanism with tqdm progress bar
+        total_files = len(tasks)
+        results_iterator = imap_queued(
             self.thread_pool,
             process_file,
-            range(len(filenames)),
+            tasks,
             max_queued=self.num_workers,
-        ):
+        )
+        
+        # Wrap the results iterator with tqdm progress bar
+        progress_bar = tqdm(
+            results_iterator, 
+            total=total_files, 
+            desc=f"Processing files (using {self.num_workers} workers)", 
+            unit="file",
+            disable=not show_progress_value
+        )
+
+        for results in progress_bar:
             if isinstance(results, list):
                 yield from results
             else:
@@ -226,6 +262,7 @@ class CompassParserClient:
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
         custom_context: Optional[Fn_or_Dict] = None,
+        show_progress: Optional[bool] = None,
     ) -> list[CompassDocument]:
         """
         Process a file.
@@ -237,6 +274,8 @@ class CompassParserClient:
         creating the CompassParserClient, and process files without having to pass the
         config every time.
 
+        Large files (>50MB) will be automatically chunked and processed in smaller parts.
+
         :param filename: Filename to process.
         :param file_id: Id for the file.
         :param content_type: Content type of the file.
@@ -247,9 +286,144 @@ class CompassParserClient:
         :param custom_context: Additional data to add to compass document. Fields will
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
+        :param show_progress: Whether to show progress bars (default: client setting)
 
         :returns: List of resulting documents
         """
+        # Use the client's default setting if not specified
+        show_progress_value = self.show_progress if show_progress is None else show_progress
+        
+        # Check file size to determine if we need chunking
+        try:
+            file_size = get_file_size(filename)
+            
+            # If the file is larger than the maximum accepted size, process it in chunks
+            if file_size > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
+                logger.info(
+                    f"File {filename} is {file_size/1_000_000:.2f}MB, exceeding the "
+                    f"{DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES/1_000_000:.2f}MB limit. "
+                    f"Processing chunks in parallel."
+                )
+                
+                # Get file processing parameters
+                params = self._get_file_params(
+                    parser_config=parser_config,
+                    metadata_config=metadata_config,
+                    file_id=file_id,
+                    content_type=content_type,
+                )
+                
+                all_docs = []
+                chunk_tasks: list[tuple[ProcessFileParameters, str, bytes, Optional[Fn_or_Dict], dict[str, Any], str]] = []
+                
+                # --- Step 1: Collect all chunk data first ---
+                total_chunks = (file_size + DEFAULT_PROCESSING_CHUNK_SIZE - 1) // DEFAULT_PROCESSING_CHUNK_SIZE
+                chunk_iterator = open_document_in_chunks(filename, chunk_size=DEFAULT_PROCESSING_CHUNK_SIZE)
+                
+                # Progress bar for collecting chunks
+                collect_progress = tqdm(
+                    chunk_iterator,
+                    total=total_chunks,
+                    desc=f"Collecting chunks for {os.path.basename(filename)}",
+                    unit="chunk",
+                    leave=False,
+                    position=1,  # Explicitly position below the main progress bar
+                    disable=not show_progress_value
+                )
+                
+                # Generate a consistent parent ID
+                original_parent_id = None
+                if file_id:
+                    original_parent_id = file_id
+                else:
+                    original_parent_id = str(generate_doc_id_from_bytes(filename.encode('utf-8')))
+                
+                for chunk_doc, chunk_num, _total in collect_progress:
+                    if chunk_doc.errors:
+                        logger.error(f"Error opening document chunk {chunk_num}/{total_chunks}: {chunk_doc.errors}")
+                        continue
+                    
+                    # Prepare task details: (params, filename_for_api, bytes, custom_ctx, chunk_metadata)
+                    task_data = (
+                        params,
+                        chunk_doc.metadata.filename,  # Use the generated chunk name
+                        chunk_doc.filebytes,
+                        custom_context,
+                        chunk_doc.content,  # Pass the original chunk metadata (like chunk number)
+                        original_parent_id  # Pass the consistent parent ID
+                    )
+                    chunk_tasks.append(task_data)
+                
+                # --- Step 2: Define a helper function to process a single chunk task ---
+                def _process_single_chunk_task(
+                    task_data_tuple: tuple[ProcessFileParameters, str, bytes, Optional[Fn_or_Dict], dict[str, Any], str]
+                ) -> Union[list[CompassDocument], str]:
+                    _params, _chunk_filename, _chunk_bytes, _custom_context, _chunk_meta, _parent_id = task_data_tuple
+                    try:
+                        # Make the API call for this chunk
+                        processed_docs = self._process_file_bytes(
+                            params=_params,
+                            filename=_chunk_filename,
+                            file_bytes=_chunk_bytes,
+                            custom_context=_custom_context,
+                        )
+                        
+                        # Add chunk metadata back to the processed documents
+                        for doc in processed_docs:
+                            # Add original chunking info from open_document_in_chunks
+                            for key, value in _chunk_meta.items():
+                                doc.content[key] = value
+                            
+                            # Ensure consistent parent_document_id
+                            if (not doc.metadata.parent_document_id or
+                                    doc.metadata.parent_document_id == ""):
+                                doc.metadata.parent_document_id = _parent_id
+                        
+                        return processed_docs
+                    except Exception as e:
+                        logger.error(f"Error processing chunk task for {_chunk_filename}: {e}")
+                        # Return an error marker with chunk info
+                        return f"Error processing chunk {_chunk_meta.get('compass_chunk_number', '?')} from {filename}: {e}"
+                
+                # --- Step 3: Submit tasks to the thread pool and collect results ---
+                if chunk_tasks:
+                    # Use imap_queued for parallel execution
+                    chunk_results_iterator = imap_queued(
+                        self.thread_pool,
+                        _process_single_chunk_task,
+                        chunk_tasks,
+                        max_queued=self.num_workers * 2  # Allow more queuing for I/O
+                    )
+                    
+                    # Add progress bar for processing the collected chunks
+                    process_chunks_progress = tqdm(
+                        chunk_results_iterator,
+                        total=len(chunk_tasks),
+                        desc=f"Processing {len(chunk_tasks)} chunks for {os.path.basename(filename)}",
+                        unit="chunk",
+                        leave=False,  # Changed to False to prevent cluttering the console
+                        position=1,  # Explicitly position below the main progress bar
+                        disable=not show_progress_value
+                    )
+                    
+                    all_docs: list[CompassDocument] = []
+                    
+                    for result_list_or_error in process_chunks_progress:
+                        if isinstance(result_list_or_error, list):
+                            all_docs.extend(result_list_or_error)
+                        else:  # It's a string error message
+                            # Log the error string
+                            tqdm.write(result_list_or_error)  # Use tqdm.write to avoid disrupting progress bar
+                
+                return all_docs
+        except Exception as e:
+            logger.warning(f"Error checking file size or processing chunks: {e}. Falling back to standard processing.")
+            # If it's a known Compass API error, re-raise with more context
+            if isinstance(e, CompassClientError):
+                raise CompassClientError(f"Error processing chunk of large file '{filename}': {e}")
+            # Continue with standard processing for other types of errors
+        
+        # Standard processing for files under the size limit
         doc = open_document(filename)
         if doc.errors:
             logger.error(f"Error opening document: {doc.errors}")
@@ -282,6 +456,7 @@ class CompassParserClient:
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
         custom_context: Optional[Fn_or_Dict] = None,
+        show_progress: Optional[bool] = None,
     ) -> list[CompassDocument]:
         """
         Process a file.
@@ -305,6 +480,7 @@ class CompassParserClient:
         :param custom_context: Additional data to add to compass document. Fields will
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
+        :param show_progress: Whether to show progress bars (default: client setting)
 
         :returns: List of resulting documents
         """
