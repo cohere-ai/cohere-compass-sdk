@@ -39,6 +39,7 @@ class PDFParsingStrategy(str, Enum):
 
     QuickText = "QuickText"
     ImageToMarkdown = "ImageToMarkdown"
+    Smart = "Smart"
 
     @classmethod
     def _missing_(cls, value: Any):
