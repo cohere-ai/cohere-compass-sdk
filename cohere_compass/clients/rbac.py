@@ -35,14 +35,22 @@ class CompassRootClient:
     Prefer the CompassRootClient in access_control.py for new development.
     """
 
-    def __init__(self, compass_url: str, root_user_token: str):
+    def __init__(
+        self, compass_url: str, root_user_token: str, include_api_in_url: bool = True
+    ):
         """
         Initialize a new CompassRootClient.
 
         :param compass_url: URL of the Compass instance.
         :param root_user_token: Root user token for Compass instance.
+        :param include_api_in_url: Whether to include '/api' in the base URL.
+               Defaults to True.
         """
-        self.base_url = compass_url + "/api/security/admin/rbac"
+        self.base_url = (
+            compass_url
+            + ("/api" if include_api_in_url else "")
+            + "/security/admin/rbac"
+        )
         self.headers = {
             "Authorization": f"Bearer {root_user_token}",
             "Content-Type": "application/json",

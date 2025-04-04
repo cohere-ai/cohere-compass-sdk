@@ -141,7 +141,7 @@ files = [
 
 [[package]]
 name = "compass-sdk"
-version = "1.0.0"
+version = "1.0.1"
 description = "Compass SDK"
 optional = false
 python-versions = ">=3.9,<4.0"
