@@ -98,6 +98,7 @@ class CompassClient:
         http_session: Optional[requests.Session] = None,
         default_max_retries: int = DEFAULT_MAX_RETRIES,
         default_sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+        include_api_in_url: bool = True,
     ):
         """
         Initialize the Compass client.
@@ -105,6 +106,8 @@ class CompassClient:
         :param index_url: The base URL for the index API.
         :param bearer_token (optional): The bearer token for authentication.
         :param http_session (optional): An optional HTTP session to use for requests.
+        :param include_api_in_url: Whether to include '/api' in the base URL.
+               Defaults to True.
         """
         self.index_url = index_url
         self.session = http_session or requests.Session()
@@ -142,29 +145,30 @@ class CompassClient:
             "sync_datasource": self.session.post,
             "list_datasources_objects_states": self.session.get,
         }
+        base_api = "/api" if include_api_in_url else ""
         self.api_endpoint = {
-            "create_index": "/api/v1/indexes/{index_name}",
-            "list_indexes": "/api/v1/indexes",
-            "delete_index": "/api/v1/indexes/{index_name}",
-            "delete_document": "/api/v1/indexes/{index_name}/documents/{document_id}",
-            "get_document": "/api/v1/indexes/{index_name}/documents/{document_id}",
-            "put_documents": "/api/v1/indexes/{index_name}/documents",
-            "search_documents": "/api/v1/indexes/{index_name}/documents/_search",
-            "search_chunks": "/api/v1/indexes/{index_name}/documents/_search_chunks",
-            "get_document_asset": "/api/v1/indexes/{index_name}/documents/{document_id}/assets/{asset_id}",  # noqa: E501
-            "add_attributes": "/api/v1/indexes/{index_name}/documents/{document_id}/_add_attributes",  # noqa: E501
-            "refresh": "/api/v1/indexes/{index_name}/_refresh",
-            "upload_documents": "/api/v1/indexes/{index_name}/documents/_upload",
-            "update_group_authorization": "/api/v1/indexes/{index_name}/group_authorization",  # noqa: E501
-            "direct_search": "/api/v1/indexes/{index_name}/_direct_search",
-            "direct_search_scroll": "/api/v1/indexes/_direct_search/scroll",
+            "create_index": f"{base_api}/v1/indexes/{{index_name}}",
+            "list_indexes": f"{base_api}/v1/indexes",
+            "delete_index": f"{base_api}/v1/indexes/{{index_name}}",
+            "delete_document": f"{base_api}/v1/indexes/{{index_name}}/documents/{{document_id}}",  # noqa: E501
+            "get_document": f"{base_api}/v1/indexes/{{index_name}}/documents/{{document_id}}",  # noqa: E501
+            "put_documents": f"{base_api}/v1/indexes/{{index_name}}/documents",
+            "search_documents": f"{base_api}/v1/indexes/{{index_name}}/documents/_search",  # noqa: E501
+            "search_chunks": f"{base_api}/v1/indexes/{{index_name}}/documents/_search_chunks",  # noqa: E501
+            "get_document_asset": f"{base_api}/v1/indexes/{{index_name}}/documents/{{document_id}}/assets/{{asset_id}}",  # noqa: E501
+            "add_attributes": f"{base_api}/v1/indexes/{{index_name}}/documents/{{document_id}}/_add_attributes",  # noqa: E501
+            "refresh": f"{base_api}/v1/indexes/{{index_name}}/_refresh",
+            "upload_documents": f"{base_api}/v1/indexes/{{index_name}}/documents/_upload",  # noqa: E501
+            "update_group_authorization": f"{base_api}/v1/indexes/{{index_name}}/group_authorization",  # noqa: E501
+            "direct_search": f"{base_api}/v1/indexes/{{index_name}}/_direct_search",
+            "direct_search_scroll": f"{base_api}/v1/indexes/_direct_search/scroll",
             # Data Sources APIs
-            "create_datasource": "/api/v1/datasources",
-            "list_datasources": "/api/v1/datasources",
-            "delete_datasources": "/api/v1/datasources/{datasource_id}",
-            "get_datasource": "/api/v1/datasources/{datasource_id}",
-            "sync_datasource": "/api/v1/datasources/{datasource_id}/_sync",
-            "list_datasources_objects_states": "/api/v1/datasources/{datasource_id}/documents?skip={skip}&limit={limit}",  # noqa: E501
+            "create_datasource": f"{base_api}/v1/datasources",
+            "list_datasources": f"{base_api}/v1/datasources",
+            "delete_datasources": f"{base_api}/v1/datasources/{{datasource_id}}",
+            "get_datasource": f"{base_api}/v1/datasources/{{datasource_id}}",
+            "sync_datasource": f"{base_api}/v1/datasources/{{datasource_id}}/_sync",
+            "list_datasources_objects_states": f"{base_api}/v1/datasources/{{datasource_id}}/documents?skip={{skip}}&limit={{limit}}",  # noqa: E501
         }
 
     def create_index(
