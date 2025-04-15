@@ -39,6 +39,7 @@ class PDFParsingStrategy(str, Enum):
 
     QuickText = "QuickText"
     ImageToMarkdown = "ImageToMarkdown"
+    Smart = "Smart"
 
     @classmethod
     def _missing_(cls, value: Any):
@@ -80,10 +81,6 @@ class PDFParsingConfig(BaseModel):
     # characters. Higher values make the system less sensitive to special symbols.
     # Range: 0.0 to 1.0 (practically, values above 0.5 are rare)
     symbol_density_threshold: float = 0.2
-
-    # if true, the parser will try check if the PDF document has a table of contents
-    # and accordingly use it to attach section info metadata to the chunks.
-    extract_section_info: bool = False
 
 
 class PresentationParsingStrategy(str, Enum):
