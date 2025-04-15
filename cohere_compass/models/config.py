@@ -39,10 +39,48 @@ class PDFParsingStrategy(str, Enum):
 
     QuickText = "QuickText"
     ImageToMarkdown = "ImageToMarkdown"
+    Smart = "Smart"
 
     @classmethod
     def _missing_(cls, value: Any):
         return cls.QuickText
+
+
+class PDFParsingConfig(BaseModel):
+    """Contains extra parsing configuration specific to PDF files."""
+
+    model_config = ConfigDict(
+        extra="ignore",
+    )
+
+    # enable_classification - controls whether the system uses the visual classification
+    # model to detect pages containing images, tables, or other visual elements. When
+    # True, pages with classification scores exceeding visual_parsing_threshold will be
+    # processed using visual parsing.
+    enable_classification: bool = True
+
+    # visual_parsing_threshold - sets the minimum confidence threshold for the
+    # classification model to trigger visual parsing. Higher values (closer to 1.0) make
+    # the system more conservative, using visual parsing only when the model is very
+    # confident about the presence of visual elements. Lower values increase the
+    # likelihood of visual parsing.
+    # Range: 0.0 to 1.0
+    visual_parsing_threshold: float = 0.5
+
+    # enable_symbol_detection - controls whether to detect special symbols (mathematical
+    # notation, currency symbols, etc.) that often extract poorly with standard text
+    # extraction.  When enabled, pages with high symbol density are processed using
+    # visual parsing, which is critical for academic papers, financial documents, and
+    # scientific literature. This provides a complementary heuristic to visual
+    # classification that's faster to compute and catches cases where visual complexity
+    # is in the text content itself rather than the page layout.
+    enable_symbol_detection: bool = True
+
+    # symbol_density_threshold - the minimum density of special symbols required to
+    # trigger visual parsing. Represents the ratio of special symbols to total
+    # characters. Higher values make the system less sensitive to special symbols.
+    # Range: 0.0 to 1.0 (practically, values above 0.5 are rare)
+    symbol_density_threshold: float = 0.2
 
 
 class PresentationParsingStrategy(str, Enum):
@@ -137,6 +175,9 @@ class ParserConfig(BaseModel):
     horizontal_table_crop_margin: int = 100
 
     pdf_parsing_strategy: PDFParsingStrategy = PDFParsingStrategy.QuickText
+
+    pdf_parsing_config: PDFParsingConfig = PDFParsingConfig()
+
     presentation_parsing_strategy: PresentationParsingStrategy = (
         PresentationParsingStrategy.Unstructured
     )
