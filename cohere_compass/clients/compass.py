@@ -65,6 +65,7 @@ from cohere_compass.models import (
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.datasources import PaginatedList
 from cohere_compass.models.documents import DocumentAttributes, PutDocumentsResponse
+from cohere_compass.models.search import ExpertSearchInput, SearchConfig
 
 
 @dataclass
@@ -130,6 +131,8 @@ class CompassClient:
             "put_documents": self.session.put,
             "search_documents": self.session.post,
             "search_chunks": self.session.post,
+            "expert_search_documents": self.session.post,
+            "expert_search_chunks": self.session.post,
             "get_document_asset": self.session.get,
             "add_attributes": self.session.post,
             "refresh": self.session.post,
@@ -155,6 +158,8 @@ class CompassClient:
             "put_documents": f"{base_api}/v1/indexes/{{index_name}}/documents",
             "search_documents": f"{base_api}/v1/indexes/{{index_name}}/documents/_search",  # noqa: E501
             "search_chunks": f"{base_api}/v1/indexes/{{index_name}}/documents/_search_chunks",  # noqa: E501
+            "expert_search_documents": f"{base_api}/v1/indexes/{{index_name}}/documents/_expert_search",  # noqa: E501
+            "expert_search_chunks": f"{base_api}/v1/indexes/{{index_name}}/documents/_expert_search_chunks",  # noqa: E501
             "get_document_asset": f"{base_api}/v1/indexes/{{index_name}}/documents/{{document_id}}/assets/{{asset_id}}",  # noqa: E501
             "add_attributes": f"{base_api}/v1/indexes/{{index_name}}/documents/{{document_id}}/_add_attributes",  # noqa: E501
             "refresh": f"{base_api}/v1/indexes/{{index_name}}/_refresh",
@@ -757,6 +762,29 @@ class CompassClient:
             sleep_retry_seconds=1,
         )
 
+    def _expert_search(
+        self,
+        *,
+        api_name: Literal["expert_search_documents", "expert_search_chunks"],
+        index_name: str,
+        query: str,
+        search_config: SearchConfig,
+        top_k: int = 10,
+        filters: Optional[list[SearchFilter]] = None,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ):
+        return self._send_request(
+            api_name=api_name,
+            index_name=index_name,
+            data=ExpertSearchInput(
+                search_input=SearchInput(query=query, top_k=top_k, filters=filters),
+                search_config=search_config,
+            ),
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+
     def search_documents(
         self,
         *,
@@ -792,6 +820,44 @@ class CompassClient:
 
         return SearchDocumentsResponse.model_validate(result.result)
 
+    def expert_search_documents(
+        self,
+        *,
+        index_name: str,
+        query: str,
+        search_config: SearchConfig,
+        top_k: int = 10,
+        filters: Optional[list[SearchFilter]] = None,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> SearchDocumentsResponse:
+        """
+        Like `search_documents` but allow configuring search options for advanced users.
+
+        :param index_name: the name of the index
+        :param query: the search query
+        :param search_config: the search configuration
+        :param top_k: the number of documents to return
+        :param filters: the search filters to apply
+
+        :returns: the search results
+        """
+        result = self._expert_search(
+            api_name="expert_search_documents",
+            index_name=index_name,
+            query=query,
+            search_config=search_config,
+            top_k=top_k,
+            filters=filters,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+
+        if result.error:
+            raise CompassError(result.error)
+
+        return SearchDocumentsResponse.model_validate(result.result)
+
     def search_chunks(
         self,
         *,
@@ -816,6 +882,44 @@ class CompassClient:
             api_name="search_chunks",
             index_name=index_name,
             query=query,
+            top_k=top_k,
+            filters=filters,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+
+        if result.error:
+            raise CompassError(result.error)
+
+        return SearchChunksResponse.model_validate(result.result)
+
+    def expert_search_chunks(
+        self,
+        *,
+        index_name: str,
+        query: str,
+        search_config: SearchConfig,
+        top_k: int = 10,
+        filters: Optional[list[SearchFilter]] = None,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> SearchChunksResponse:
+        """
+        Like `search_chunks` but allow configuring search options for advanced users.
+
+        :param index_name: the name of the index
+        :param query: the search query
+        :param search_config: the search configuration
+        :param top_k: the number of chunks to return
+        :param filters: the search filters to apply
+
+        :returns: the search results
+        """
+        result = self._expert_search(
+            api_name="expert_search_chunks",
+            index_name=index_name,
+            query=query,
+            search_config=search_config,
             top_k=top_k,
             filters=filters,
             max_retries=max_retries,

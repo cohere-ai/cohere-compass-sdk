@@ -1,4 +1,5 @@
 # Python imports
+import enum
 from enum import Enum
 from typing import Any, Optional
 
@@ -84,6 +85,44 @@ class SearchInput(BaseModel):
     query: str
     top_k: int
     filters: Optional[list[SearchFilter]] = None
+
+
+class SearchConfig(BaseModel):
+    """Search configuration which is used in expert search APIs."""
+
+    class RerankStrategy(str, enum.Enum):
+        """Specifies the reranking strategy to use."""
+
+        NONE = "none"
+        CHUNKS = "chunks"
+
+    class ScoringStrategy(str, enum.Enum):
+        """Specifies the scoring strategy to use."""
+
+        RERANK_ONLY = "rerank_only"
+        MIX = "mix"
+
+    use_lexical: bool = True
+    use_dense: bool = True
+    use_sparse: bool = True
+    first_stage_top_k: int = 1000
+    crop_first_stage_to_top_k: bool = True
+    lexical_boost: float = 1.0
+    rerank_boost: float = 3.0
+    sparse_boost: float = 1.0
+    dense_boost: float = 1.0
+    rerank_limit: int = -1
+    rerank_input_max_chars_per_chunk: Optional[int] = None
+    semantic_first_stage_top_k_factor: int = 5
+    rerank_strategy: RerankStrategy = RerankStrategy.CHUNKS
+    scoring_strategy: ScoringStrategy = ScoringStrategy.MIX
+
+
+class ExpertSearchInput(BaseModel):
+    """Input to expert search APIs."""
+
+    search_input: SearchInput
+    search_config: SearchConfig
 
 
 class DirectSearchInput(BaseModel):
