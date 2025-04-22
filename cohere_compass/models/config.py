@@ -242,7 +242,10 @@ class IndexConfig(BaseModel):
     :param number_of_shards: the total number of shards to split the index into
     :param number_of_replicas: the number of replicas for each shard. Number of shards
         will be multiplied by this number to determine the total number of shards used.
+    :param knn_index_engine: the KNN index engine to use. Leave unset unless advised
+        by cohere.
     """
 
     number_of_shards: Optional[int] = None
     number_of_replicas: Optional[int] = None
+    knn_index_engine: Optional[str] = None
