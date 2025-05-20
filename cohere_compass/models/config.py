@@ -82,6 +82,10 @@ class PDFParsingConfig(BaseModel):
     # Range: 0.0 to 1.0 (practically, values above 0.5 are rare)
     symbol_density_threshold: float = 0.2
 
+    # if true, the parser will try check if the PDF document has a table of contents
+    # and accordingly use it to attach section info metadata to the chunks.
+    extract_section_info: bool = False
+
 
 class PresentationParsingStrategy(str, Enum):
     """Enum for specifying the parsing strategy for presentation files."""
