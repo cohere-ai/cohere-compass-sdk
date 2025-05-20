@@ -244,8 +244,11 @@ class IndexConfig(BaseModel):
         will be multiplied by this number to determine the total number of shards used.
     :param knn_index_engine: the KNN index engine to use. Leave unset unless advised
         by cohere.
+    :param analyzer: Analyzer is a parameter set for multilinguality. If None
+        it will use the default from compass.
     """
 
     number_of_shards: Optional[int] = None
     number_of_replicas: Optional[int] = None
     knn_index_engine: Optional[str] = None
+    analyzer: Optional[str] = None
