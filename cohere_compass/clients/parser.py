@@ -1,6 +1,7 @@
 # Python imports
 import json
 import logging
+import threading
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Optional, Union
@@ -83,12 +84,12 @@ class CompassParserClient:
             or process_files)
         :param bearer_token (optional): The bearer token for authentication.
         """
+        self._thread_local = threading.local()
         self.parser_url = (
             parser_url if not parser_url.endswith("/") else parser_url[:-1]
         )
         self.parser_config = parser_config
         self.bearer_token = bearer_token
-        self.session = requests.Session()
         self.thread_pool = ThreadPoolExecutor(num_workers)
         self.num_workers = num_workers
 
@@ -96,6 +97,11 @@ class CompassParserClient:
         logger.info(
             f"CompassParserClient initialized with parser_url: {self.parser_url}"
         )
+
+    def _get_session(self) -> requests.Session:
+        if not hasattr(self._thread_local, "session"):
+            self._thread_local.session = requests.Session()
+        return self._thread_local.session
 
     def process_folder(
         self,
@@ -356,7 +362,7 @@ class CompassParserClient:
         if self.bearer_token:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
-        res = self.session.post(
+        res = self._get_session().post(
             url=f"{self.parser_url}/v1/process_file",
             data={"data": json.dumps(params.model_dump())},
             files={"file": (filename, file_bytes)},
