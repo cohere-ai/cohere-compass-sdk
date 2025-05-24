@@ -103,14 +103,23 @@ class CompassClient:
         """
         Initialize the Compass client.
 
+        IMPORTANT NOTE: If the user desires, a custom HTTP session can be passed. In
+        this case, however, it is the responsibility of the user to manage thread
+        safety. The user should ensure that the session is not shared among multiple
+        threads. If in doubt, do not pass a custom session and let us handle the dirty
+        work.
+
         :param index_url: The base URL for the index API.
         :param bearer_token (optional): The bearer token for authentication.
         :param http_session (optional): An optional HTTP session to use for requests.
         :param include_api_in_url: Whether to include '/api' in the base URL.
                Defaults to True.
         """
+        self._thread_local = threading.local()
+
         self.index_url = index_url
         self.session = http_session or requests.Session()
+
         self.bearer_token = bearer_token
 
         if default_max_retries < 0:
@@ -122,28 +131,28 @@ class CompassClient:
         self.default_max_retries = default_max_retries
         self.default_sleep_retry_seconds = default_sleep_retry_seconds
         self.api_method = {
-            "create_index": self.session.put,
-            "list_indexes": self.session.get,
-            "delete_index": self.session.delete,
-            "delete_document": self.session.delete,
-            "get_document": self.session.get,
-            "put_documents": self.session.put,
-            "search_documents": self.session.post,
-            "search_chunks": self.session.post,
-            "get_document_asset": self.session.get,
-            "add_attributes": self.session.post,
-            "refresh": self.session.post,
-            "upload_documents": self.session.post,
-            "update_group_authorization": self.session.post,
-            "direct_search": self.session.post,
-            "direct_search_scroll": self.session.post,
+            "create_index": self._put,
+            "list_indexes": self._get,
+            "delete_index": self._delete,
+            "delete_document": self._delete,
+            "get_document": self._get,
+            "put_documents": self._put,
+            "search_documents": self._post,
+            "search_chunks": self._post,
+            "get_document_asset": self._get,
+            "add_attributes": self._post,
+            "refresh": self._post,
+            "upload_documents": self._post,
+            "update_group_authorization": self._post,
+            "direct_search": self._post,
+            "direct_search_scroll": self._post,
             # Data Sources APIs
-            "create_datasource": self.session.post,
-            "list_datasources": self.session.get,
-            "delete_datasources": self.session.delete,
-            "get_datasource": self.session.get,
-            "sync_datasource": self.session.post,
-            "list_datasources_objects_states": self.session.get,
+            "create_datasource": self._post,
+            "list_datasources": self._get,
+            "delete_datasources": self._delete,
+            "get_datasource": self._get,
+            "sync_datasource": self._post,
+            "list_datasources_objects_states": self._get,
         }
         base_api = "/api" if include_api_in_url else ""
         self.api_endpoint = {
@@ -170,6 +179,23 @@ class CompassClient:
             "sync_datasource": f"{base_api}/v1/datasources/{{datasource_id}}/_sync",
             "list_datasources_objects_states": f"{base_api}/v1/datasources/{{datasource_id}}/documents?skip={{skip}}&limit={{limit}}",  # noqa: E501
         }
+
+    def _get(self, *args: Any, **kwargs: Any):
+        return self._get_session().get(*args, **kwargs)
+
+    def _post(self, *args: Any, **kwargs: Any):
+        return self._get_session().post(*args, **kwargs)
+
+    def _put(self, *args: Any, **kwargs: Any):
+        return self._get_session().put(*args, **kwargs)
+
+    def _delete(self, *args: Any, **kwargs: Any):
+        return self._get_session().delete(*args, **kwargs)
+
+    def _get_session(self) -> requests.Session:
+        if not hasattr(self._thread_local, "session"):
+            self._thread_local.session = requests.Session()
+        return self._thread_local.session
 
     def create_index(
         self,
