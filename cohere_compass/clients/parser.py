@@ -21,7 +21,7 @@ from cohere_compass import (
 from cohere_compass.constants import (
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_RETRIES,
-    DEFAULT_SLEEP_RETRY_SECONDS,
+    DEFAULT_RETRY_WAIT,
 )
 from cohere_compass.exceptions import CompassClientError, CompassError
 from cohere_compass.models import (
@@ -212,7 +212,7 @@ class CompassParserClient:
 
     @retry(
         stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
-        wait=wait_fixed(DEFAULT_SLEEP_RETRY_SECONDS),
+        wait=wait_fixed(DEFAULT_RETRY_WAIT),
         # todo find alternative to InvalidSchema
         retry=retry_if_not_exception_type((CompassClientError,)),
     )
@@ -268,7 +268,7 @@ class CompassParserClient:
 
     @retry(
         stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
-        wait=wait_fixed(DEFAULT_SLEEP_RETRY_SECONDS),
+        wait=wait_fixed(DEFAULT_RETRY_WAIT),
         # todo find alternative to InvalidSchema
         retry=retry_if_not_exception_type((CompassClientError,)),
     )

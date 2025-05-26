@@ -35,9 +35,9 @@ def simple_compass_client_test(
 
             if expected_request_body is not None:
                 request_body = json.loads(route.calls.last.request.content)
-                assert request_body == expected_request_body, (
-                    f"Expected JSON body {expected_request_body}, got {request_body}"
-                )
+                assert (
+                    request_body == expected_request_body
+                ), f"Expected JSON body {expected_request_body}, got {request_body}"
 
         return wrapper  # type: ignore
 

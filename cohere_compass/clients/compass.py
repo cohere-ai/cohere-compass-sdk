@@ -7,6 +7,7 @@ import uuid
 from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import timedelta
 from statistics import mean
 from typing import Any, Literal
 from urllib.parse import urljoin
@@ -32,7 +33,7 @@ from cohere_compass.constants import (
     DEFAULT_MAX_CHUNKS_PER_REQUEST,
     DEFAULT_MAX_ERROR_RATE,
     DEFAULT_MAX_RETRIES,
-    DEFAULT_SLEEP_RETRY_SECONDS,
+    DEFAULT_RETRY_WAIT,
 )
 from cohere_compass.exceptions import (
     CompassAuthError,
@@ -185,7 +186,7 @@ class CompassClient:
         index_url: str,
         bearer_token: str | None = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
-        sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
+        retry_wait: timedelta = DEFAULT_RETRY_WAIT,
         include_api_in_url: bool = True,
     ):
         """
@@ -210,12 +211,12 @@ class CompassClient:
 
         if max_retries < 0:
             raise ValueError("default_max_retries must be a non-negative integer.")
-        if sleep_retry_seconds < 0:
+        if retry_wait.total_seconds() < 0:
             raise ValueError(
                 "default_sleep_retry_seconds must be a non-negative integer."
             )
         self.max_retries = max_retries
-        self.sleep_retry_seconds = sleep_retry_seconds
+        self.retry_wait = retry_wait
         self.include_api_in_url = include_api_in_url
 
     def _get(self, *args: Any, **kwargs: Any):
@@ -899,7 +900,7 @@ class CompassClient:
 
         @retry(
             stop=stop_after_attempt(self.max_retries),
-            wait=wait_fixed(self.sleep_retry_seconds),
+            wait=wait_fixed(self.retry_wait),
             reraise=True,  # re-raise last exception instead of wrapping in RetryError
             # todo find alternative to InvalidSchema
             retry=retry_if_not_exception_type((CompassClientError,)),
@@ -952,14 +953,14 @@ class CompassClient:
                     logger.warning(
                         f"Failed to send request to {api_name} {target_path}: "
                         f"{type(e)} {error}. Going to sleep for "
-                        f"{self.sleep_retry_seconds} seconds and retrying."
+                        f"{self.retry_wait} seconds and retrying."
                     )
                     raise e
             except Exception as e:
                 error = str(e)
                 logger.warning(
                     f"Failed to send request to {api_name} {target_path}: {type(e)} "
-                    f"{error}. Sleeping for {self.sleep_retry_seconds} before retrying..."
+                    f"{error}. Sleeping {self.retry_wait} seconds and retrying..."
                 )
                 raise e
 

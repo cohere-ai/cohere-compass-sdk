@@ -4,10 +4,10 @@ import glob
 import logging
 import os
 import uuid
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from concurrent import futures
 from concurrent.futures import Executor
-from typing import Callable, Optional, TypeVar
+from typing import TypeVar
 
 # 3rd party imports
 import fsspec  # type: ignore
@@ -101,7 +101,7 @@ def open_document(document_path: str) -> CompassDocument:
 
 def scan_folder(
     folder_path: str,
-    allowed_extensions: Optional[list[str]] = None,
+    allowed_extensions: list[str] | None = None,
     recursive: bool = False,
 ) -> list[str]:
     """
