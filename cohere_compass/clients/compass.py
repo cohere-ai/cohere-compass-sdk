@@ -186,7 +186,6 @@ class CompassClient:
         *,
         index_url: str,
         bearer_token: str | None = None,
-        httpx_client: httpx.Client | None = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
         sleep_retry_seconds: int = DEFAULT_SLEEP_RETRY_SECONDS,
         include_api_in_url: bool = True,
@@ -207,7 +206,7 @@ class CompassClient:
                Defaults to True.
         """
         self.index_url = index_url
-        self.httpx_client = httpx_client or httpx.Client()
+        self.httpx_client = httpx.Client()
 
         self.bearer_token = bearer_token
 
@@ -941,7 +940,7 @@ class CompassClient:
             # todo find alternative to InvalidSchema
             retry=retry_if_not_exception_type((CompassClientError,)),
         )
-        def _send_request_with_retry():
+        def _send_request_with_retry() -> _RetryResult:
             nonlocal error
 
             try:
@@ -960,27 +959,26 @@ class CompassClient:
                 else:
                     response = http_method_fn(target_path, headers=headers)
 
-                if response.is_success:
-                    error = None
-                    content_type = response.headers.get("content-type")
-                    if content_type in ("image/jpeg", "image/png"):
-                        # To handle response from get_document_asset() when the asset
-                        # is an image.
-                        result = response.content
-                    elif content_type == "text/markdown":
-                        # To handle response from get_document_asset() when the asset
-                        # is a markdown.
-                        result = response.text
-                    else:
-                        # To handle response from other APIs.
-                        result = response.json() if response.text else None
-                    return _RetryResult(
-                        result=result,
-                        content_type=content_type,
-                        error=None,
-                    )
+                response.raise_for_status()
+
+                error = None
+                content_type = response.headers.get("content-type")
+                if content_type in ("image/jpeg", "image/png"):
+                    # To handle response from get_document_asset() when the asset
+                    # is an image.
+                    result = response.content
+                elif content_type == "text/markdown":
+                    # To handle response from get_document_asset() when the asset
+                    # is a markdown.
+                    result = response.text
                 else:
-                    response.raise_for_status()
+                    # To handle response from other APIs.
+                    result = response.json() if response.text else None
+                return _RetryResult(
+                    result=result,
+                    content_type=content_type,
+                    error=None,
+                )
 
             except httpx.HTTPStatusError as e:
                 if e.response.status_code == 401:
@@ -1007,11 +1005,7 @@ class CompassClient:
 
         error = None
         try:
-            res = _send_request_with_retry()
-            if res:
-                return res
-            else:
-                return _RetryResult(result=None, error=error)
+            return _send_request_with_retry()
         except RetryError:
             logger.error(
                 f"Failed to send request after {self.max_retries} attempts. Aborting."
