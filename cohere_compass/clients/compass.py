@@ -114,8 +114,6 @@ class CompassClient:
         :param include_api_in_url: Whether to include '/api' in the base URL.
                Defaults to True.
         """
-        self._thread_local = threading.local()
-
         self.index_url = index_url
         self.httpx_client = httpx_client or httpx.Client()
 
@@ -1013,6 +1011,7 @@ class CompassClient:
         @retry(
             stop=stop_after_attempt(max_retries),
             wait=wait_fixed(sleep_retry_seconds),
+            # todo find alternative to InvalidSchema
             retry=retry_if_not_exception_type((CompassClientError,)),
         )
         def _send_request_with_retry():
@@ -1027,9 +1026,11 @@ class CompassClient:
                 if self.bearer_token:
                     headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
-                response = self.api_method[api_name](
-                    target_path, json=data_dict, headers=headers
-                )
+                http_method = self.api_method[api_name]
+                if data_dict is not None:
+                    response = http_method(target_path, json=data_dict, headers=headers)
+                else:
+                    response = http_method(target_path, headers=headers)
 
                 if response.is_success:
                     error = None
@@ -1068,10 +1069,6 @@ class CompassClient:
                         f"{sleep_retry_seconds} seconds and retrying."
                     )
                     raise e
-
-            except ConnectionAbortedError as e:
-                raise CompassClientError(message=str(e), code=None)
-
             except Exception as e:
                 error = str(e)
                 logger.warning(

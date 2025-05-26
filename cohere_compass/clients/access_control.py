@@ -1,9 +1,8 @@
 import json
-from typing import Optional, TypeVar
+from typing import TypeVar
 
-import requests
+import httpx
 from pydantic import BaseModel
-from requests import HTTPError
 
 from cohere_compass.models.access_control import (
     DetailedGroup,
@@ -52,48 +51,14 @@ class CompassRootClient:
     Headers = dict[str, str]
 
     @staticmethod
-    def raise_for_status(response: requests.Response):
-        """
-        Raise an exception if the response status code is not in the 200 range.
-
-        :param response: Response object from the request.
-
-        :raises HTTPError: If the response status code is not in the 200 range.
-        """
-        http_error_msg = ""
-        if isinstance(response.reason, bytes):
-            # We attempt to decode utf-8 first because some servers
-            # choose to localize their reason strings. If the string
-            # isn't utf-8, we fall back to iso-8859-1 for all other encodings.
-            try:
-                reason = response.reason.decode("utf-8")
-            except UnicodeDecodeError:
-                reason = response.reason.decode("iso-8859-1")
-        else:
-            reason = response.content
-
-        if 400 <= response.status_code < 500:
-            http_error_msg = (
-                f"{response.status_code} Client Error: {reason} for url: {response.url}"
-            )
-
-        elif 500 <= response.status_code < 600:
-            http_error_msg = (
-                f"{response.status_code} Server Error: {reason} for url: {response.url}"
-            )
-
-        if http_error_msg:
-            raise HTTPError(http_error_msg, response=response)
-
-    @staticmethod
     def _fetch_page(
         url: str,
         headers: Headers,
         entity_response: type[T],
         *,
-        filter: Optional[str] = None,
-        page_info: Optional[PageInfo] = None,
-        direction: Optional[PageDirection] = PageDirection.NEXT,
+        filter: str | None = None,
+        page_info: PageInfo | None = None,
+        direction: PageDirection | None = PageDirection.NEXT,
     ) -> T:
         params: dict[str, str] = {}
         if filter is not None:
@@ -110,28 +75,28 @@ class CompassRootClient:
             if page_info.filter is not None:
                 params["filter"] = page_info.filter
 
-        response = requests.get(url, headers=headers, params=params)
-        CompassRootClient.raise_for_status(response)
+        response = httpx.get(url, headers=headers, params=params)
+        response.raise_for_status()
         return entity_response.model_validate(response.json())
 
     @staticmethod
     def _fetch_entity(
         url: str, headers: Headers, entity_response: type[T], entity_name: str
     ) -> T:
-        response = requests.get(f"{url}/{entity_name}", headers=headers)
-        CompassRootClient.raise_for_status(response)
+        response = httpx.get(f"{url}/{entity_name}", headers=headers)
+        response.raise_for_status()
         return entity_response.model_validate(response.json())
 
     @staticmethod
     def _create_entities(
         url: str, headers: Headers, entity_request: list[T], entity_response: type[U]
     ) -> list[U]:
-        response = requests.post(
+        response = httpx.post(
             url,
             json=[json.loads(entity.model_dump_json()) for entity in entity_request],
             headers=headers,
         )
-        CompassRootClient.raise_for_status(response)
+        response.raise_for_status()
         return [
             entity_response.model_validate(response) for response in response.json()
         ]
@@ -144,12 +109,12 @@ class CompassRootClient:
         entity: BaseModel,
         entity_response: type[U],
     ) -> U:
-        response = requests.put(
+        response = httpx.put(
             f"{url}/{entity_name}",
             json=json.loads(entity.model_dump_json()),
             headers=headers,
         )
-        CompassRootClient.raise_for_status(response)
+        response.raise_for_status()
         return entity_response.model_validate(response.json())
 
     @staticmethod
@@ -157,16 +122,16 @@ class CompassRootClient:
         url: str, headers: Headers, names: list[str], entity_response: type[U]
     ) -> list[U]:
         entities = ",".join(names)
-        response = requests.delete(f"{url}/{entities}", headers=headers)
-        CompassRootClient.raise_for_status(response)
+        response = httpx.delete(f"{url}/{entities}", headers=headers)
+        response.raise_for_status()
         return [entity_response.model_validate(entity) for entity in response.json()]
 
     def get_users_page(
         self,
         *,
-        filter: Optional[str] = None,
-        page_info: Optional[PageInfo] = None,
-        direction: Optional[PageDirection] = None,
+        filter: str | None = None,
+        page_info: PageInfo | None = None,
+        direction: PageDirection | None = None,
     ) -> UsersPage:
         """
         Fetch a page of Users. Defaults to fetching the first page.
@@ -229,9 +194,9 @@ class CompassRootClient:
         self,
         user_name: str,
         *,
-        filter: Optional[str] = None,
-        page_info: Optional[PageInfo] = None,
-        direction: Optional[PageDirection] = None,
+        filter: str | None = None,
+        page_info: PageInfo | None = None,
+        direction: PageDirection | None = None,
     ) -> GroupsPage:
         """
         Fetch a page of Groups a User is a Member of.
@@ -281,9 +246,9 @@ class CompassRootClient:
     def get_roles_page(
         self,
         *,
-        filter: Optional[str] = None,
-        page_info: Optional[PageInfo] = None,
-        direction: Optional[PageDirection] = None,
+        filter: str | None = None,
+        page_info: PageInfo | None = None,
+        direction: PageDirection | None = None,
     ) -> RolesPage:
         """
         Fetch a page of Roles. Defaults to fetching the first page.
@@ -346,9 +311,9 @@ class CompassRootClient:
         self,
         role_name: str,
         *,
-        filter: Optional[str] = None,
-        page_info: Optional[PageInfo] = None,
-        direction: Optional[PageDirection] = None,
+        filter: str | None = None,
+        page_info: PageInfo | None = None,
+        direction: PageDirection | None = None,
     ) -> GroupsPage:
         """
         Fetch a page of Groups for a Role. Defaults to fetching the first page.
@@ -386,12 +351,12 @@ class CompassRootClient:
 
         :return: Updated Role.
         """
-        response = requests.put(
+        response = httpx.put(
             f"{self.base_url}/v2/roles/{role.role_name}",
             json=[json.loads(entity.model_dump_json()) for entity in role.policies],
             headers=self.headers,
         )
-        CompassRootClient.raise_for_status(response)
+        response.raise_for_status()
         return Role.model_validate(response.json())
 
     def delete_roles(self, role_names: list[str]) -> list[Role]:
@@ -412,9 +377,9 @@ class CompassRootClient:
     def get_groups_page(
         self,
         *,
-        filter: Optional[str] = None,
-        page_info: Optional[PageInfo] = None,
-        direction: Optional[PageDirection] = None,
+        filter: str | None = None,
+        page_info: PageInfo | None = None,
+        direction: PageDirection | None = None,
     ) -> GroupsPage:
         """
         Fetch a page of Groups. Defaults to fetching the first page.
@@ -501,12 +466,12 @@ class CompassRootClient:
 
         :return: List of added GroupMemberships.
         """
-        response = requests.post(
+        response = httpx.post(
             f"{self.base_url}/v2/groups/{group_name}/users",
             json=[{"user_name": user_name} for user_name in user_names],
             headers=self.headers,
         )
-        CompassRootClient.raise_for_status(response)
+        response.raise_for_status()
         return [GroupMembership.model_validate(member) for member in response.json()]
 
     def remove_members_from_group(
@@ -531,9 +496,9 @@ class CompassRootClient:
         self,
         group_name: str,
         *,
-        filter: Optional[str] = None,
-        page_info: Optional[PageInfo] = None,
-        direction: Optional[PageDirection] = None,
+        filter: str | None = None,
+        page_info: PageInfo | None = None,
+        direction: PageDirection | None = None,
     ) -> UsersPage:
         """
         Fetch a page of Users in a Group. Defaults to fetching the first page.
@@ -574,12 +539,12 @@ class CompassRootClient:
 
         :return: List of added GroupRoles.
         """
-        response = requests.post(
+        response = httpx.post(
             f"{self.base_url}/v2/groups/{group_name}/roles",
             json=[{"role_name": role_name} for role_name in role_names],
             headers=self.headers,
         )
-        CompassRootClient.raise_for_status(response)
+        response.raise_for_status()
         return [GroupRole.model_validate(member) for member in response.json()]
 
     def remove_roles_from_group(
@@ -604,9 +569,9 @@ class CompassRootClient:
         self,
         group_name: str,
         *,
-        filter: Optional[str] = None,
-        page_info: Optional[PageInfo] = None,
-        direction: Optional[PageDirection] = None,
+        filter: str | None = None,
+        page_info: PageInfo | None = None,
+        direction: PageDirection | None = None,
     ) -> RolesPage:
         """
         Fetch a page of Roles in a Group. Defaults to fetching the first page.
