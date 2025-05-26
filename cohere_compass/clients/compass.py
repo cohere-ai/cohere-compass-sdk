@@ -17,7 +17,6 @@ import httpx
 from joblib import Parallel, delayed  # type: ignore
 from pydantic import BaseModel
 from tenacity import (
-    RetryError,
     retry,
     retry_if_not_exception_type,
     stop_after_attempt,
@@ -67,7 +66,7 @@ from cohere_compass.models.documents import DocumentAttributes, PutDocumentsResp
 
 
 @dataclass
-class _RetryResult:
+class _SendRequestResult:
     """
     A class to represent the result of a retryable operation.
 
@@ -80,7 +79,6 @@ class _RetryResult:
 
     result: str | bytes | dict[str, Any] | None = None
     content_type: str | None = None
-    error: str | None = None
 
 
 logger = logging.getLogger(__name__)
@@ -342,7 +340,7 @@ class CompassClient:
         index_name: str,
         document_id: str,
         attributes: DocumentAttributes,
-    ) -> str | None:
+    ):
         """
         Update the content field of an existing document with additional context.
 
@@ -352,15 +350,12 @@ class CompassClient:
 
         :returns: an error message if the request failed, otherwise None
         """
-        result = self._send_request(
+        self._send_request(
             api_name="add_attributes",
             document_id=document_id,
             data=attributes,
             index_name=index_name,
         )
-        if result.error:
-            return result.error
-        return None
 
     def insert_doc(
         self,
@@ -427,9 +422,6 @@ class CompassClient:
             index_name=index_name,
         )
 
-        if result.error:
-            return result.error
-
         return result.result  # type: ignore
 
     def insert_docs(
@@ -491,27 +483,27 @@ class CompassClient:
             if not request_data:
                 return
 
-            results = self._send_request(
-                api_name="put_documents",
-                data=put_docs_input,
-                index_name=index_name,
-            )
-
-            if results.error:
+            try:
+                self._send_request(
+                    api_name="put_documents",
+                    data=put_docs_input,
+                    index_name=index_name,
+                )
+                num_succeeded += len(compass_docs)
+            except CompassError as e:
+                error = str(e)
                 for doc in compass_docs:
                     filename = doc.metadata.filename
-                    error = results.error
                     doc.errors.append(
                         {CompassSdkStage.Indexing: f"{filename}: {error}"}
                     )
                     errors.append({doc.metadata.document_id: f"{filename}: {error}"})
-            else:
-                num_succeeded += len(compass_docs)
 
-            # Keep track of the results of the last N API calls to calculate the error
-            # rate If the error rate is higher than the threshold, stop the insertion
-            # process
-            error_window.append(results.error)
+                # Keep track of the results of the last N API calls to calculate the
+                # error rate If the error rate is higher than the threshold, stop the
+                # insertion process
+                error_window.append(error)
+
             error_rate = (
                 mean([1 if x else 0 for x in error_window])
                 if len(error_window) == error_window.maxlen
@@ -561,16 +553,12 @@ class CompassClient:
             data=datasource,
         )
 
-        if result.error:
-            return result.error
         return DataSource.model_validate(result.result)
 
     def list_datasources(self) -> PaginatedList[DataSource] | str:
         """List all datasources in Compass."""
         result = self._send_request(api_name="list_datasources")
 
-        if result.error:
-            return result.error
         return PaginatedList[DataSource].model_validate(result.result)
 
     def get_datasource(
@@ -588,8 +576,6 @@ class CompassClient:
             datasource_id=datasource_id,
         )
 
-        if result.error:
-            return result.error
         return DataSource.model_validate(result.result)
 
     def delete_datasource(
@@ -607,8 +593,6 @@ class CompassClient:
             datasource_id=datasource_id,
         )
 
-        if result.error:
-            return result.error
         return result.result
 
     def sync_datasource(
@@ -626,8 +610,6 @@ class CompassClient:
             datasource_id=datasource_id,
         )
 
-        if result.error:
-            return result.error
         return result.result
 
     def list_datasources_objects_states(
@@ -651,8 +633,6 @@ class CompassClient:
             limit=str(limit),
         )
 
-        if result.error:
-            return result.error
         return PaginatedList[DocumentStatus].model_validate(result.result)
 
     @staticmethod
@@ -749,9 +729,6 @@ class CompassClient:
             filters=filters,
         )
 
-        if result.error:
-            raise CompassError(result.error)
-
         return SearchDocumentsResponse.model_validate(result.result)
 
     def search_chunks(
@@ -779,9 +756,6 @@ class CompassClient:
             top_k=top_k,
             filters=filters,
         )
-
-        if result.error:
-            raise CompassError(result.error)
 
         return SearchChunksResponse.model_validate(result.result)
 
@@ -815,9 +789,6 @@ class CompassClient:
             asset_id=asset_id,
         )
 
-        if result.error:
-            raise CompassError(result.error)
-
         return result.result, result.content_type  # type: ignore
 
     def update_group_authorization(
@@ -837,8 +808,6 @@ class CompassClient:
             index_name=index_name,
             data=group_auth_input,
         )
-        if result.error:
-            raise CompassError(result.error)
         return PutDocumentsResponse.model_validate(result.result)
 
     def direct_search(
@@ -868,9 +837,6 @@ class CompassClient:
             data=data,
         )
 
-        if result.error:
-            raise CompassError(result.error)
-
         return DirectSearchResponse.model_validate(result.result)
 
     def direct_search_scroll(
@@ -895,9 +861,6 @@ class CompassClient:
             data=data,
         )
 
-        if result.error:
-            raise CompassError(result.error)
-
         return DirectSearchResponse.model_validate(result.result)
 
     # todo Simplify this method so we don't have to ignore the C901 complexity warning.
@@ -906,7 +869,7 @@ class CompassClient:
         api_name: str,
         data: BaseModel | None = None,
         **url_params: str,
-    ) -> _RetryResult:
+    ) -> _SendRequestResult:
         """
         Send a request to the Compass API.
 
@@ -937,12 +900,11 @@ class CompassClient:
         @retry(
             stop=stop_after_attempt(self.max_retries),
             wait=wait_fixed(self.sleep_retry_seconds),
+            reraise=True,  # re-raise last exception instead of wrapping in RetryError
             # todo find alternative to InvalidSchema
             retry=retry_if_not_exception_type((CompassClientError,)),
         )
-        def _send_request_with_retry() -> _RetryResult:
-            nonlocal error
-
+        def _send_request_with_retry() -> _SendRequestResult:
             try:
                 data_dict = (
                     data.model_dump(mode="json", exclude_none=True) if data else None
@@ -961,7 +923,6 @@ class CompassClient:
 
                 response.raise_for_status()
 
-                error = None
                 content_type = response.headers.get("content-type")
                 if content_type in ("image/jpeg", "image/png"):
                     # To handle response from get_document_asset() when the asset
@@ -974,10 +935,9 @@ class CompassClient:
                 else:
                     # To handle response from other APIs.
                     result = response.json() if response.text else None
-                return _RetryResult(
+                return _SendRequestResult(
                     result=result,
                     content_type=content_type,
-                    error=None,
                 )
 
             except httpx.HTTPStatusError as e:
@@ -1003,11 +963,7 @@ class CompassClient:
                 )
                 raise e
 
-        error = None
         try:
             return _send_request_with_retry()
-        except RetryError:
-            logger.error(
-                f"Failed to send request after {self.max_retries} attempts. Aborting."
-            )
-            return _RetryResult(result=None, error=error)
+        except Exception as e:
+            raise CompassError(f"Failed to send request for {api_name} API") from e
