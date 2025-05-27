@@ -1,14 +1,12 @@
 # Python imports
 import json
 import logging
-import threading
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 # 3rd party imports
-import requests
-from requests.exceptions import InvalidSchema
+import httpx
 from tenacity import (
     retry,
     retry_if_not_exception_type,
@@ -23,7 +21,7 @@ from cohere_compass import (
 from cohere_compass.constants import (
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_RETRIES,
-    DEFAULT_SLEEP_RETRY_SECONDS,
+    DEFAULT_RETRY_WAIT,
 )
 from cohere_compass.exceptions import CompassClientError, CompassError
 from cohere_compass.models import (
@@ -33,7 +31,7 @@ from cohere_compass.models import (
 )
 from cohere_compass.utils import imap_queued, open_document, scan_folder
 
-Fn_or_Dict = Union[dict[str, Any], Callable[[CompassDocument], dict[str, Any]]]
+Fn_or_Dict = dict[str, Any] | Callable[[CompassDocument], dict[str, Any]]
 
 
 logger = logging.getLogger(__name__)
@@ -63,7 +61,7 @@ class CompassParserClient:
         parser_url: str,
         parser_config: ParserConfig = ParserConfig(),
         metadata_config: MetadataConfig = MetadataConfig(),
-        bearer_token: Optional[str] = None,
+        bearer_token: str | None = None,
         num_workers: int = 1,
     ):
         """
@@ -84,7 +82,6 @@ class CompassParserClient:
             or process_files)
         :param bearer_token (optional): The bearer token for authentication.
         """
-        self._thread_local = threading.local()
         self.parser_url = (
             parser_url if not parser_url.endswith("/") else parser_url[:-1]
         )
@@ -98,20 +95,15 @@ class CompassParserClient:
             f"CompassParserClient initialized with parser_url: {self.parser_url}"
         )
 
-    def _get_session(self) -> requests.Session:
-        if not hasattr(self._thread_local, "session"):
-            self._thread_local.session = requests.Session()
-        return self._thread_local.session
-
     def process_folder(
         self,
         *,
         folder_path: str,
-        allowed_extensions: Optional[list[str]] = None,
+        allowed_extensions: list[str] | None = None,
         recursive: bool = False,
-        parser_config: Optional[ParserConfig] = None,
-        metadata_config: Optional[MetadataConfig] = None,
-        custom_context: Optional[Fn_or_Dict] = None,
+        parser_config: ParserConfig | None = None,
+        metadata_config: MetadataConfig | None = None,
+        custom_context: Fn_or_Dict | None = None,
     ):
         """
         Process all the files in the specified folder.
@@ -152,11 +144,11 @@ class CompassParserClient:
         self,
         *,
         filenames: list[str],
-        file_ids: Optional[list[str]] = None,
-        parser_config: Optional[ParserConfig] = None,
-        metadata_config: Optional[MetadataConfig] = None,
-        custom_context: Optional[Fn_or_Dict] = None,
-    ) -> Iterable[Union[CompassDocument, tuple[str, Exception]]]:
+        file_ids: list[str] | None = None,
+        parser_config: ParserConfig | None = None,
+        metadata_config: MetadataConfig | None = None,
+        custom_context: Fn_or_Dict | None = None,
+    ) -> Iterable[CompassDocument | tuple[str, Exception]]:
         """
         Process a list of files.
 
@@ -183,7 +175,7 @@ class CompassParserClient:
         :returns: List of processed documents
         """
 
-        def process_file(i: int) -> Union[list[CompassDocument], tuple[str, Exception]]:
+        def process_file(i: int) -> list[CompassDocument] | tuple[str, Exception]:
             filename = filenames[i]
             try:
                 return self.process_file(
@@ -209,7 +201,7 @@ class CompassParserClient:
 
     @staticmethod
     def _get_metadata(
-        doc: CompassDocument, custom_context: Optional[Fn_or_Dict] = None
+        doc: CompassDocument, custom_context: Fn_or_Dict | None = None
     ) -> dict[str, Any]:
         if custom_context is None:
             return {}
@@ -220,18 +212,19 @@ class CompassParserClient:
 
     @retry(
         stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
-        wait=wait_fixed(DEFAULT_SLEEP_RETRY_SECONDS),
-        retry=retry_if_not_exception_type((InvalidSchema, CompassClientError)),
+        wait=wait_fixed(DEFAULT_RETRY_WAIT),
+        # todo find alternative to InvalidSchema
+        retry=retry_if_not_exception_type((CompassClientError,)),
     )
     def process_file(
         self,
         *,
         filename: str,
-        file_id: Optional[str] = None,
-        content_type: Optional[str] = None,
-        parser_config: Optional[ParserConfig] = None,
-        metadata_config: Optional[MetadataConfig] = None,
-        custom_context: Optional[Fn_or_Dict] = None,
+        file_id: str | None = None,
+        content_type: str | None = None,
+        parser_config: ParserConfig | None = None,
+        metadata_config: MetadataConfig | None = None,
+        custom_context: Fn_or_Dict | None = None,
     ) -> list[CompassDocument]:
         """
         Process a file.
@@ -275,19 +268,20 @@ class CompassParserClient:
 
     @retry(
         stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
-        wait=wait_fixed(DEFAULT_SLEEP_RETRY_SECONDS),
-        retry=retry_if_not_exception_type((InvalidSchema, CompassClientError)),
+        wait=wait_fixed(DEFAULT_RETRY_WAIT),
+        # todo find alternative to InvalidSchema
+        retry=retry_if_not_exception_type((CompassClientError,)),
     )
     def process_file_bytes(
         self,
         *,
         filename: str,
         file_bytes: bytes,
-        file_id: Optional[str] = None,
-        content_type: Optional[str] = None,
-        parser_config: Optional[ParserConfig] = None,
-        metadata_config: Optional[MetadataConfig] = None,
-        custom_context: Optional[Fn_or_Dict] = None,
+        file_id: str | None = None,
+        content_type: str | None = None,
+        parser_config: ParserConfig | None = None,
+        metadata_config: MetadataConfig | None = None,
+        custom_context: Fn_or_Dict | None = None,
     ) -> list[CompassDocument]:
         """
         Process a file.
@@ -329,10 +323,10 @@ class CompassParserClient:
     def _get_file_params(
         self,
         *,
-        parser_config: Optional[ParserConfig] = None,
-        metadata_config: Optional[MetadataConfig] = None,
-        file_id: Optional[str] = None,
-        content_type: Optional[str] = None,
+        parser_config: ParserConfig | None = None,
+        metadata_config: MetadataConfig | None = None,
+        file_id: str | None = None,
+        content_type: str | None = None,
     ):
         parser_config = parser_config or self.parser_config
         metadata_config = metadata_config or self.metadata_config
@@ -349,7 +343,7 @@ class CompassParserClient:
         params: ProcessFileParameters,
         filename: str,
         file_bytes: bytes,
-        custom_context: Optional[Fn_or_Dict] = None,
+        custom_context: Fn_or_Dict | None = None,
     ) -> list[CompassDocument]:
         if len(file_bytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
             max_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
@@ -362,14 +356,14 @@ class CompassParserClient:
         if self.bearer_token:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
-        res = self._get_session().post(
+        res = httpx.post(
             url=f"{self.parser_url}/v1/process_file",
             data={"data": json.dumps(params.model_dump())},
             files={"file": (filename, file_bytes)},
             headers=headers,
         )
 
-        if not res.ok:
+        if res.is_error:
             if res.status_code >= 400 and res.status_code < 500:
                 raise CompassClientError(
                     f"Error processing file: {res.status_code} {res.text}"

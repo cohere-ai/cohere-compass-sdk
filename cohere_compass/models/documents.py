@@ -2,7 +2,7 @@
 import uuid
 from dataclasses import field
 from enum import Enum
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 # 3rd party imports
 from pydantic import BaseModel, ConfigDict, PositiveInt, StringConstraints
@@ -50,9 +50,9 @@ class CompassDocumentChunk(BaseModel):
     document_id: str
     parent_document_id: str
     content: dict[str, Any]
-    origin: Optional[dict[str, Any]] = None
-    assets: Optional[list[CompassDocumentChunkAsset]] = None
-    path: Optional[str] = ""
+    origin: dict[str, Any] | None = None
+    assets: list[CompassDocumentChunkAsset] | None = None
+    path: str | None = ""
 
     def parent_doc_is_split(self):
         """
@@ -99,13 +99,13 @@ class CompassDocument(ValidatedModel):
     filebytes: bytes = b""
     metadata: CompassDocumentMetadata = CompassDocumentMetadata()
     content: dict[str, str] = field(default_factory=dict)
-    content_type: Optional[str] = None
+    content_type: str | None = None
     elements: list[Any] = field(default_factory=list)
     chunks: list[CompassDocumentChunk] = field(default_factory=list)
     index_fields: list[str] = field(default_factory=list)
     errors: list[dict[CompassSdkStage, str]] = field(default_factory=list)
     ignore_metadata_errors: bool = True
-    markdown: Optional[str] = None
+    markdown: str | None = None
 
     def has_data(self) -> bool:
         """Check if the document has any data."""
@@ -178,9 +178,9 @@ class Chunk(BaseModel):
     parent_document_id: str
     path: str = ""
     content: dict[str, Any]
-    origin: Optional[dict[str, Any]] = None
-    assets: Optional[list[DocumentChunkAsset]] = None
-    asset_ids: Optional[list[str]] = None
+    origin: dict[str, Any] | None = None
+    assets: list[DocumentChunkAsset] | None = None
+    asset_ids: list[str] | None = None
 
 
 class Document(BaseModel):
@@ -191,8 +191,8 @@ class Document(BaseModel):
     parent_document_id: str
     content: dict[str, Any]
     chunks: list[Chunk]
-    index_fields: Optional[list[str]] = None
-    authorized_groups: Optional[list[str]] = None
+    index_fields: list[str] | None = None
+    authorized_groups: list[str] | None = None
 
 
 class DocumentAttributes(BaseModel):
@@ -231,7 +231,7 @@ class PutDocumentsInput(BaseModel):
     """A model for the input of a call to put_documents API."""
 
     documents: list[Document]
-    authorized_groups: Optional[list[str]] = None
+    authorized_groups: list[str] | None = None
     merge_groups_on_conflict: bool = False
 
 
@@ -243,7 +243,7 @@ class PutDocumentResult(BaseModel):
     """
 
     document_id: str
-    error: Optional[str]
+    error: str | None
 
 
 class PutDocumentsResponse(BaseModel):

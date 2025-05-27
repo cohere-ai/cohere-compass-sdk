@@ -2,7 +2,7 @@
 import math
 from enum import Enum
 from os import getenv
-from typing import Any, Optional
+from typing import Any
 
 # 3rd party imports
 from pydantic import BaseModel, ConfigDict
@@ -151,8 +151,8 @@ class ParserConfig(BaseModel):
     # CompassParser configuration
     parse_tables: bool = True
     parse_images: bool = True
-    parsed_images_output_dir: Optional[str] = None
-    allowed_image_types: Optional[list[str]] = None
+    parsed_images_output_dir: str | None = None
+    allowed_image_types: list[str] | None = None
     min_chars_per_element: int = DEFAULT_MIN_CHARS_PER_ELEMENT
     skip_infer_table_types: list[str] = SKIP_INFER_TABLE_TYPES
     parsing_strategy: ParsingStrategy = ParsingStrategy.Fast
@@ -225,7 +225,7 @@ class MetadataConfig(ValidatedModel):
     """
 
     metadata_strategy: MetadataStrategy = MetadataStrategy.No_Metadata
-    cohere_api_key: Optional[str] = getenv(COHERE_API_ENV_VAR, None)
+    cohere_api_key: str | None = getenv(COHERE_API_ENV_VAR, None)
     commandr_model_name: str = "command-r"
     commandr_prompt: str = DEFAULT_COMMANDR_PROMPT
     commandr_max_tokens: int = 500
@@ -248,7 +248,7 @@ class IndexConfig(BaseModel):
         it will use the default from compass.
     """
 
-    number_of_shards: Optional[int] = None
-    number_of_replicas: Optional[int] = None
-    knn_index_engine: Optional[str] = None
-    analyzer: Optional[str] = None
+    number_of_shards: int | None = None
+    number_of_replicas: int | None = None
+    knn_index_engine: str | None = None
+    analyzer: str | None = None
