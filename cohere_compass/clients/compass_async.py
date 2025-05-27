@@ -22,6 +22,7 @@ from cohere_compass.clients.compass import (
     logger,
 )
 from cohere_compass.constants import (
+    DEFAULT_COMPASS_CLIENT_TIMEOUT,
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_CHUNKS_PER_REQUEST,
     DEFAULT_MAX_ERROR_RATE,
@@ -86,8 +87,7 @@ class CompassAsyncClient:
                Defaults to True.
         """
         self.index_url = index_url
-        # TODO Remove hard-coding of the timeout value.
-        self.httpx_client = httpx.AsyncClient(timeout=httpx.Timeout(300.0))
+        self.httpx_client = httpx.AsyncClient(timeout=DEFAULT_COMPASS_CLIENT_TIMEOUT)
 
         self.bearer_token = bearer_token
 

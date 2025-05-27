@@ -19,6 +19,7 @@ from cohere_compass import (
     ProcessFileParameters,
 )
 from cohere_compass.constants import (
+    DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT,
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_WAIT,
@@ -89,7 +90,9 @@ class CompassParserAsyncClient:
         self.bearer_token = bearer_token
         self.thread_pool = ThreadPoolExecutor(num_workers)
         self.num_workers = num_workers
-        self.httpx_client = httpx.AsyncClient(timeout=httpx.Timeout(300.0))
+        self.httpx_client = httpx.AsyncClient(
+            timeout=DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT
+        )
 
         self.metadata_config = metadata_config
         logger.info(

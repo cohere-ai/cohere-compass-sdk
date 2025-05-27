@@ -19,6 +19,7 @@ from cohere_compass import (
     ProcessFileParameters,
 )
 from cohere_compass.constants import (
+    DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT,
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_WAIT,
@@ -89,6 +90,7 @@ class CompassParserClient:
         self.bearer_token = bearer_token
         self.thread_pool = ThreadPoolExecutor(num_workers)
         self.num_workers = num_workers
+        self.httpx_client = httpx.Client(timeout=DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT)
 
         self.metadata_config = metadata_config
         logger.info(
@@ -356,7 +358,7 @@ class CompassParserClient:
         if self.bearer_token:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
-        res = httpx.post(
+        res = self.httpx_client.post(
             url=f"{self.parser_url}/v1/process_file",
             data={"data": json.dumps(params.model_dump())},
             files={"file": (filename, file_bytes)},

@@ -21,6 +21,7 @@ from tenacity import retry, retry_if_not_exception_type, stop_after_attempt, wai
 # Local imports
 from cohere_compass import GroupAuthorizationInput
 from cohere_compass.constants import (
+    DEFAULT_COMPASS_CLIENT_TIMEOUT,
     DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_CHUNKS_PER_REQUEST,
     DEFAULT_MAX_ERROR_RATE,
@@ -196,7 +197,7 @@ class CompassClient:
                Defaults to True.
         """
         self.index_url = index_url
-        self.httpx_client = httpx.Client(timeout=httpx.Timeout(300.0))
+        self.httpx_client = httpx.Client(timeout=DEFAULT_COMPASS_CLIENT_TIMEOUT)
 
         self.bearer_token = bearer_token
 
