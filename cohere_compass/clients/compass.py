@@ -11,6 +11,7 @@ from statistics import mean
 from typing import Any, Literal, Optional, Union
 
 import requests
+from deprecated import deprecated
 
 # 3rd party imports
 # TODO find stubs for joblib and remove "type: ignore"
@@ -146,6 +147,7 @@ class CompassClient:
             "update_group_authorization": self._post,
             "direct_search": self._post,
             "direct_search_scroll": self._post,
+            "direct_search_scroll_with_index": self._post,
             # Data Sources APIs
             "create_datasource": self._post,
             "list_datasources": self._get,
@@ -171,6 +173,7 @@ class CompassClient:
             "update_group_authorization": f"{base_api}/v1/indexes/{{index_name}}/group_authorization",  # noqa: E501
             "direct_search": f"{base_api}/v1/indexes/{{index_name}}/_direct_search",
             "direct_search_scroll": f"{base_api}/v1/indexes/_direct_search/scroll",
+            "direct_search_scroll_with_index": f"{base_api}/v1/indexes/{{index_name}}/_direct_search/scroll",  # noqa: E501
             # Data Sources APIs
             "create_datasource": f"{base_api}/v1/datasources",
             "list_datasources": f"{base_api}/v1/datasources",
@@ -955,6 +958,10 @@ class CompassClient:
 
         return DirectSearchResponse.model_validate(result.result)
 
+    @deprecated(
+        "Direct search scroll is deprecated, "
+        "use direct_search_scroll_with_index instead"
+    )
     def direct_search_scroll(
         self,
         *,
@@ -986,6 +993,39 @@ class CompassClient:
         if result.error:
             raise CompassError(result.error)
 
+        return DirectSearchResponse.model_validate(result.result)
+
+    def direct_search_scroll_with_index(
+        self,
+        *,
+        scroll_id: str,
+        index_name: str,
+        scroll: str = "1m",
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> DirectSearchResponse:
+        """
+        Continue a search using a scroll ID from a previous direct_search call.
+
+        :param scroll_id: the scroll ID from a previous direct_search call
+        :param index_name: the name of the index same as used in direct_search
+        :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        :param max_retries: the maximum number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+
+        :returns: the next batch of search results
+        :raises CompassError: if the scroll search fails
+        """
+        data = DirectSearchScrollInput(scroll_id=scroll_id, scroll=scroll)
+        result = self._send_request(
+            api_name="direct_search_scroll_with_index",
+            index_name=index_name,
+            data=data,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+        if result.error:
+            raise CompassError(result.error)
         return DirectSearchResponse.model_validate(result.result)
 
     # todo Simplify this method so we don't have to ignore the C901 complexity warning.
