@@ -1,10 +1,11 @@
 # Python imports
+import asyncio
 import base64
 import glob
 import logging
 import os
 import uuid
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Awaitable, Callable, Iterable, Iterator
 from concurrent import futures
 from concurrent.futures import Executor
 from typing import TypeVar
@@ -20,9 +21,11 @@ from cohere_compass.models import (
     CompassDocumentMetadata,
     CompassSdkStage,
 )
+from cohere_compass.models.documents import Chunk, CompassDocumentStatus, Document
 
 T = TypeVar("T")
 U = TypeVar("U")
+R = TypeVar("R")
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +62,73 @@ def imap_queued(
             yield future.result()
         except Exception as e:
             logger.exception(f"Error in processing file: {e}")
+
+
+async def async_map(
+    func: Callable[[T], Awaitable[R]],
+    iterable: Iterable[T],
+    limit: int | None = None,
+) -> list[R]:
+    """
+    Run an async function over an iterable with a limit on concurrent executions.
+
+    The function preserves the original order of results.
+
+    Args:
+        func: An async function to apply to each item.
+        iterable: An iterable of input items.
+        limit: Maximum number of concurrent tasks.
+
+    Returns:
+        A list of results, in the same order as the input iterable.
+
+    """
+    results: dict[int, R] = {}
+
+    if limit is not None:
+        semaphore = asyncio.Semaphore(limit)
+
+        async def _task(idx: int, item: T):
+            async with semaphore:
+                results[idx] = await func(item)
+    else:
+
+        async def _task(idx: int, item: T):
+            results[idx] = await func(item)
+
+    tasks = [_task(idx, item) for idx, item in enumerate(iterable)]
+    await asyncio.gather(*tasks)
+
+    return [results[i] for i in sorted(results)]
+
+
+async def async_apply(
+    func: Callable[..., Awaitable[None]],
+    iterable: Iterable[T],
+    limit: int | None = None,
+) -> None:
+    """
+    Apply an async function over an iterable with a limit on concurrent executions.
+
+    Args:
+        func: An async function to apply to the arguments.
+        iterable: One or more iterables whose elements will be passed to func.
+        limit: Maximum number of concurrent tasks.
+
+    """
+    if limit is not None:
+        semaphore = asyncio.Semaphore(limit)
+
+        async def _task(item: T):
+            async with semaphore:
+                await func(item)
+    else:
+
+        async def _task(item: T):
+            await func(item)
+
+    tasks = [_task(item) for item in iterable]
+    await asyncio.gather(*tasks)
 
 
 def get_fs(document_path: str) -> AbstractFileSystem:
@@ -150,3 +220,52 @@ def generate_doc_id_from_bytes(filebytes: bytes) -> uuid.UUID:
     b64_string = base64.b64encode(filebytes).decode("utf-8")
     namespace = uuid.UUID(UUID_NAMESPACE)
     return uuid.uuid5(namespace, b64_string)
+
+
+def partition_documents(
+    docs: Iterable[CompassDocument],
+    max_chunks_per_request: int,
+):
+    """
+    Create request blocks to send to the Compass API.
+
+    :param docs: the documents to send
+    :param max_chunks_per_request: the maximum number of chunks to send in a single
+        API request
+    :returns: an iterator over the request blocks
+    """
+    request_block: list[tuple[CompassDocument, Document]] = []
+    errors: list[dict[str, str]] = []
+    num_chunks = 0
+    for _, doc in enumerate(docs, 1):
+        if doc.status != CompassDocumentStatus.Success:
+            logger.error(
+                f"Document {doc.metadata.document_id} has errors: {doc.errors}"
+            )
+            for error in doc.errors:
+                errors.append({doc.metadata.document_id: next(iter(error.values()))})
+        else:
+            num_chunks += (
+                len(doc.chunks) if doc.status == CompassDocumentStatus.Success else 0
+            )
+            if num_chunks > max_chunks_per_request:
+                yield request_block, errors
+                request_block, errors = [], []
+                num_chunks = 0
+
+            request_block.append(
+                (
+                    doc,
+                    Document(
+                        document_id=doc.metadata.document_id,
+                        parent_document_id=doc.metadata.parent_document_id,
+                        path=doc.metadata.filename,
+                        content=doc.content,
+                        chunks=[Chunk(**c.model_dump()) for c in doc.chunks],
+                        index_fields=doc.index_fields,
+                    ),
+                )
+            )
+
+    if len(request_block) > 0 or len(errors) > 0:
+        yield request_block, errors
