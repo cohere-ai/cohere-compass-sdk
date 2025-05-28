@@ -252,21 +252,29 @@ def test_direct_search_is_valid(respx_mock: MockRouter):
 
 
 def test_direct_search_scroll_is_valid(respx_mock: MockRouter):
+    index_name = "test_index"
     route = respx_mock.post(
-        "http://test.com/api/v1/indexes/_direct_search/scroll",
+        f"http://test.com/api/v1/indexes/{index_name}/_direct_search/scroll",
     ).mock(
         return_value=httpx.Response(
             200,
-            json={"hits": [], "scroll_id": "test_scroll_id"},
+            json={
+                "hits": [],
+                "scroll_id": "test_scroll_id",
+            },
         )
     )
 
     compass = CompassClient(index_url="http://test.com")
-    compass.direct_search_scroll(scroll_id="test_scroll_id")
+    compass.direct_search_scroll(
+        scroll_id="test_scroll_id",
+        index_name=index_name,
+        scroll="5m",
+    )
 
     assert route.called
     assert route.call_count == 1
 
     req_sent = json.loads(route.calls.last.request.content)
     assert req_sent["scroll_id"] == "test_scroll_id"
-    assert req_sent["scroll"] == "1m"
+    assert req_sent["scroll"] == "5m"
