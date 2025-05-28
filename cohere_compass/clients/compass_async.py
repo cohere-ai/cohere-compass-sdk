@@ -662,12 +662,14 @@ class CompassAsyncClient:
         self,
         *,
         scroll_id: str,
+        index_name: str,
         scroll: str = "1m",
     ) -> DirectSearchResponse:
         """
         Continue a search using a scroll ID from a previous direct_search call.
 
         :param scroll_id: the scroll ID from a previous direct_search call
+        :param index_name: the name of the index same as used in direct_search
         :param scroll: the scroll duration (e.g. "1m" for 1 minute)
 
         :returns: the next batch of search results
@@ -677,6 +679,7 @@ class CompassAsyncClient:
 
         result = await self._send_request(
             api_name="direct_search_scroll",
+            index_name=index_name,
             data=data,
         )
 
@@ -705,7 +708,7 @@ class CompassAsyncClient:
                 target_path, json=data_dict, headers=headers
             )
         elif http_method == "DELETE":
-            response = await self.httpx_client.get(target_path, headers=headers)
+            response = await self.httpx_client.delete(target_path, headers=headers)
         else:
             raise RuntimeError(f"Unsupported HTTP method: {http_method}")
 

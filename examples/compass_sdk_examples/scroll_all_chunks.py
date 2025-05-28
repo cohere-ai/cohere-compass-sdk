@@ -71,6 +71,7 @@ def main():
     while response.hits and response.scroll_id:
         response = client.direct_search_scroll(
             scroll_id=response.scroll_id,
+            index_name=index_name,
             scroll=args.scroll,
         )
         all_chunks.extend(response.hits)
