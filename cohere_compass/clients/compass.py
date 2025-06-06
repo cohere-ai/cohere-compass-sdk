@@ -155,6 +155,7 @@ class CompassClient:
             "get_datasource": self._get,
             "sync_datasource": self._post,
             "list_datasources_objects_states": self._get,
+            "get_models": self._get,
         }
         base_api = "/api" if include_api_in_url else ""
         self.api_endpoint = {
@@ -181,6 +182,7 @@ class CompassClient:
             "get_datasource": f"{base_api}/v1/datasources/{{datasource_id}}",
             "sync_datasource": f"{base_api}/v1/datasources/{{datasource_id}}/_sync",
             "list_datasources_objects_states": f"{base_api}/v1/datasources/{{datasource_id}}/documents?skip={{skip}}&limit={{limit}}",  # noqa: E501
+            "get_models": f"{base_api}/v1/config/models",
         }
 
     def _get(self, *args: Any, **kwargs: Any):
@@ -199,6 +201,31 @@ class CompassClient:
         if not hasattr(self._thread_local, "session"):
             self._thread_local.session = requests.Session()
         return self._thread_local.session
+
+    def get_models(
+        self,
+        *,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> dict[str, list[str]]:
+        """
+        Get the models available in Compass.
+
+        :returns: a dictionary with the models available in Compass, where the keys are
+            the model roles ("dense", "rerank", "sparse") and the values are lists of
+            model versions for each role.
+
+        :param max_retries: the maximum number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+        """
+        result = self._send_request(
+            api_name="get_models",
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+        if result.error:
+            raise CompassError(result.error)
+        return result.result  # type: ignore
 
     def create_index(
         self,
@@ -775,13 +802,16 @@ class CompassClient:
         query: str,
         top_k: int = 10,
         filters: Optional[list[SearchFilter]] = None,
+        rerank_model: Optional[str] = None,
         max_retries: Optional[int] = None,
         sleep_retry_seconds: Optional[int] = None,
     ):
         return self._send_request(
             api_name=api_name,
             index_name=index_name,
-            data=SearchInput(query=query, top_k=top_k, filters=filters),
+            data=SearchInput(
+                query=query, top_k=top_k, filters=filters, rerank_model=rerank_model
+            ),
             max_retries=1,
             sleep_retry_seconds=1,
         )
@@ -793,6 +823,7 @@ class CompassClient:
         query: str,
         top_k: int = 10,
         filters: Optional[list[SearchFilter]] = None,
+        rerank_model: Optional[str] = None,
         max_retries: Optional[int] = None,
         sleep_retry_seconds: Optional[int] = None,
     ) -> SearchDocumentsResponse:
@@ -803,6 +834,7 @@ class CompassClient:
         :param query: the search query
         :param top_k: the number of documents to return
         :param filters: the search filters to apply
+        :param rerank_model: the model to use for reranking the results
 
         :returns: the search results
         """
@@ -812,6 +844,7 @@ class CompassClient:
             query=query,
             top_k=top_k,
             filters=filters,
+            rerank_model=rerank_model,
             max_retries=max_retries,
             sleep_retry_seconds=sleep_retry_seconds,
         )
@@ -828,6 +861,7 @@ class CompassClient:
         query: str,
         top_k: int = 10,
         filters: Optional[list[SearchFilter]] = None,
+        rerank_model: Optional[str] = None,
         max_retries: Optional[int] = None,
         sleep_retry_seconds: Optional[int] = None,
     ) -> SearchChunksResponse:
@@ -838,6 +872,7 @@ class CompassClient:
         :param query: the search query
         :param top_k: the number of chunks to return
         :param filters: the search filters to apply
+        :param rerank_model: the model to use for reranking the results
 
         :returns: the search results
         """
@@ -847,6 +882,7 @@ class CompassClient:
             query=query,
             top_k=top_k,
             filters=filters,
+            rerank_model=rerank_model,
             max_retries=max_retries,
             sleep_retry_seconds=sleep_retry_seconds,
         )

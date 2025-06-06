@@ -84,6 +84,7 @@ class SearchInput(BaseModel):
     query: str
     top_k: int
     filters: Optional[list[SearchFilter]] = None
+    rerank_model: Optional[str] = None
 
 
 class DirectSearchInput(BaseModel):
