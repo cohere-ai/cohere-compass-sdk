@@ -246,9 +246,15 @@ class IndexConfig(BaseModel):
         by cohere.
     :param analyzer: Analyzer is a parameter set for multilinguality. If None
         it will use the default from compass.
+    :param dense_model: the dense model to use for the index. Leave unset unless advised
+        by cohere.
+    :param sparse_model: the sparse model to use for the index. Leave unset unless
+        advised by cohere.
     """
 
     number_of_shards: Optional[int] = None
     number_of_replicas: Optional[int] = None
     knn_index_engine: Optional[str] = None
     analyzer: Optional[str] = None
+    dense_model: Optional[str] = None
+    sparse_model: Optional[str] = None
