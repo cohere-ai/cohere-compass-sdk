@@ -55,6 +55,7 @@ from cohere_compass.models import (
     DirectSearchScrollInput,
     Document,
     DocumentStatus,
+    IndexDetails,
     ParseableDocument,
     PutDocumentsInput,
     SearchChunksResponse,
@@ -133,6 +134,7 @@ class CompassClient:
         self.default_sleep_retry_seconds = default_sleep_retry_seconds
         self.api_method = {
             "create_index": self._put,
+            "get_index_details": self._get,
             "list_indexes": self._get,
             "delete_index": self._delete,
             "delete_document": self._delete,
@@ -160,6 +162,7 @@ class CompassClient:
         base_api = "/api" if include_api_in_url else ""
         self.api_endpoint = {
             "create_index": f"{base_api}/v1/indexes/{{index_name}}",
+            "get_index_details": f"{base_api}/v1/indexes/{{index_name}}",
             "list_indexes": f"{base_api}/v1/indexes",
             "delete_index": f"{base_api}/v1/indexes/{{index_name}}",
             "delete_document": f"{base_api}/v1/indexes/{{index_name}}/documents/{{document_id}}",  # noqa: E501
@@ -249,6 +252,29 @@ class CompassClient:
             sleep_retry_seconds=sleep_retry_seconds,
             data=index_config,
         )
+
+    def get_index_details(
+        self,
+        *,
+        index_name: str,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> IndexDetails:
+        """
+        Get the details of an index in Compass.
+
+        :param index_name: the name of the index
+        :returns: the response from the Compass API
+        """
+        result = self._send_request(
+            api_name="get_index_details",
+            index_name=index_name,
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+        )
+        if result.error:
+            raise CompassError(result.error)
+        return result.result  # type: ignore
 
     def refresh_index(
         self,
