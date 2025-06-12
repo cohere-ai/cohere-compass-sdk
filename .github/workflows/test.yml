@@ -1,4 +1,4 @@
-name: "Test"
+name: "Test and Publish to pypi"
 
 on:
   push:
@@ -63,3 +63,26 @@ jobs:
         working-directory: .
         run: |
           poetry run pytest -sv
+
+  publish:
+    needs: [ test_client ]
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+      - name: Set up python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+      - name: Bootstrap poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python - -y --version 1.5.1
+      - name: Install dependencies
+        run: poetry install
+      - name: Publish to pypi
+        run: |
+          poetry config repositories.remote https://upload.pypi.org/legacy/
+          poetry --no-interaction -v publish --build --repository remote --username "__token__" --password "$PYPI_TOKEN"
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
