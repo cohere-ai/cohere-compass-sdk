@@ -5,7 +5,13 @@ from enum import Enum
 from typing import Annotated, Any, Optional
 
 # 3rd party imports
-from pydantic import BaseModel, ConfigDict, PositiveInt, StringConstraints
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    PositiveInt,
+    StringConstraints,
+    model_validator,
+)
 
 # Local imports
 from cohere_compass.models import ValidatedModel
@@ -42,16 +48,16 @@ class CompassDocumentChunkAsset(BaseModel):
     asset_data: str
 
 
-class CompassDocumentChunk(BaseModel):
+class CompassDocumentChunk(ValidatedModel):
     """A chunk of a Compass document."""
 
     chunk_id: str
     sort_id: str
     document_id: str
     parent_document_id: str
-    content: dict[str, Any]
-    origin: Optional[dict[str, Any]] = None
-    assets: Optional[list[CompassDocumentChunkAsset]] = None
+    content: dict[str, Any] = field(default_factory=dict)
+    origin: Optional[dict[str, Any]] = field(default=None)
+    assets: Optional[list[CompassDocumentChunkAsset]] = field(default=None)
     path: Optional[str] = ""
 
     def parent_doc_is_split(self):
@@ -160,6 +166,24 @@ class CompassDocument(ValidatedModel):
             return CompassDocumentStatus.IndexingErrors
 
         return CompassDocumentStatus.Success
+
+    @model_validator(mode="after")
+    def validate_index_fields_exists(self):
+        """Validate that index_fields exist in content and chunks.content."""
+        if not all(index_field in self.content for index_field in self.index_fields):
+            raise ValueError("All index_fields must exist as keys in content. ")
+
+        for chunk in self.chunks:
+            if not all(
+                index_field in chunk.content for index_field in self.index_fields
+            ):
+                raise ValueError(
+                    f"All index_fields must exist as keys in chunk content. "
+                    f"Missing in chunk {chunk.chunk_id}: "
+                    f"{set(self.index_fields) - set(chunk.content.keys())}"
+                )
+
+        return self
 
 
 class DocumentChunkAsset(BaseModel):
