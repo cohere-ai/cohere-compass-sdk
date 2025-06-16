@@ -55,7 +55,7 @@ of parsing and searching.
 ### Installation
 
 ```bash
-pip install git+https://github.com/cohere-ai/cohere-compass-sdk.git
+pip install cohere-compass-sdk
 ```
 
 ```Python
