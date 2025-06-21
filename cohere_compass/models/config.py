@@ -182,6 +182,8 @@ class ParserConfig(BaseModel):
         PresentationParsingStrategy.Unstructured
     )
 
+    enable_assets_returned_as_base64: bool = True
+
 
 class MetadataStrategy(str, Enum):
     """Enum for specifying the strategy for metadata detection."""
