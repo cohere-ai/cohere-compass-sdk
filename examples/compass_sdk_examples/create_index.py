@@ -27,7 +27,6 @@ This script creates an index in Compass and inserts documents into it.
         "--folder-path",
         type=str,
         help="Specify the path to the folder containing documents to insert.",
-        required=True,
     )
 
     return parser.parse_args()
@@ -43,6 +42,10 @@ def main():
     print(f"Creating index '{index_name}'...")
     client.create_index(index_name=index_name)
     print(f"Index '{index_name}' created.")
+
+    if not folder_path:
+        print("No folder path provided. Skipping document insertion.")
+        return
 
     print(f"Inserting documents from {folder_path} into index '{index_name}'...")
     parser = get_compass_parser()
