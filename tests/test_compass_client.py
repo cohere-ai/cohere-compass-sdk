@@ -203,3 +203,12 @@ def test_direct_search_scroll_is_valid(requests_mock: Mocker):
     request_body = requests_mock.request_history[0].json()
     assert request_body["scroll_id"] == "test_scroll_id"
     assert request_body["scroll"] == "1m"
+
+
+def test_proper_handling_of_returned_tuple_from_parser():
+    compass = CompassClient(index_url="http://test.com")
+    docs = compass.insert_docs(
+        index_name="test_index",
+        docs=iter([("test_file.pdf", "time out")]),  # type: ignore
+    )
+    assert docs == [{"test_file.pdf": "time out"}]

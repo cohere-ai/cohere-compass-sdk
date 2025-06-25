@@ -784,7 +784,12 @@ class CompassClient:
         errors: list[dict[str, str]] = []
         num_chunks = 0
         for _, doc in enumerate(docs, 1):
-            if doc.status != CompassDocumentStatus.Success:
+            # Parser returns a tuple[str, Exception] in case of a error
+            # Example, if service is not reachable or document times out when parsing
+            if isinstance(doc, tuple):
+                logger.error(f"Document has error when parsing: {doc[0]}, {doc[1]}")
+                errors.append({doc[0]: doc[1]})
+            elif doc.status != CompassDocumentStatus.Success:
                 logger.error(
                     f"Document {doc.metadata.document_id} has errors: {doc.errors}"
                 )
