@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from datetime import timedelta
 from statistics import mean
 from typing import Any, Literal
-from urllib.parse import urljoin
 
 # 3rd party imports
 import httpx
@@ -196,7 +195,7 @@ class CompassClient:
         :param include_api_in_url: Whether to include '/api' in the base URL.
                Defaults to True.
         """
-        self.index_url = index_url
+        self.index_url = index_url if index_url.endswith("/") else f"{index_url}/"
         self.httpx_client = httpx.Client(timeout=DEFAULT_COMPASS_CLIENT_TIMEOUT)
 
         self.bearer_token = bearer_token
@@ -861,9 +860,9 @@ class CompassClient:
         http_method, api_path = API_DEFINITIONS[api_name]
 
         if self.include_api_in_url:
-            target_path = urljoin(self.index_url, f"api/v1/{api_path}")
+            target_path = f"{self.index_url}api/v1/{api_path}"
         else:
-            target_path = urljoin(self.index_url, f"v1/{api_path}")
+            target_path = f"{self.index_url}v1/{api_path}"
         target_path = target_path.format(**url_params)
 
         @retry(

@@ -379,13 +379,16 @@ class CompassParserAsyncClient:
 
         docs: list[CompassDocument] = []
         for doc in res.json()["docs"]:
-            if not doc.get("errors", []):
-                compass_doc = self._adapt_doc_id_compass_doc(doc)
-                additional_metadata = CompassParserAsyncClient._get_metadata(
-                    doc=compass_doc, custom_context=custom_context
-                )
-                compass_doc.content = {**compass_doc.content, **additional_metadata}
-                docs.append(compass_doc)
+            compass_doc = self._adapt_doc_id_compass_doc(doc)
+            if compass_doc.errors:
+                doc_id = compass_doc.metadata.document_id
+                logger.warning(f"Document {doc_id} has errors: {compass_doc.errors}")
+            additional_metadata = CompassParserAsyncClient._get_metadata(
+                doc=compass_doc, custom_context=custom_context
+            )
+            compass_doc.content = {**compass_doc.content, **additional_metadata}
+            compass_doc.errors = doc.get("errors", [])
+            docs.append(compass_doc)
 
         return docs
 
