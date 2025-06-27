@@ -169,20 +169,24 @@ class CompassDocument(ValidatedModel):
 
     @model_validator(mode="after")
     def validate_index_fields_exists(self):
-        """Validate that index_fields exist in content and chunks.content."""
-        if not all(index_field in self.content for index_field in self.index_fields):
-            raise ValueError("All index_fields must exist as keys in content. ")
-
-        for chunk in self.chunks:
-            if not all(
-                index_field in chunk.content for index_field in self.index_fields
-            ):
-                raise ValueError(
-                    f"All index_fields must exist as keys in chunk content. "
-                    f"Missing in chunk {chunk.chunk_id}: "
-                    f"{set(self.index_fields) - set(chunk.content.keys())}"
-                )
-
+        """Validate that index_fields exist in chunks.content."""
+        chunk_without_index_fields = next(
+            (
+                chunk
+                for chunk in self.chunks
+                if not set(self.index_fields).issubset(chunk.content.keys())
+            ),
+            None,
+        )
+        if chunk_without_index_fields:
+            missing_fields = set(self.index_fields) - set(
+                chunk_without_index_fields.content.keys()
+            )
+            raise ValueError(
+                f"All index_fields must exist as keys in chunk content. "
+                f"Missing in chunk {chunk_without_index_fields.chunk_id}: "
+                f"{missing_fields}"
+            )
         return self
 
 
