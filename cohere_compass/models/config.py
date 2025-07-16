@@ -210,6 +210,8 @@ class MetadataConfig(ValidatedModel):
         - Bart: metadata is inferred using the BART summarization model
         - Command_R: metadata is inferred using the Command-R summarization model
     :param cohere_api_key: the Cohere API key to use for metadata detection
+    :param cohere_api_url: the Cohere API URL to use for metadata detection.
+        If not set, uses the default Cohere API URL passed in env variable
     :param commandr_model_name: the name of the Command-R model to use for metadata
     detection
     :param commandr_prompt: the prompt to use for the Command-R model
@@ -228,6 +230,7 @@ class MetadataConfig(ValidatedModel):
 
     metadata_strategy: MetadataStrategy = MetadataStrategy.No_Metadata
     cohere_api_key: Optional[str] = getenv(COHERE_API_ENV_VAR, None)
+    cohere_api_url: Optional[str] = None
     commandr_model_name: str = "command-r"
     commandr_prompt: str = DEFAULT_COMMANDR_PROMPT
     commandr_max_tokens: int = 500
