@@ -32,7 +32,6 @@ from cohere_compass import (
     GroupAuthorizationInput,
 )
 from cohere_compass.constants import (
-    DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_CHUNKS_PER_REQUEST,
     DEFAULT_MAX_ERROR_RATE,
     DEFAULT_MAX_RETRIES,
@@ -68,7 +67,13 @@ from cohere_compass.models import (
 )
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.datasources import PaginatedList
-from cohere_compass.models.documents import DocumentAttributes, PutDocumentsResponse
+from cohere_compass.models.documents import (
+    DocumentAttributes,
+    ParseableDocumentConfig,
+    ParsedDocumentResponse,
+    PutDocumentsResponse,
+    UploadDocumentsStatus,
+)
 from cohere_compass.models.search import SortBy
 
 
@@ -149,6 +154,8 @@ class CompassClient:
             "add_attributes": self._post,
             "refresh": self._post,
             "upload_documents": self._post,
+            "upload_documents_status": self._get,
+            "download_parsed_document": self._get,
             "update_group_authorization": self._post,
             "direct_search": self._post,
             "direct_search_scroll": self._post,
@@ -177,6 +184,8 @@ class CompassClient:
             "add_attributes": f"{base_api}/v1/indexes/{{index_name}}/documents/{{document_id}}/_add_attributes",  # noqa: E501
             "refresh": f"{base_api}/v1/indexes/{{index_name}}/_refresh",
             "upload_documents": f"{base_api}/v1/indexes/{{index_name}}/documents/_upload",  # noqa: E501
+            "upload_documents_status": f"{base_api}/v1/indexes/{{index_name}}/documents/_upload/{{upload_id}}/status",  # noqa: E501
+            "download_parsed_document": f"{base_api}/v1/indexes/{{index_name}}/documents/_upload/{{upload_id}}/download",  # noqa: E501
             "update_group_authorization": f"{base_api}/v1/indexes/{{index_name}}/group_authorization",  # noqa: E501
             "direct_search": f"{base_api}/v1/indexes/{{index_name}}/_direct_search",
             "direct_search_scroll": f"{base_api}/v1/indexes/_direct_search/scroll",
@@ -459,6 +468,7 @@ class CompassClient:
         attributes: DocumentAttributes = DocumentAttributes(),
         max_retries: Optional[int] = None,
         sleep_retry_seconds: Optional[int] = None,
+        config: ParseableDocumentConfig = ParseableDocumentConfig(),
     ) -> Optional[Union[str, dict[str, Any]]]:
         """
         Parse and insert a document into an index in Compass.
@@ -468,18 +478,13 @@ class CompassClient:
         :param filebytes: the bytes of the document
         :param content_type: the content type of the document
         :param document_id: the id of the document (optional)
-        :param context: represents an additional information about the document
+        :param attributes: the attributes to add to the document
         :param max_retries: the maximum number of times to retry a request if it fails
         :param sleep_retry_seconds: interval between API request retries
+        :param config: configuration for the document parsing
 
         :returns: an error message if the request failed, otherwise None
         """
-        if len(filebytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
-            max_file_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
-            err = f"File too large, supported file size is {max_file_size_mb} mb"
-            logger.error(err)
-            return err
-
         b64 = base64.b64encode(filebytes).decode("utf-8")
         doc = ParseableDocument(
             id=document_id,
@@ -488,6 +493,7 @@ class CompassClient:
             content_length_bytes=len(filebytes),
             content_encoded_bytes=b64,
             attributes=attributes,
+            config=config,
         )
 
         result = self._send_request(
@@ -502,6 +508,68 @@ class CompassClient:
             return result.error
 
         return result.result  # type: ignore
+
+    def upload_document_status(
+        self,
+        *,
+        index_name: str,
+        upload_id: str,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> Optional[list[UploadDocumentsStatus]]:
+        """
+        Status of the document upload.
+
+        :param index_name: the name of the index
+        :param upload_id: the upload id returned when uploading the document
+        :param max_retries: the maximum number of times to retry a request if it fails
+        :param sleep_retry_seconds: interval between API request retries
+
+        :returns: an error message if the request failed, otherwise None
+        """
+        result = self._send_request(
+            api_name="upload_documents_status",
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+            index_name=index_name,
+            upload_id=upload_id,
+        )
+
+        if result.error:
+            return result.error  # type: ignore
+
+        return [UploadDocumentsStatus(**r) for r in result.result]  # type: ignore
+
+    def download_parsed_document(
+        self,
+        *,
+        index_name: str,
+        upload_id: str,
+        max_retries: Optional[int] = None,
+        sleep_retry_seconds: Optional[int] = None,
+    ) -> Optional[list[ParsedDocumentResponse]]:
+        """
+        Download the parsed document from Compass.
+
+        :param index_name: the name of the index
+        :param upload_id: the upload id returned when uploading the document
+        :param max_retries: the maximum number of times to retry a request if it fails
+        :param sleep_retry_seconds: interval between API request retries
+
+        :returns: a list of parsed documents or an error message if the request failed
+        """
+        result = self._send_request(
+            api_name="download_parsed_document",
+            max_retries=max_retries,
+            sleep_retry_seconds=sleep_retry_seconds,
+            index_name=index_name,
+            upload_id=upload_id,
+        )
+
+        if result.error:
+            return result.error  # type: ignore
+
+        return [ParsedDocumentResponse.convert(data=r) for r in result.result]  # type: ignore
 
     def insert_docs(
         self,
