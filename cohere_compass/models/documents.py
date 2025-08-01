@@ -13,6 +13,7 @@ from pydantic import (
     model_validator,
 )
 
+from cohere_compass.models.config import ParserConfig
 # Local imports
 from cohere_compass.models import ValidatedModel
 
@@ -236,6 +237,13 @@ class DocumentAttributes(BaseModel):
         return super().__setattr__(name, value)
 
 
+class ParseableDocumentConfig(BaseModel):
+    """Configuration for a parseable document."""
+
+    parser_config: ParserConfig = ParserConfig()
+    only_parse_doc: bool = False
+
+
 class ParseableDocument(BaseModel):
     """A document to be sent to Compass for parsing."""
 
@@ -247,6 +255,7 @@ class ParseableDocument(BaseModel):
     content_length_bytes: PositiveInt  # File size must be a non-negative integer
     content_encoded_bytes: str  # Base64-encoded file contents
     attributes: DocumentAttributes
+    config: ParseableDocumentConfig = ParseableDocumentConfig()
 
 
 class UploadDocumentsInput(BaseModel):
@@ -278,3 +287,68 @@ class PutDocumentsResponse(BaseModel):
     """A model for the response of put_documents and edit_group_authorization APIs."""
 
     results: list[PutDocumentResult]
+
+
+class UploadDocumentsStatus(BaseModel):
+    upload_id: uuid.UUID
+    document_id: uuid.UUID
+    destinations: list[str]
+    file_name: str
+    state: Optional[str]
+    last_error: Optional[str]
+    parsed_presigned_url: Optional[str]
+
+
+class ParsedDocumentResponse(BaseModel):
+    upload_id: uuid.UUID
+    document_id: str
+    documents: Optional[list[CompassDocument]]
+    state: str
+
+    @staticmethod
+    def convert(data: dict[str, Any]) -> "ParsedDocumentResponse":
+        """
+        Convert a dictionary to a ParsedDocumentResponse instance.
+
+        :param data: Dictionary containing the document data.
+        :return: ParsedDocumentResponse instance.
+        """
+        return ParsedDocumentResponse(
+            upload_id=uuid.UUID(data.get("upload_id", "")),
+            document_id=data.get("document_id", ""),
+            documents=[
+                ParsedDocumentResponse._adapt_doc_id_compass_doc(doc) for doc in data.get("documents", [])
+            ],
+            state=data.get("state", ""),
+        )
+
+    @staticmethod
+    def _adapt_doc_id_compass_doc(doc: dict[Any, Any]) -> CompassDocument:
+        metadata = doc["metadata"]
+        if "document_id" not in metadata:
+            metadata["document_id"] = metadata.pop("doc_id")
+            metadata["parent_document_id"] = metadata.pop("parent_doc_id")
+
+        chunks = doc["chunks"]
+        for chunk in chunks:
+            if "parent_document_id" not in chunk:
+                chunk["parent_document_id"] = chunk.pop("parent_doc_id")
+            if "document_id" not in chunk:
+                chunk["document_id"] = chunk.pop("doc_id")
+            if "path" not in chunk:
+                chunk["path"] = doc["metadata"]["filename"]
+
+        res = CompassDocument(
+            filebytes=doc["filebytes"] if "filebytes" in doc else b"",
+            metadata=metadata,
+            content=doc["content"],
+            content_type=doc["content_type"],
+            elements=doc["elements"],
+            chunks=chunks,
+            index_fields=doc["index_fields"],
+            errors=doc["errors"],
+            ignore_metadata_errors=doc["ignore_metadata_errors"],
+            markdown=doc["markdown"],
+        )
+
+        return res
