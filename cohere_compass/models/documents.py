@@ -190,6 +190,37 @@ class CompassDocument(ValidatedModel):
             )
         return self
 
+    @staticmethod
+    def adapt_doc_id_compass_doc(doc: dict[Any, Any]) -> "CompassDocument":
+        metadata = doc["metadata"]
+        if "document_id" not in metadata:
+            metadata["document_id"] = metadata.pop("doc_id")
+            metadata["parent_document_id"] = metadata.pop("parent_doc_id")
+
+        chunks = doc["chunks"]
+        for chunk in chunks:
+            if "parent_document_id" not in chunk:
+                chunk["parent_document_id"] = chunk.pop("parent_doc_id")
+            if "document_id" not in chunk:
+                chunk["document_id"] = chunk.pop("doc_id")
+            if "path" not in chunk:
+                chunk["path"] = doc["metadata"]["filename"]
+
+        res = CompassDocument(
+            filebytes=doc["filebytes"],
+            metadata=metadata,
+            content=doc["content"],
+            content_type=doc["content_type"],
+            elements=doc["elements"],
+            chunks=chunks,
+            index_fields=doc["index_fields"],
+            errors=doc["errors"],
+            ignore_metadata_errors=doc["ignore_metadata_errors"],
+            markdown=doc["markdown"],
+        )
+
+        return res
+
 
 class DocumentChunkAsset(BaseModel):
     """Model class for an asset associated with a document chunk."""
@@ -317,38 +348,7 @@ class ParsedDocumentResponse(BaseModel):
             upload_id=uuid.UUID(data.get("upload_id", "")),
             document_id=data.get("document_id", ""),
             documents=[
-                ParsedDocumentResponse._adapt_doc_id_compass_doc(doc) for doc in data.get("documents", [])
+                CompassDocument.adapt_doc_id_compass_doc(doc) for doc in data.get("documents", [])
             ],
             state=data.get("state", ""),
         )
-
-    @staticmethod
-    def _adapt_doc_id_compass_doc(doc: dict[Any, Any]) -> CompassDocument:
-        metadata = doc["metadata"]
-        if "document_id" not in metadata:
-            metadata["document_id"] = metadata.pop("doc_id")
-            metadata["parent_document_id"] = metadata.pop("parent_doc_id")
-
-        chunks = doc["chunks"]
-        for chunk in chunks:
-            if "parent_document_id" not in chunk:
-                chunk["parent_document_id"] = chunk.pop("parent_doc_id")
-            if "document_id" not in chunk:
-                chunk["document_id"] = chunk.pop("doc_id")
-            if "path" not in chunk:
-                chunk["path"] = doc["metadata"]["filename"]
-
-        res = CompassDocument(
-            filebytes=doc["filebytes"] if "filebytes" in doc else b"",
-            metadata=metadata,
-            content=doc["content"],
-            content_type=doc["content_type"],
-            elements=doc["elements"],
-            chunks=chunks,
-            index_fields=doc["index_fields"],
-            errors=doc["errors"],
-            ignore_metadata_errors=doc["ignore_metadata_errors"],
-            markdown=doc["markdown"],
-        )
-
-        return res
