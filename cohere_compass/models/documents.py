@@ -13,9 +13,9 @@ from pydantic import (
     model_validator,
 )
 
-from cohere_compass.models.config import ParserConfig
 # Local imports
 from cohere_compass.models import ValidatedModel
+from cohere_compass.models.config import ParserConfig
 
 
 class CompassDocumentMetadata(ValidatedModel):
@@ -192,6 +192,11 @@ class CompassDocument(ValidatedModel):
 
     @staticmethod
     def adapt_doc_id_compass_doc(doc: dict[Any, Any]) -> "CompassDocument":
+        """
+        Adapt a document dictionary to a CompassDocument instance.
+
+        This dict is returned from Parser client.
+        """
         metadata = doc["metadata"]
         if "document_id" not in metadata:
             metadata["document_id"] = metadata.pop("doc_id")
@@ -321,6 +326,8 @@ class PutDocumentsResponse(BaseModel):
 
 
 class UploadDocumentsStatus(BaseModel):
+    """A model for the response of status for documents when uploaded via async API."""
+
     upload_id: uuid.UUID
     document_id: uuid.UUID
     destinations: list[str]
@@ -331,6 +338,8 @@ class UploadDocumentsStatus(BaseModel):
 
 
 class ParsedDocumentResponse(BaseModel):
+    """A model response for downloading saved document during the async API call."""
+
     upload_id: uuid.UUID
     document_id: str
     documents: Optional[list[CompassDocument]]
@@ -348,7 +357,8 @@ class ParsedDocumentResponse(BaseModel):
             upload_id=uuid.UUID(data.get("upload_id", "")),
             document_id=data.get("document_id", ""),
             documents=[
-                CompassDocument.adapt_doc_id_compass_doc(doc) for doc in data.get("documents", [])
+                CompassDocument.adapt_doc_id_compass_doc(doc)
+                for doc in data.get("documents", [])
             ],
             state=data.get("state", ""),
         )
