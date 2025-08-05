@@ -5,7 +5,13 @@ from enum import Enum
 from typing import Annotated, Any
 
 # 3rd party imports
-from pydantic import BaseModel, ConfigDict, PositiveInt, StringConstraints
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    PositiveInt,
+    StringConstraints,
+    model_validator,
+)
 
 # Local imports
 from cohere_compass.models import ValidatedModel
@@ -16,7 +22,7 @@ class CompassDocumentMetadata(ValidatedModel):
 
     document_id: str = ""
     filename: str = ""
-    meta: list[Any] = field(default_factory=list)
+    meta: list[Any] = field(default_factory=list[Any])
     parent_document_id: str = ""
 
 
@@ -42,7 +48,7 @@ class CompassDocumentChunkAsset(BaseModel):
     asset_data: str
 
 
-class CompassDocumentChunk(BaseModel):
+class CompassDocumentChunk(ValidatedModel):
     """A chunk of a Compass document."""
 
     chunk_id: str
@@ -98,12 +104,16 @@ class CompassDocument(ValidatedModel):
 
     filebytes: bytes = b""
     metadata: CompassDocumentMetadata = CompassDocumentMetadata()
-    content: dict[str, str] = field(default_factory=dict)
+    content: dict[str, str] = field(default_factory=dict[str, str])
     content_type: str | None = None
-    elements: list[Any] = field(default_factory=list)
-    chunks: list[CompassDocumentChunk] = field(default_factory=list)
-    index_fields: list[str] = field(default_factory=list)
-    errors: list[dict[CompassSdkStage, str]] = field(default_factory=list)
+    elements: list[Any] = field(default_factory=list[Any])
+    chunks: list[CompassDocumentChunk] = field(
+        default_factory=list[CompassDocumentChunk]
+    )
+    index_fields: list[str] = field(default_factory=list[str])
+    errors: list[dict[CompassSdkStage, str]] = field(
+        default_factory=list[dict[CompassSdkStage, str]]
+    )
     ignore_metadata_errors: bool = True
     markdown: str | None = None
 
@@ -160,6 +170,28 @@ class CompassDocument(ValidatedModel):
             return CompassDocumentStatus.IndexingErrors
 
         return CompassDocumentStatus.Success
+
+    @model_validator(mode="after")
+    def validate_index_fields_exists(self):
+        """Validate that index_fields exist in chunks.content."""
+        chunk_without_index_fields = next(
+            (
+                chunk
+                for chunk in self.chunks
+                if not set(self.index_fields).issubset(chunk.content.keys())
+            ),
+            None,
+        )
+        if chunk_without_index_fields:
+            missing_fields = set(self.index_fields) - set(
+                chunk_without_index_fields.content.keys()
+            )
+            raise ValueError(
+                f"All index_fields must exist as keys in chunk content. "
+                f"Missing in chunk {chunk_without_index_fields.chunk_id}: "
+                f"{missing_fields}"
+            )
+        return self
 
 
 class DocumentChunkAsset(BaseModel):

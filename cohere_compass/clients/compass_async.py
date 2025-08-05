@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 # 3rd party imports
 import httpx
+from deprecated import deprecated
 from pydantic import BaseModel
 from tenacity import retry, retry_if_not_exception_type, stop_after_attempt, wait_fixed
 
@@ -100,6 +101,23 @@ class CompassAsyncClient:
         self.retry_wait = retry_wait
         self.include_api_in_url = include_api_in_url
 
+    async def get_models(
+        self,
+    ):
+        """
+        Get the models available in Compass.
+
+        :returns: a dictionary with the models available in Compass, where the keys are
+            the model roles ("dense", "rerank", "sparse") and the values are lists of
+            model versions for each role.
+
+        :param max_retries: the maximum number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+        """
+        return await self._send_request(
+            api_name="get_models",
+        )
+
     async def create_index(
         self,
         *,
@@ -118,6 +136,24 @@ class CompassAsyncClient:
             index_name=index_name,
             data=index_config,
         )
+
+    async def get_index_details(
+        self,
+        *,
+        index_name: str,
+    ) -> IndexConfig:
+        """
+        Get the details of an index in Compass.
+
+        :param index_name: the name of the index
+        :returns: the response from the Compass API
+        """
+        result = await self._send_request(
+            api_name="get_index_details",
+            index_name=index_name,
+        )
+
+        return IndexConfig.model_validate(result.result)
 
     async def refresh_index(
         self,
@@ -514,11 +550,14 @@ class CompassAsyncClient:
         query: str,
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
+        rerank_model: str | None = None,
     ):
         return await self._send_request(
             api_name=api_name,
             index_name=index_name,
-            data=SearchInput(query=query, top_k=top_k, filters=filters),
+            data=SearchInput(
+                query=query, top_k=top_k, filters=filters, rerank_model=rerank_model
+            ),
         )
 
     async def search_documents(
@@ -528,6 +567,7 @@ class CompassAsyncClient:
         query: str,
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
+        rerank_model: str | None = None,
     ) -> SearchDocumentsResponse:
         """
         Search documents in an index.
@@ -536,6 +576,7 @@ class CompassAsyncClient:
         :param query: the search query
         :param top_k: the number of documents to return
         :param filters: the search filters to apply
+        :param rerank_model: the model to use for reranking the results
 
         :returns: the search results
         """
@@ -545,6 +586,7 @@ class CompassAsyncClient:
             query=query,
             top_k=top_k,
             filters=filters,
+            rerank_model=rerank_model,
         )
 
         return SearchDocumentsResponse.model_validate(result.result)
@@ -556,6 +598,7 @@ class CompassAsyncClient:
         query: str,
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
+        rerank_model: str | None = None,
     ) -> SearchChunksResponse:
         """
         Search chunks in an index.
@@ -564,6 +607,7 @@ class CompassAsyncClient:
         :param query: the search query
         :param top_k: the number of chunks to return
         :param filters: the search filters to apply
+        :param rerank_model: the model to use for reranking the results
 
         :returns: the search results
         """
@@ -573,6 +617,7 @@ class CompassAsyncClient:
             query=query,
             top_k=top_k,
             filters=filters,
+            rerank_model=rerank_model,
         )
 
         return SearchChunksResponse.model_validate(result.result)
@@ -657,6 +702,10 @@ class CompassAsyncClient:
 
         return DirectSearchResponse.model_validate(result.result)
 
+    @deprecated(
+        "Direct search scroll is deprecated, "
+        "use direct_search_scroll_with_index instead"
+    )
     async def direct_search_scroll(
         self,
         *,
@@ -678,6 +727,34 @@ class CompassAsyncClient:
 
         result = await self._send_request(
             api_name="direct_search_scroll",
+            index_name=index_name,
+            data=data,
+        )
+
+        return DirectSearchResponse.model_validate(result.result)
+
+    async def direct_search_scroll_with_index(
+        self,
+        *,
+        scroll_id: str,
+        index_name: str,
+        scroll: str = "1m",
+    ) -> DirectSearchResponse:
+        """
+        Continue a search using a scroll ID from a previous direct_search call.
+
+        :param scroll_id: the scroll ID from a previous direct_search call
+        :param index_name: the name of the index same as used in direct_search
+        :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        :param max_retries: the maximum number of times to retry the request
+        :param sleep_retry_seconds: the number of seconds to sleep between retries
+
+        :returns: the next batch of search results
+        :raises CompassError: if the scroll search fails
+        """
+        data = DirectSearchScrollInput(scroll_id=scroll_id, scroll=scroll)
+        result = await self._send_request(
+            api_name="direct_search_scroll_with_index",
             index_name=index_name,
             data=data,
         )
