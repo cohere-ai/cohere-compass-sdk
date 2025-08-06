@@ -31,7 +31,6 @@ from cohere_compass import (
     GroupAuthorizationInput,
 )
 from cohere_compass.constants import (
-    DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_CHUNKS_PER_REQUEST,
     DEFAULT_MAX_ERROR_RATE,
     DEFAULT_MAX_RETRIES,
@@ -67,6 +66,7 @@ from cohere_compass.models import (
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.datasources import PaginatedList
 from cohere_compass.models.documents import (
+    ContentTypeEnum,
     DocumentAttributes,
     ParseableDocumentConfig,
     ParsedDocumentResponse,
@@ -457,7 +457,7 @@ class CompassClient:
         index_name: str,
         filename: str,
         filebytes: bytes,
-        content_type: str,
+        content_type: ContentTypeEnum,
         document_id: uuid.UUID,
         attributes: DocumentAttributes = DocumentAttributes(),
         max_retries: Optional[int] = None,
@@ -472,19 +472,13 @@ class CompassClient:
         :param filebytes: the bytes of the document
         :param content_type: the content type of the document
         :param document_id: the id of the document (optional)
-        :param context: represents an additional information about the document
+        :param attributes: the attributes to add to the document
         :param max_retries: the maximum number of times to retry a request if it fails
         :param sleep_retry_seconds: interval between API request retries
         :param config: configuration for the document parsing
 
         :returns: an error message if the request failed, otherwise None
         """
-        if len(filebytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
-            max_file_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
-            err = f"File too large, supported file size is {max_file_size_mb} mb"
-            logger.error(err)
-            return err
-
         b64 = base64.b64encode(filebytes).decode("utf-8")
         doc = ParseableDocument(
             id=document_id,

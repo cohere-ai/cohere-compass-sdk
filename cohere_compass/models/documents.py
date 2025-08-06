@@ -362,3 +362,61 @@ class ParsedDocumentResponse(BaseModel):
             ],
             state=data.get("state", ""),
         )
+
+
+class ContentTypeEnum(str, Enum):
+    """Enum for content types used in upload API."""
+
+    # Text types
+    TextPlain = "text/plain"
+    TextHtml = "text/html"
+    TextCsv = "text/csv"
+    TextTsv = "text/tsv"
+    TextMarkdown = "text/x-markdown"
+    TextOrg = "text/org"
+    TextRtf = "text/rtf"
+    TextRst = "text/x-rst"
+
+    # Application types
+    ApplicationJson = "application/json"
+    ApplicationJsonl = "application/jsonl"
+    ApplicationJsonLines = "application/json-lines"
+    ApplicationPdf = "application/pdf"
+    ApplicationXml = "application/xml"
+    ApplicationMsword = "application/msword"
+    ApplicationVndOpenXMLDocument = (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    ApplicationVndMsExcel = "application/vnd.ms-excel"
+    ApplicationVndOpenXMLSpreadsheet = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    ApplicationVndMsPowerpoint = "application/vnd.ms-powerpoint"
+    ApplicationVndOpenXMLPresentation = (
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    )
+    ApplicationEpubZip = "application/epub+zip"
+    ApplicationVndOasisOpenDocumentText = "application/vnd.oasis.opendocument.text"
+    ApplicationMsOutlook = "application/vnd.ms-outlook"
+    ApplicationOctetStream = "application/octet-stream"
+    Parquet = "application/vnd.apache.parquet"
+    # Image types
+    ImageJpeg = "image/jpeg"
+    ImagePng = "image/png"
+    ImageHeic = "image/heic"
+    ImageTiff = "image/tiff"
+    ImageBmp = "image/bmp"
+    ImageGif = "image/gif"
+    ImageSvgXml = "image/svg+xml"
+    ImageWebp = "image/webp"
+
+    # Audio types
+    AudioMpeg = "audio/mpeg"
+    AudioWav = "audio/x-wav"
+
+    # Video types
+    VideoMp4 = "video/mp4"
+    VideoXMsVideo = "video/x-msvideo"
+
+    # Message types
+    MessageRfc822 = "message/rfc822"  # eml files
