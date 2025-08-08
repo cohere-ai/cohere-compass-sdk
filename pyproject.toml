@@ -14,6 +14,7 @@ python = ">=3.9,<4.0"
 requests = ">=2.25.0,<3.0.0"
 tenacity = "^8.2.3"
 Deprecated = "^1.2.18"
+typing-extensions = "^4.14.1"
 
 [tool.poetry.group.dev.dependencies]
 pyright = "^1.1.390"
