@@ -18,15 +18,15 @@ COHERE_API_ENV_VAR = "COHERE_API_KEY"
 DEFAULT_COMMANDR_EXTRACTABLE_ATTRIBUTES = ["title", "authors", "date"]
 DEFAULT_COMMANDR_PROMPT = """
         Given the following document:
-        {text}. 
-        Extract the following attributes from the document: {attributes}. 
-        Write the output in JSON format. For example, if the document title is "Hello World" 
+        {text}.
+        Extract the following attributes from the document: {attributes}.
+        Write the output in JSON format. For example, if the document title is "Hello World"
         and the authors are "John Doe" and "Jane Smith", the output should be:
-        {{"title": "Hello World", "authors": ["John Doe", "Jane Smith"]}}. 
-        Do not write the ```json (...) ``` tag. The output should be a valid JSON.  
-        If you cannot find the information, write "" for the corresponding field. 
+        {{"title": "Hello World", "authors": ["John Doe", "Jane Smith"]}}.
+        Do not write the ```json (...) ``` tag. The output should be a valid JSON.
+        If you cannot find the information, write "" for the corresponding field.
         Answer:
-        """  # noqa: E501, W291
+        """  # noqa: E501
 METADATA_HEURISTICS_ATTRIBUTES = [
     "title",
     "name",
@@ -35,3 +35,5 @@ METADATA_HEURISTICS_ATTRIBUTES = [
 ]
 
 UUID_NAMESPACE = "00000000-0000-0000-0000-000000000000"
+
+URL_SAFE_STRING_PATTERN = r"^[^\s\"\/\\?#><']*$"

@@ -1,3 +1,4 @@
+from cohere_compass.client_exceptions import CompassClientError
 from cohere_compass.clients import CompassClient
 
 COMPASS_API_URL = ...
@@ -9,7 +10,7 @@ compass_client = CompassClient(
     bearer_token=BEARER_TOKEN,
 )
 
-r = compass_client.create_index(index_name=INDEX_NAME)
-
-if r.error:
-    raise Exception(f"Failed to create index: {r.error}")
+try:
+    compass_client.create_index(index_name=INDEX_NAME)
+except CompassClientError as e:
+    raise Exception("Failed to create index") from e
