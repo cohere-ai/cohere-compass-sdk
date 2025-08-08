@@ -6,8 +6,10 @@ from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Optional, Union
 
-# 3rd party imports
 import requests
+
+# 3rd party imports
+from pydantic import ValidationError
 from requests.exceptions import InvalidSchema
 from tenacity import (
     retry,
@@ -221,7 +223,9 @@ class CompassParserClient:
     @retry(
         stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
         wait=wait_fixed(DEFAULT_SLEEP_RETRY_SECONDS),
-        retry=retry_if_not_exception_type((InvalidSchema, CompassClientError)),
+        retry=retry_if_not_exception_type(
+            (InvalidSchema, CompassClientError, ValidationError)
+        ),
     )
     def process_file(
         self,
@@ -276,7 +280,9 @@ class CompassParserClient:
     @retry(
         stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
         wait=wait_fixed(DEFAULT_SLEEP_RETRY_SECONDS),
-        retry=retry_if_not_exception_type((InvalidSchema, CompassClientError)),
+        retry=retry_if_not_exception_type(
+            (InvalidSchema, CompassClientError, ValidationError)
+        ),
     )
     def process_file_bytes(
         self,
