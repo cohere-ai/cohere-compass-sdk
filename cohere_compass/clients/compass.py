@@ -2,6 +2,7 @@
 import base64
 import logging
 import os
+import re
 import threading
 import uuid
 from collections import deque
@@ -36,6 +37,7 @@ from cohere_compass.constants import (
     DEFAULT_MAX_ERROR_RATE,
     DEFAULT_MAX_RETRIES,
     DEFAULT_SLEEP_RETRY_SECONDS,
+    URL_SAFE_STRING_PATTERN,
 )
 from cohere_compass.exceptions import (
     CompassAuthError,
@@ -245,6 +247,10 @@ class CompassClient:
         :param index_config: the optional configuration for the index
         :returns: the response from the Compass API
         """
+        if not re.match(URL_SAFE_STRING_PATTERN, index_name):
+            raise ValueError(
+                f"Invalid index name '{index_name}', please avoid special characters."
+            )
         return self._send_request(
             api_name="create_index",
             index_name=index_name,

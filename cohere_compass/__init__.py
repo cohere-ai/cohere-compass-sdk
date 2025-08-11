@@ -7,11 +7,8 @@ from typing import Optional
 from pydantic import BaseModel
 
 # Local imports
-from cohere_compass.models import (
-    MetadataConfig,
-    ParserConfig,
-    ValidatedModel,
-)
+from cohere_compass.models import MetadataConfig, ParserConfig, ValidatedModel
+from cohere_compass.models.documents import DocumentId
 
 __version__ = metadata.version("cohere-compass-sdk")
 
@@ -21,7 +18,7 @@ class ProcessFileParameters(ValidatedModel):
 
     parser_config: ParserConfig
     metadata_config: MetadataConfig
-    doc_id: Optional[str] = None
+    doc_id: Optional[DocumentId] = None
     content_type: Optional[str] = None
 
 
