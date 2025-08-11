@@ -1,16 +1,14 @@
 # Python imports
 from enum import Enum
 from importlib import metadata
+from typing import Optional
 
 # 3rd party imports
 from pydantic import BaseModel
 
 # Local imports
-from cohere_compass.models import (
-    MetadataConfig,
-    ParserConfig,
-    ValidatedModel,
-)
+from cohere_compass.models import MetadataConfig, ParserConfig, ValidatedModel
+from cohere_compass.models.documents import DocumentId
 
 __version__ = metadata.version("cohere-compass-sdk")
 
@@ -20,7 +18,7 @@ class ProcessFileParameters(ValidatedModel):
 
     parser_config: ParserConfig
     metadata_config: MetadataConfig
-    doc_id: str | None = None
+    doc_id: DocumentId | None = None
     content_type: str | None = None
 
 

@@ -2,6 +2,7 @@
 import base64
 import logging
 import os
+import re
 import threading
 import uuid
 from collections import deque
@@ -27,6 +28,7 @@ from cohere_compass.constants import (
     DEFAULT_MAX_ERROR_RATE,
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_WAIT,
+    URL_SAFE_STRING_PATTERN,
 )
 from cohere_compass.exceptions import (
     CompassAuthError,
@@ -216,9 +218,7 @@ class CompassClient:
         if max_retries < 0:
             raise ValueError("default_max_retries must be a non-negative integer.")
         if retry_wait.total_seconds() < 0:
-            raise ValueError(
-                "default_sleep_retry_seconds must be a non-negative integer."
-            )
+            raise ValueError("retry_wait must be a non-negative integer.")
         self.max_retries = max_retries
         self.retry_wait = retry_wait
         self.include_api_in_url = include_api_in_url
@@ -253,6 +253,10 @@ class CompassClient:
         :param index_config: the optional configuration for the index
         :returns: the response from the Compass API
         """
+        if not re.match(URL_SAFE_STRING_PATTERN, index_name):
+            raise ValueError(
+                f"Invalid index name '{index_name}', please avoid special characters."
+            )
         return self._send_request(
             api_name="create_index",
             index_name=index_name,

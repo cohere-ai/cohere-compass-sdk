@@ -35,9 +35,9 @@ def simple_compass_client_test(
 
             if expected_request_body is not None:
                 request_body = json.loads(route.calls.last.request.content)
-                assert (
-                    request_body == expected_request_body
-                ), f"Expected JSON body {expected_request_body}, got {request_body}"
+                assert request_body == expected_request_body, (
+                    f"Expected JSON body {expected_request_body}, got {request_body}"
+                )
 
         return wrapper  # type: ignore
 
@@ -76,6 +76,28 @@ def test_create_index_with_index_config():
     compass.create_index(
         index_name="test_index", index_config=IndexConfig(number_of_shards=5)
     )
+
+
+# TODO - Re-enable these.
+# def test_create_index_with_invalid_name(requests_mock: Mocker):
+#     compass = CompassClient(index_url="http://test.com")
+#     with pytest.raises(ValueError) as exc_info:
+#         compass.create_index(index_name="there/are/slashes/here")
+#     assert "Invalid index name" in str(exc_info)
+#     assert len(requests_mock.request_history) == 0
+#
+#
+# def test_create_index_400s_propagated_to_caller(requests_mock: Mocker):
+#     requests_mock.put(
+#         "http://test.com/api/v1/indexes/test-index",
+#         status_code=404,
+#         json={"error": "invalid request"},
+#     )
+#     compass = CompassClient(index_url="http://test.com")
+#     with pytest.raises(CompassClientError) as exc_info:
+#         compass.create_index(index_name="test-index")
+#     assert "invalid request" in str(exc_info)
+#     assert len(requests_mock.request_history) == 1
 
 
 @simple_compass_client_test(
@@ -122,6 +144,22 @@ def test_put_documents_payload_and_url_exist():
 def test_put_document_payload_and_url_exist():
     compass = CompassClient(index_url="http://test.com")
     compass.insert_doc(index_name="test_index", doc=CompassDocument())
+
+
+# TODO - Re-enable this.
+# def test_put_document_payload_with_invalid_document_id(requests_mock: Mocker):
+#     doc = CompassDocument(
+#         filebytes=b"",
+#         metadata=CompassDocumentMetadata(
+#             document_id="bypass-validation", filename="tests/docs/sample.doc"
+#         ),
+#     )
+#     doc.metadata.document_id = "something/with/slashes"
+#     compass = CompassClient(index_url="http://test.com")
+#     with pytest.raises(ValidationError) as exc_info:
+#         compass.insert_doc(index_name="test_index", doc=doc)
+#     assert "String should match pattern" in str(exc_info)
+#     assert len(requests_mock.request_history) == 0
 
 
 @simple_compass_client_test(

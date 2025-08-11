@@ -7,6 +7,9 @@ from typing import Any
 
 # 3rd party imports
 import httpx
+
+# 3rd party imports
+from pydantic import ValidationError
 from tenacity import (
     retry,
     retry_if_not_exception_type,
@@ -215,8 +218,7 @@ class CompassParserClient:
     @retry(
         stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
         wait=wait_fixed(DEFAULT_RETRY_WAIT),
-        # todo find alternative to InvalidSchema
-        retry=retry_if_not_exception_type((CompassClientError,)),
+        retry=retry_if_not_exception_type((CompassClientError, ValidationError)),
     )
     def process_file(
         self,
@@ -271,8 +273,7 @@ class CompassParserClient:
     @retry(
         stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
         wait=wait_fixed(DEFAULT_RETRY_WAIT),
-        # todo find alternative to InvalidSchema
-        retry=retry_if_not_exception_type((CompassClientError,)),
+        retry=retry_if_not_exception_type((CompassClientError, ValidationError)),
     )
     def process_file_bytes(
         self,

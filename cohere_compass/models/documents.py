@@ -8,19 +8,24 @@ from typing import Annotated, Any
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
     PositiveInt,
     StringConstraints,
     model_validator,
 )
+from typing_extensions import TypeAlias
 
 # Local imports
+from cohere_compass.constants import URL_SAFE_STRING_PATTERN
 from cohere_compass.models import ValidatedModel
+
+DocumentId: TypeAlias = Annotated[str, Field(pattern=URL_SAFE_STRING_PATTERN)]
 
 
 class CompassDocumentMetadata(ValidatedModel):
     """Compass document metadata."""
 
-    document_id: str = ""
+    document_id: DocumentId = ""
     filename: str = ""
     meta: list[Any] = field(default_factory=list[Any])
     parent_document_id: str = ""
@@ -218,9 +223,9 @@ class Chunk(BaseModel):
 class Document(BaseModel):
     """Model class for a document."""
 
-    document_id: str
+    document_id: DocumentId
     path: str
-    parent_document_id: str
+    parent_document_id: DocumentId
     content: dict[str, Any]
     chunks: list[Chunk]
     index_fields: list[str] | None = None
