@@ -69,6 +69,7 @@ from cohere_compass.models import (
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.datasources import PaginatedList
 from cohere_compass.models.documents import DocumentAttributes, PutDocumentsResponse
+from cohere_compass.models.search import SortBy
 
 
 @dataclass
@@ -998,6 +999,7 @@ class CompassClient:
         *,
         index_name: str,
         query: dict[str, Any],
+        sort_by: Optional[list[SortBy]] = None,
         size: int = 100,
         scroll: Optional[str] = None,
         max_retries: Optional[int] = None,
@@ -1016,7 +1018,7 @@ class CompassClient:
         :returns: the direct search results
         :raises CompassError: if the search fails
         """
-        data = DirectSearchInput(query=query, size=size, scroll=scroll)
+        data = DirectSearchInput(query=query, size=size, sort_by=sort_by, scroll=scroll)
 
         result = self._send_request(
             api_name="direct_search",
