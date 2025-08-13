@@ -88,6 +88,8 @@ class SearchInput(BaseModel):
 
 
 class SortBy(BaseModel):
+    """Specifies sorting options for search results."""
+
     field: str
     order: Literal["asc", "desc"]
 
