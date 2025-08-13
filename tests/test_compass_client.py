@@ -7,6 +7,7 @@ from cohere_compass.exceptions import CompassClientError
 from cohere_compass.models import CompassDocument
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.documents import CompassDocumentMetadata, DocumentAttributes
+from cohere_compass.models.search import SortBy
 
 
 def test_delete_url_formatted_with_doc_and_index(requests_mock_200s: Mocker):
@@ -244,6 +245,74 @@ def test_direct_search_scroll_is_valid(requests_mock_200s: Mocker):
     request_body = requests_mock_200s.request_history[0].json()
     assert request_body["scroll_id"] == "test_scroll_id"
     assert request_body["scroll"] == "1m"
+
+
+def test_direct_search_with_sort_by_single_field(requests_mock_200s: Mocker):
+    # Register mock response for the direct_search endpoint
+    requests_mock_200s.post(
+        "http://test.com/api/v1/indexes/test_index/_direct_search",
+        json={"hits": [], "scroll_id": "test_scroll_id"},
+    )
+
+    compass = CompassClient(index_url="http://test.com")
+    sort_by = [SortBy(field="created_at", order="desc")]
+    compass.direct_search(
+        index_name="test_index", query={"match_all": {}}, sort_by=sort_by
+    )
+    assert requests_mock_200s.request_history[0].method == "POST"
+    assert (
+        requests_mock_200s.request_history[0].url
+        == "http://test.com/api/v1/indexes/test_index/_direct_search"
+    )
+    payload = requests_mock_200s.request_history[0].json()
+    assert "sort_by" in payload
+    assert payload["sort_by"] == [{"field": "created_at", "order": "desc"}]
+
+
+def test_direct_search_with_sort_by_multiple_fields(requests_mock_200s: Mocker):
+    # Register mock response for the direct_search endpoint
+    requests_mock_200s.post(
+        "http://test.com/api/v1/indexes/test_index/_direct_search",
+        json={"hits": [], "scroll_id": "test_scroll_id"},
+    )
+
+    compass = CompassClient(index_url="http://test.com")
+    sort_by = [
+        SortBy(field="created_at", order="desc"),
+        SortBy(field="score", order="asc"),
+    ]
+    compass.direct_search(
+        index_name="test_index", query={"match_all": {}}, sort_by=sort_by
+    )
+    assert requests_mock_200s.request_history[0].method == "POST"
+    assert (
+        requests_mock_200s.request_history[0].url
+        == "http://test.com/api/v1/indexes/test_index/_direct_search"
+    )
+    payload = requests_mock_200s.request_history[0].json()
+    assert "sort_by" in payload
+    assert payload["sort_by"] == [
+        {"field": "created_at", "order": "desc"},
+        {"field": "score", "order": "asc"},
+    ]
+
+
+def test_direct_search_without_sort_by(requests_mock_200s: Mocker):
+    # Register mock response for the direct_search endpoint
+    requests_mock_200s.post(
+        "http://test.com/api/v1/indexes/test_index/_direct_search",
+        json={"hits": [], "scroll_id": "test_scroll_id"},
+    )
+
+    compass = CompassClient(index_url="http://test.com")
+    compass.direct_search(index_name="test_index", query={"match_all": {}})
+    assert requests_mock_200s.request_history[0].method == "POST"
+    assert (
+        requests_mock_200s.request_history[0].url
+        == "http://test.com/api/v1/indexes/test_index/_direct_search"
+    )
+    payload = requests_mock_200s.request_history[0].json()
+    assert "sort_by" not in payload or payload["sort_by"] is None
 
 
 def test_proper_handling_of_returned_tuple_from_parser():
