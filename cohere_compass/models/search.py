@@ -1,6 +1,6 @@
 # Python imports
 from enum import Enum
-from typing import Any, Literal, Optional, List
+from typing import Any, Literal, Optional
 
 # 3rd party imports
 from pydantic import BaseModel
@@ -99,7 +99,7 @@ class DirectSearchInput(BaseModel):
 
     query: dict[str, Any]
     size: int
-    sort_by: Optional[List[SortBy]] = None
+    sort_by: Optional[list[SortBy]] = None
     scroll: Optional[str] = None
 
 
