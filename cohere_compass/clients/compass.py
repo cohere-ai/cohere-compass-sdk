@@ -60,6 +60,7 @@ from cohere_compass.models.documents import (
     DocumentAttributes,
     PutDocumentsResponse,
 )
+from cohere_compass.models.search import SortBy
 from cohere_compass.utils import partition_documents
 
 
@@ -803,6 +804,7 @@ class CompassClient:
         *,
         index_name: str,
         query: dict[str, Any],
+        sort_by: list[SortBy] | None = None,
         size: int = 100,
         scroll: str | None = None,
     ) -> DirectSearchResponse:
@@ -817,7 +819,7 @@ class CompassClient:
         :returns: the direct search results
         :raises CompassError: if the search fails
         """
-        data = DirectSearchInput(query=query, size=size, scroll=scroll)
+        data = DirectSearchInput(query=query, size=size, sort_by=sort_by, scroll=scroll)
 
         result = self._send_request(
             api_name="direct_search",

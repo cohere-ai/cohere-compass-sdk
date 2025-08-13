@@ -1,6 +1,6 @@
 # Python imports
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 # 3rd party imports
 from pydantic import BaseModel
@@ -87,11 +87,19 @@ class SearchInput(BaseModel):
     rerank_model: str | None = None
 
 
+class SortBy(BaseModel):
+    """Specifies sorting options for search results."""
+
+    field: str
+    order: Literal["asc", "desc"]
+
+
 class DirectSearchInput(BaseModel):
     """Input to direct search APIs."""
 
     query: dict[str, Any]
     size: int
+    sort_by: list[SortBy] | None = None
     scroll: str | None = None
 
 
