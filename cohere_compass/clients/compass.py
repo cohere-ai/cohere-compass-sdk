@@ -68,6 +68,7 @@ from cohere_compass.models import (
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.datasources import PaginatedList
 from cohere_compass.models.documents import (
+    ContentTypeEnum,
     DocumentAttributes,
     ParseableDocumentConfig,
     ParsedDocumentResponse,
@@ -463,7 +464,7 @@ class CompassClient:
         index_name: str,
         filename: str,
         filebytes: bytes,
-        content_type: str,
+        content_type: ContentTypeEnum,
         document_id: uuid.UUID,
         attributes: DocumentAttributes = DocumentAttributes(),
         max_retries: Optional[int] = None,
