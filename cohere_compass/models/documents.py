@@ -18,6 +18,7 @@ from typing_extensions import TypeAlias
 # Local imports
 from cohere_compass.constants import URL_SAFE_STRING_PATTERN
 from cohere_compass.models import ValidatedModel
+from cohere_compass.models.config import ParserConfig
 
 DocumentId: TypeAlias = Annotated[str, Field(pattern=URL_SAFE_STRING_PATTERN)]
 
@@ -198,6 +199,42 @@ class CompassDocument(ValidatedModel):
             )
         return self
 
+    @staticmethod
+    def adapt_doc_id_compass_doc(doc: dict[Any, Any]) -> "CompassDocument":
+        """
+        Adapt a document dictionary to a CompassDocument instance.
+
+        This dict is returned from Parser client.
+        """
+        metadata = doc["metadata"]
+        if "document_id" not in metadata:
+            metadata["document_id"] = metadata.pop("doc_id")
+            metadata["parent_document_id"] = metadata.pop("parent_doc_id")
+
+        chunks = doc["chunks"]
+        for chunk in chunks:
+            if "parent_document_id" not in chunk:
+                chunk["parent_document_id"] = chunk.pop("parent_doc_id")
+            if "document_id" not in chunk:
+                chunk["document_id"] = chunk.pop("doc_id")
+            if "path" not in chunk:
+                chunk["path"] = doc["metadata"]["filename"]
+
+        res = CompassDocument(
+            filebytes=doc["filebytes"],
+            metadata=metadata,
+            content=doc["content"],
+            content_type=doc["content_type"],
+            elements=doc["elements"],
+            chunks=chunks,
+            index_fields=doc["index_fields"],
+            errors=doc["errors"],
+            ignore_metadata_errors=doc["ignore_metadata_errors"],
+            markdown=doc["markdown"],
+        )
+
+        return res
+
 
 class DocumentChunkAsset(BaseModel):
     """Model class for an asset associated with a document chunk."""
@@ -245,6 +282,13 @@ class DocumentAttributes(BaseModel):
         return super().__setattr__(name, value)
 
 
+class ParseableDocumentConfig(BaseModel):
+    """Configuration for a parseable document."""
+
+    parser_config: ParserConfig = ParserConfig()
+    only_parse_doc: bool = False
+
+
 class ParseableDocument(BaseModel):
     """A document to be sent to Compass for parsing."""
 
@@ -256,6 +300,7 @@ class ParseableDocument(BaseModel):
     content_length_bytes: PositiveInt  # File size must be a non-negative integer
     content_encoded_bytes: str  # Base64-encoded file contents
     attributes: DocumentAttributes
+    config: ParseableDocumentConfig = ParseableDocumentConfig()
 
 
 class UploadDocumentsInput(BaseModel):
@@ -287,3 +332,100 @@ class PutDocumentsResponse(BaseModel):
     """A model for the response of put_documents and edit_group_authorization APIs."""
 
     results: list[PutDocumentResult]
+
+
+class UploadDocumentsStatus(BaseModel):
+    """A model for the response of status for documents when uploaded via async API."""
+
+    upload_id: uuid.UUID
+    document_id: uuid.UUID
+    destinations: list[str]
+    file_name: str
+    state: Optional[str]
+    last_error: Optional[str]
+    parsed_presigned_url: Optional[str]
+
+
+class ParsedDocumentResponse(BaseModel):
+    """A model response for downloading saved document during the async API call."""
+
+    upload_id: uuid.UUID
+    document_id: str
+    documents: Optional[list[CompassDocument]]
+    state: str
+
+    @staticmethod
+    def convert(data: dict[str, Any]) -> "ParsedDocumentResponse":
+        """
+        Convert a dictionary to a ParsedDocumentResponse instance.
+
+        :param data: Dictionary containing the document data.
+        :return: ParsedDocumentResponse instance.
+        """
+        return ParsedDocumentResponse(
+            upload_id=uuid.UUID(data.get("upload_id", "")),
+            document_id=data.get("document_id", ""),
+            documents=[
+                CompassDocument.adapt_doc_id_compass_doc(doc)
+                for doc in data.get("documents", [])
+            ],
+            state=data.get("state", ""),
+        )
+
+
+class ContentTypeEnum(str, Enum):
+    """Enum for content types used in upload API."""
+
+    # Text types
+    TextPlain = "text/plain"
+    TextHtml = "text/html"
+    TextCsv = "text/csv"
+    TextTsv = "text/tsv"
+    TextMarkdown = "text/x-markdown"
+    TextOrg = "text/org"
+    TextRtf = "text/rtf"
+    TextRst = "text/x-rst"
+
+    # Application types
+    ApplicationJson = "application/json"
+    ApplicationJsonl = "application/jsonl"
+    ApplicationJsonLines = "application/json-lines"
+    ApplicationPdf = "application/pdf"
+    ApplicationXml = "application/xml"
+    ApplicationMsword = "application/msword"
+    ApplicationVndOpenXMLDocument = (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    ApplicationVndMsExcel = "application/vnd.ms-excel"
+    ApplicationVndOpenXMLSpreadsheet = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    ApplicationVndMsPowerpoint = "application/vnd.ms-powerpoint"
+    ApplicationVndOpenXMLPresentation = (
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    )
+    ApplicationEpubZip = "application/epub+zip"
+    ApplicationVndOasisOpenDocumentText = "application/vnd.oasis.opendocument.text"
+    ApplicationMsOutlook = "application/vnd.ms-outlook"
+    ApplicationOctetStream = "application/octet-stream"
+    Parquet = "application/vnd.apache.parquet"
+    # Image types
+    ImageJpeg = "image/jpeg"
+    ImagePng = "image/png"
+    ImageHeic = "image/heic"
+    ImageTiff = "image/tiff"
+    ImageBmp = "image/bmp"
+    ImageGif = "image/gif"
+    ImageSvgXml = "image/svg+xml"
+    ImageWebp = "image/webp"
+
+    # Audio types
+    AudioMpeg = "audio/mpeg"
+    AudioWav = "audio/x-wav"
+
+    # Video types
+    VideoMp4 = "video/mp4"
+    VideoXMsVideo = "video/x-msvideo"
+
+    # Message types
+    MessageRfc822 = "message/rfc822"  # eml files

@@ -23,7 +23,6 @@ from tenacity import retry, retry_if_not_exception_type, stop_after_attempt, wai
 from cohere_compass import GroupAuthorizationInput
 from cohere_compass.constants import (
     DEFAULT_COMPASS_CLIENT_TIMEOUT,
-    DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_CHUNKS_PER_REQUEST,
     DEFAULT_MAX_ERROR_RATE,
     DEFAULT_MAX_RETRIES,
@@ -57,8 +56,12 @@ from cohere_compass.models import (
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.datasources import PaginatedList
 from cohere_compass.models.documents import (
+    ContentTypeEnum,
     DocumentAttributes,
+    ParseableDocumentConfig,
+    ParsedDocumentResponse,
     PutDocumentsResponse,
+    UploadDocumentsStatus,
 )
 from cohere_compass.models.search import SortBy
 from cohere_compass.utils import partition_documents
@@ -138,6 +141,14 @@ API_DEFINITIONS = {
     "upload_documents": (
         "POST",
         "indexes/{index_name}/documents/_upload",
+    ),
+    "upload_documents_status": (
+        "GET",
+        "indexes/{{index_name}}/documents/_upload/{{upload_id}}/status",
+    ),
+    "download_parsed_document": (
+        "GET",
+        "indexes/{{index_name}}/documents/_upload/{{upload_id}}/download",
     ),
     # Search APIs
     "search_documents": (
@@ -417,9 +428,10 @@ class CompassClient:
         index_name: str,
         filename: str,
         filebytes: bytes,
-        content_type: str,
+        content_type: ContentTypeEnum,
         document_id: uuid.UUID,
         attributes: DocumentAttributes = DocumentAttributes(),
+        config: ParseableDocumentConfig = ParseableDocumentConfig(),
     ) -> str | dict[str, Any] | None:
         """
         Parse and insert a document into an index in Compass.
@@ -429,16 +441,11 @@ class CompassClient:
         :param filebytes: the bytes of the document
         :param content_type: the content type of the document
         :param document_id: the id of the document (optional)
-        :param context: represents an additional information about the document
+        :param attributes: the attributes to add to the document
+        :param config: configuration for the document parsing
 
         :returns: an error message if the request failed, otherwise None
         """
-        if len(filebytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
-            max_file_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
-            err = f"File too large, supported file size is {max_file_size_mb} mb"
-            logger.error(err)
-            return err
-
         b64 = base64.b64encode(filebytes).decode("utf-8")
         doc = ParseableDocument(
             id=document_id,
@@ -447,6 +454,7 @@ class CompassClient:
             content_length_bytes=len(filebytes),
             content_encoded_bytes=b64,
             attributes=attributes,
+            config=config,
         )
 
         result = self._send_request(
@@ -456,6 +464,54 @@ class CompassClient:
         )
 
         return result.result  # type: ignore
+
+    def upload_document_status(
+        self,
+        *,
+        index_name: str,
+        upload_id: str,
+    ) -> list[UploadDocumentsStatus] | None:
+        """
+        Status of the document upload.
+
+        :param index_name: the name of the index
+        :param upload_id: the upload id returned when uploading the document
+        :param max_retries: the maximum number of times to retry a request if it fails
+        :param sleep_retry_seconds: interval between API request retries
+
+        :returns: an error message if the request failed, otherwise None
+        """
+        result = self._send_request(
+            api_name="upload_documents_status",
+            index_name=index_name,
+            upload_id=upload_id,
+        )
+
+        return [UploadDocumentsStatus(**r) for r in result.result]  # type: ignore
+
+    def download_parsed_document(
+        self,
+        *,
+        index_name: str,
+        upload_id: str,
+    ) -> list[ParsedDocumentResponse] | None:
+        """
+        Download the parsed document from Compass.
+
+        :param index_name: the name of the index
+        :param upload_id: the upload id returned when uploading the document
+        :param max_retries: the maximum number of times to retry a request if it fails
+        :param sleep_retry_seconds: interval between API request retries
+
+        :returns: a list of parsed documents or an error message if the request failed
+        """
+        result = self._send_request(
+            api_name="download_parsed_document",
+            index_name=index_name,
+            upload_id=upload_id,
+        )
+
+        return [ParsedDocumentResponse.convert(data=r) for r in result.result]  # type: ignore
 
     def insert_docs(
         self,
