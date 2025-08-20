@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 
-from cohere.compass.utils import imap_queued
+from cohere_compass.utils import imap_queued
 
 
 def test_imap_queued():

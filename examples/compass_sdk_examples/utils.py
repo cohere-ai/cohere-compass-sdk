@@ -1,7 +1,8 @@
 import os
 
 import dotenv
-from cohere.compass.clients import CompassClient, CompassParserClient
+from cohere_compass.clients import CompassClient, CompassParserClient
+from cohere_compass.models import ParserConfig
 
 dotenv.load_dotenv()  # type: ignore
 
@@ -27,13 +28,15 @@ def get_compass_api():
     return CompassClient(index_url=api_url, bearer_token=bearer_token)
 
 
-def get_compass_parser():
+def get_compass_parser(parser_config: ParserConfig = ParserConfig()):
     """
     Create and return an instance of CompassParserClient.
 
     Args:
         parser_base_url (str): The base URL of the parser service.
         bearer_token (str, optional): The bearer token for auth. Defaults to None.
+        parser_config (ParserConfig, optional): The parser configuration. Defaults to
+            `ParserConfig()`.
 
     Returns:
         CompassParserClient: An instance of CompassParserClient.
@@ -45,4 +48,8 @@ def get_compass_parser():
             "COMPASS_PARSER_URL environment variable must be set in your .env file."
         )
     bearer_token = os.getenv("COMPASS_PARSER_BEARER_TOKEN")
-    return CompassParserClient(parser_url=parser_url, bearer_token=bearer_token)
+    return CompassParserClient(
+        parser_url=parser_url,
+        bearer_token=bearer_token,
+        parser_config=parser_config,
+    )
