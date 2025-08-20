@@ -52,6 +52,7 @@ class CompassDocumentChunkAsset(BaseModel):
     asset_type: AssetType
     content_type: str
     asset_data: str
+    asset_id: Optional[str] = None
 
 
 class CompassDocumentChunk(ValidatedModel):
@@ -242,6 +243,7 @@ class DocumentChunkAsset(BaseModel):
     asset_type: AssetType
     content_type: str
     asset_data: str
+    asset_id: Optional[str] = None
 
 
 class Chunk(BaseModel):
