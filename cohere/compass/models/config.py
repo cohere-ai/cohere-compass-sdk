@@ -1,6 +1,6 @@
 # Python imports
 import math
-from enum import Enum
+from enum import Enum, StrEnum
 from os import getenv
 from typing import Any, Optional
 
@@ -32,6 +32,18 @@ class DocumentFormat(str, Enum):
     @classmethod
     def _missing_(cls, value: Any):
         return cls.Markdown
+
+
+class CSVParsingStrategy(StrEnum):
+    """
+    Enum defining strategies for parsing CSV files.
+
+    RowsToJson: Convert each row of the CSV to a JSON object.
+    MetadataOnly: Only parse metadata from the CSV, ignoring row data.
+    """
+
+    RowsToJson = "RowsToJson"
+    MetadataOnly = "MetadataOnly"
 
 
 class PDFParsingStrategy(str, Enum):
@@ -137,6 +149,7 @@ class ParserConfig(BaseModel):
     horizontal_table_crop_margin: int = 100
 
     pdf_parsing_strategy: PDFParsingStrategy = PDFParsingStrategy.QuickText
+    csv_parsing_strategy: CSVParsingStrategy = CSVParsingStrategy.MetadataOnly
     presentation_parsing_strategy: PresentationParsingStrategy = (
         PresentationParsingStrategy.Unstructured
     )
@@ -204,4 +217,6 @@ class IndexConfig(BaseModel):
     """
 
     number_of_shards: Optional[int] = None
+    number_of_replicas: Optional[int] = None
+
     number_of_replicas: Optional[int] = None
