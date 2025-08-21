@@ -1,6 +1,6 @@
 # Python imports
 import math
-from enum import Enum, StrEnum
+from enum import Enum
 from os import getenv
 from typing import Any, Optional
 
@@ -34,16 +34,20 @@ class DocumentFormat(str, Enum):
         return cls.Markdown
 
 
-class CSVParsingStrategy(StrEnum):
+class TabularParsingStrategy(str, Enum):
     """
-    Enum defining strategies for parsing CSV files.
+    Enum defining strategies for parsing tabular files (CSV, Excel, ODS).
 
-    RowsToJson: Convert each row of the CSV to a JSON object.
-    MetadataOnly: Only parse metadata from the CSV, ignoring row data.
+    Granular: Convert each row of the table to a document chunk.
+    Digest: Creates one chunk for the table, containing metadata about the table.
     """
 
-    RowsToJson = "RowsToJson"
-    MetadataOnly = "MetadataOnly"
+    Granular = "granular"
+    Digest = "digest"
+
+    @classmethod
+    def _missing_(cls, value: Any):
+        return cls.Granular
 
 
 class PDFParsingStrategy(str, Enum):
@@ -187,7 +191,7 @@ class ParserConfig(BaseModel):
     horizontal_table_crop_margin: int = 100
 
     pdf_parsing_strategy: PDFParsingStrategy = PDFParsingStrategy.QuickText
-    csv_parsing_strategy: CSVParsingStrategy = CSVParsingStrategy.MetadataOnly
+    tabular_parsing_strategy: TabularParsingStrategy = TabularParsingStrategy.Granular
 
     pdf_parsing_config: PDFParsingConfig = PDFParsingConfig()
 
