@@ -86,7 +86,8 @@ class CompassParserClient:
             if no metadata configuration is specified in the method calls (process_file
             or process_files)
         :param bearer_token (optional): The bearer token for authentication.
-        :param process_file_timeout: Timeout in seconds for the process_file request. Defaults to 600 seconds.
+        :param process_file_timeout (optional):
+            Timeout in seconds for the process_file request.
         """
         self._thread_local = threading.local()
         self.parser_url = (
