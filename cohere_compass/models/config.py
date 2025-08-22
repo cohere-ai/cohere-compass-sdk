@@ -34,6 +34,22 @@ class DocumentFormat(str, Enum):
         return cls.Markdown
 
 
+class TabularParsingStrategy(str, Enum):
+    """
+    Enum defining strategies for parsing tabular files (CSV, Excel, ODS).
+
+    Granular: Convert each row of the table to a document chunk.
+    Digest: Creates one chunk for the table, containing metadata about the table.
+    """
+
+    Granular = "granular"
+    Digest = "digest"
+
+    @classmethod
+    def _missing_(cls, value: Any):
+        return cls.Granular
+
+
 class PDFParsingStrategy(str, Enum):
     """Enum for specifying the parsing strategy for PDF files."""
 
@@ -175,6 +191,7 @@ class ParserConfig(BaseModel):
     horizontal_table_crop_margin: int = 100
 
     pdf_parsing_strategy: PDFParsingStrategy = PDFParsingStrategy.QuickText
+    tabular_parsing_strategy: TabularParsingStrategy = TabularParsingStrategy.Granular
 
     pdf_parsing_config: PDFParsingConfig = PDFParsingConfig()
 
