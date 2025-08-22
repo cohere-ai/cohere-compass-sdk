@@ -67,7 +67,7 @@ class CompassParserClient:
         metadata_config: MetadataConfig = MetadataConfig(),
         bearer_token: Optional[str] = None,
         num_workers: int = 1,
-        process_file_timeout: int = 600,
+        process_file_timeout_seconds: int | None = None,
     ):
         """
         Initialize the CompassParserClient.
@@ -98,7 +98,7 @@ class CompassParserClient:
         self.num_workers = num_workers
 
         self.metadata_config = metadata_config
-        self.process_file_timeout = process_file_timeout
+        self.process_file_timeout_seconds = process_file_timeout_seconds
         logger.info(
             f"CompassParserClient initialized with parser_url: {self.parser_url}"
         )
@@ -281,7 +281,7 @@ class CompassParserClient:
             filename=filename,
             file_bytes=doc.filebytes,
             custom_context=custom_context,
-            timeout=timeout or self.process_file_timeout,
+            timeout=timeout or self.process_file_timeout_seconds,
         )
 
     @retry(
@@ -340,7 +340,7 @@ class CompassParserClient:
             filename=filename,
             file_bytes=file_bytes,
             custom_context=custom_context,
-            timeout=timeout or self.process_file_timeout,
+            timeout=timeout or self.process_file_timeout_seconds,
         )
 
     def _get_file_params(
@@ -380,21 +380,13 @@ class CompassParserClient:
         if self.bearer_token:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
-        if timeout:
-            res = self._get_session().post(
-                url=f"{self.parser_url}/v1/process_file",
-                data={"data": json.dumps(params.model_dump())},
-                files={"file": (filename, file_bytes)},
-                headers=headers,
-                timeout=timeout,
-            )
-        else:
-            res = self._get_session().post(
-                url=f"{self.parser_url}/v1/process_file",
-                data={"data": json.dumps(params.model_dump())},
-                files={"file": (filename, file_bytes)},
-                headers=headers,
-            )
+        res = self._get_session().post(
+            url=f"{self.parser_url}/v1/process_file",
+            data={"data": json.dumps(params.model_dump())},
+            files={"file": (filename, file_bytes)},
+            headers=headers,
+            timeout=timeout,
+        )
 
         if not res.ok:
             if res.status_code >= 400 and res.status_code < 500:
