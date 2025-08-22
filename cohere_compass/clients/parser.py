@@ -67,6 +67,7 @@ class CompassParserClient:
         metadata_config: MetadataConfig = MetadataConfig(),
         bearer_token: Optional[str] = None,
         num_workers: int = 1,
+        process_file_timeout_seconds: Optional[int] = None,
     ):
         """
         Initialize the CompassParserClient.
@@ -85,6 +86,8 @@ class CompassParserClient:
             if no metadata configuration is specified in the method calls (process_file
             or process_files)
         :param bearer_token (optional): The bearer token for authentication.
+        :param process_file_timeout (optional):
+            Timeout in seconds for the process_file request.
         """
         self._thread_local = threading.local()
         self.parser_url = (
@@ -96,6 +99,7 @@ class CompassParserClient:
         self.num_workers = num_workers
 
         self.metadata_config = metadata_config
+        self.process_file_timeout_seconds = process_file_timeout_seconds
         logger.info(
             f"CompassParserClient initialized with parser_url: {self.parser_url}"
         )
@@ -236,6 +240,7 @@ class CompassParserClient:
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
         custom_context: Optional[Fn_or_Dict] = None,
+        timeout: Optional[int] = None,
     ) -> list[CompassDocument]:
         """
         Process a file.
@@ -257,6 +262,8 @@ class CompassParserClient:
         :param custom_context: Additional data to add to compass document. Fields will
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
+        :param timeout: Timeout in seconds for the process_file request. If None, uses
+            the timeout set when creating the client.
 
         :returns: List of resulting documents
         """
@@ -275,6 +282,7 @@ class CompassParserClient:
             filename=filename,
             file_bytes=doc.filebytes,
             custom_context=custom_context,
+            timeout=timeout or self.process_file_timeout_seconds,
         )
 
     @retry(
@@ -294,6 +302,7 @@ class CompassParserClient:
         parser_config: Optional[ParserConfig] = None,
         metadata_config: Optional[MetadataConfig] = None,
         custom_context: Optional[Fn_or_Dict] = None,
+        timeout: Optional[int] = None,
     ) -> list[CompassDocument]:
         """
         Process a file.
@@ -317,6 +326,8 @@ class CompassParserClient:
         :param custom_context: Additional data to add to compass document. Fields will
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
+        :param timeout: Timeout in seconds for the process_file request. If None, uses
+            the timeout set when creating the client.
 
         :returns: List of resulting documents
         """
@@ -330,6 +341,7 @@ class CompassParserClient:
             filename=filename,
             file_bytes=file_bytes,
             custom_context=custom_context,
+            timeout=timeout or self.process_file_timeout_seconds,
         )
 
     def _get_file_params(
@@ -356,6 +368,7 @@ class CompassParserClient:
         filename: str,
         file_bytes: bytes,
         custom_context: Optional[Fn_or_Dict] = None,
+        timeout: Optional[int] = None,
     ) -> list[CompassDocument]:
         if len(file_bytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
             max_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
@@ -373,6 +386,7 @@ class CompassParserClient:
             data={"data": json.dumps(params.model_dump())},
             files={"file": (filename, file_bytes)},
             headers=headers,
+            timeout=timeout,
         )
 
         if not res.ok:
