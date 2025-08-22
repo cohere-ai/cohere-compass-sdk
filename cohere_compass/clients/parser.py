@@ -67,7 +67,7 @@ class CompassParserClient:
         metadata_config: MetadataConfig = MetadataConfig(),
         bearer_token: Optional[str] = None,
         num_workers: int = 1,
-        process_file_timeout_seconds: int | None = None,
+        process_file_timeout_seconds: Optional[int] = None,
     ):
         """
         Initialize the CompassParserClient.
@@ -367,7 +367,7 @@ class CompassParserClient:
         filename: str,
         file_bytes: bytes,
         custom_context: Optional[Fn_or_Dict] = None,
-        timeout: int | None = None,
+        timeout: Optional[int] = None,
     ) -> list[CompassDocument]:
         if len(file_bytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
             max_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
