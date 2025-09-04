@@ -223,6 +223,7 @@ class CompassParserClient:
         stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
         wait=wait_fixed(DEFAULT_RETRY_WAIT),
         retry=retry_if_not_exception_type((CompassClientError, ValidationError)),
+        reraise=True,
     )
     def process_file(
         self,
@@ -282,6 +283,7 @@ class CompassParserClient:
         stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
         wait=wait_fixed(DEFAULT_RETRY_WAIT),
         retry=retry_if_not_exception_type((CompassClientError, ValidationError)),
+        reraise=True,
     )
     def process_file_bytes(
         self,
