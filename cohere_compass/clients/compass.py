@@ -63,7 +63,10 @@ from cohere_compass.models.documents import (
     PutDocumentsResponse,
     UploadDocumentsStatus,
 )
-from cohere_compass.models.search import SortBy
+from cohere_compass.models.search import (
+    GetDocumentResponse,
+    SortBy,
+)
 from cohere_compass.utils import partition_documents
 
 
@@ -352,11 +355,12 @@ class CompassClient:
 
         :returns: the response from the Compass API
         """
-        return self._send_request(
+        result = self._send_request(
             api_name="get_document",
             document_id=document_id,
             index_name=index_name,
         )
+        return GetDocumentResponse.model_validate(result.result)
 
     def list_indexes(
         self,

@@ -18,7 +18,7 @@ class AssetInfo(BaseModel):
 
 
 class RetrievedChunk(BaseModel):
-    """Chunk of a document retrieved from search."""
+    """Chunk of a document retrieved from get_document API."""
 
     chunk_id: str
     sort_id: int
@@ -26,11 +26,16 @@ class RetrievedChunk(BaseModel):
     content: dict[str, Any]
     origin: dict[str, Any] | None = None
     assets_info: list[AssetInfo] | None = None
+
+
+class RetrievedScoredChunk(RetrievedChunk):
+    """Chunk of a document retrieved from search API."""
+
     score: float
 
 
 class RetrievedDocument(BaseModel):
-    """Document retrieved from search."""
+    """Document retrieved from get_document API."""
 
     document_id: str
     path: str
@@ -39,10 +44,16 @@ class RetrievedDocument(BaseModel):
     index_fields: list[str] | None = None
     authorized_groups: list[str] | None = None
     chunks: list[RetrievedChunk]
+
+
+class RetrievedScoredDocument(RetrievedDocument):
+    """Document retrieved from search API."""
+
+    chunks: list[RetrievedScoredChunk]  # pyright: ignore[reportIncompatibleVariableOverride]
     score: float
 
 
-class RetrievedChunkExtended(RetrievedChunk):
+class RetrievedChunkExtended(RetrievedScoredChunk):
     """Additional information about a chunk retrieved from search."""
 
     document_id: str
@@ -50,10 +61,16 @@ class RetrievedChunkExtended(RetrievedChunk):
     index_fields: list[str] | None = None
 
 
+class GetDocumentResponse(BaseModel):
+    """Response object for get_document API."""
+
+    document: RetrievedDocument
+
+
 class SearchDocumentsResponse(BaseModel):
     """Response object for search_documents API."""
 
-    hits: list[RetrievedDocument]
+    hits: list[RetrievedScoredDocument]
 
 
 class SearchChunksResponse(BaseModel):
