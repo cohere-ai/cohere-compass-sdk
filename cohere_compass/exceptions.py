@@ -1,6 +1,3 @@
-from typing import Optional
-
-
 class CompassError(Exception):
     """Base class for all exceptions raised by the Compass client."""
 
@@ -13,7 +10,7 @@ class CompassClientError(CompassError):
     def __init__(  # noqa: D107
         self,
         message: str = "Client error occurred.",
-        code: Optional[int] = 400,
+        code: int | None = 400,
     ):
         self.message = message
         self.code = code

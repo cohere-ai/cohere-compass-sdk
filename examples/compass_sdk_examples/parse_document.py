@@ -3,7 +3,7 @@ import json
 
 from cohere_compass.models import ParserConfig, PDFParsingStrategy
 
-from compass_sdk_examples.utils import get_compass_parser
+from compass_sdk_examples.utils import get_compass_parser_client
 
 
 def parse_args():
@@ -29,7 +29,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    parser = get_compass_parser()
+    parser = get_compass_parser_client()
     docs = parser.process_file(
         filename=args.file,
         parser_config=ParserConfig(

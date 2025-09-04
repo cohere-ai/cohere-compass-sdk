@@ -1,6 +1,6 @@
 # Python imports
 from enum import Enum
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 # 3rd party imports
 from pydantic import BaseModel
@@ -11,7 +11,7 @@ from cohere_compass.models.documents import AssetType
 class AssetInfo(BaseModel):
     """Information about an asset."""
 
-    asset_id: Optional[str] = None
+    asset_id: str | None = None
     asset_type: AssetType
     content_type: str
     presigned_url: str
@@ -24,8 +24,8 @@ class RetrievedChunk(BaseModel):
     sort_id: int
     parent_document_id: str
     content: dict[str, Any]
-    origin: Optional[dict[str, Any]] = None
-    assets_info: Optional[list[AssetInfo]] = None
+    origin: dict[str, Any] | None = None
+    assets_info: list[AssetInfo] | None = None
     score: float
 
 
@@ -36,8 +36,8 @@ class RetrievedDocument(BaseModel):
     path: str
     parent_document_id: str
     content: dict[str, Any]
-    index_fields: Optional[list[str]] = None
-    authorized_groups: Optional[list[str]] = None
+    index_fields: list[str] | None = None
+    authorized_groups: list[str] | None = None
     chunks: list[RetrievedChunk]
     score: float
 
@@ -47,7 +47,7 @@ class RetrievedChunkExtended(RetrievedChunk):
 
     document_id: str
     path: str
-    index_fields: Optional[list[str]] = None
+    index_fields: list[str] | None = None
 
 
 class SearchDocumentsResponse(BaseModel):
@@ -83,8 +83,8 @@ class SearchInput(BaseModel):
 
     query: str
     top_k: int
-    filters: Optional[list[SearchFilter]] = None
-    rerank_model: Optional[str] = None
+    filters: list[SearchFilter] | None = None
+    rerank_model: str | None = None
 
 
 class SortBy(BaseModel):
@@ -99,8 +99,8 @@ class DirectSearchInput(BaseModel):
 
     query: dict[str, Any]
     size: int
-    sort_by: Optional[list[SortBy]] = None
-    scroll: Optional[str] = None
+    sort_by: list[SortBy] | None = None
+    scroll: str | None = None
 
 
 class DirectSearchScrollInput(BaseModel):
@@ -114,4 +114,4 @@ class DirectSearchResponse(BaseModel):
     """Response object for direct search APIs."""
 
     hits: list[RetrievedChunkExtended]
-    scroll_id: Optional[str] = None
+    scroll_id: str | None = None
