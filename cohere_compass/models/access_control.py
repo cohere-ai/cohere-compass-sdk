@@ -1,6 +1,7 @@
+"""Models for access control functionality in the Cohere Compass SDK."""
+
 # Python imports
 from enum import Enum
-from typing import Optional
 
 # 3rd party imports
 from pydantic import BaseModel
@@ -18,10 +19,10 @@ class PageInfo(BaseModel):
 
     total: int
     page: int
-    filter: Optional[str] = None
+    filter: str | None = None
     total_pages: int
-    next: Optional[str] = None
-    previous: Optional[str] = None
+    next: str | None = None
+    previous: str | None = None
     page_size: int
 
     def has_next_page(self) -> bool:

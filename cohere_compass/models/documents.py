@@ -1,11 +1,14 @@
+"""Models for documents functionality in the Cohere Compass SDK."""
+
 # Python imports
 import uuid
 from dataclasses import field
 from enum import Enum
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, TypeAlias
 
 # 3rd party imports
 from pydantic import (
+    UUID4,
     BaseModel,
     ConfigDict,
     Field,
@@ -13,7 +16,6 @@ from pydantic import (
     StringConstraints,
     model_validator,
 )
-from typing_extensions import TypeAlias
 
 # Local imports
 from cohere_compass.constants import URL_SAFE_STRING_PATTERN
@@ -28,7 +30,7 @@ class CompassDocumentMetadata(ValidatedModel):
 
     document_id: DocumentId = ""
     filename: str = ""
-    meta: list[Any] = field(default_factory=list)
+    meta: list[Any] = field(default_factory=list[Any])
     parent_document_id: str = ""
 
 
@@ -52,7 +54,7 @@ class CompassDocumentChunkAsset(BaseModel):
     asset_type: AssetType
     content_type: str
     asset_data: str
-    asset_id: Optional[str] = None
+    asset_id: str | None = None
 
 
 class CompassDocumentChunk(ValidatedModel):
@@ -62,14 +64,13 @@ class CompassDocumentChunk(ValidatedModel):
     sort_id: str
     document_id: str
     parent_document_id: str
-    content: dict[str, Any] = field(default_factory=dict)
-    origin: Optional[dict[str, Any]] = field(default=None)
-    assets: Optional[list[CompassDocumentChunkAsset]] = field(default=None)
-    path: Optional[str] = ""
+    content: dict[str, Any]
+    origin: dict[str, Any] | None = None
+    assets: list[CompassDocumentChunkAsset] | None = None
+    path: str | None = ""
 
     def parent_doc_is_split(self):
-        """
-        Check if the parent document is split.
+        """Check if the parent document is split.
 
         :returns: True if the document ID is different from the parent document ID,
         indicating that the parent document is split; False otherwise.
@@ -96,8 +97,7 @@ class CompassSdkStage(str, Enum):
 
 
 class CompassDocument(ValidatedModel):
-    """
-    A model class for a Compass document.
+    """A model class for a Compass document.
 
     The model contains all the information required to process a document and insert it
     into the index. It includes:
@@ -111,14 +111,18 @@ class CompassDocument(ValidatedModel):
 
     filebytes: bytes = b""
     metadata: CompassDocumentMetadata = CompassDocumentMetadata()
-    content: dict[str, str] = field(default_factory=dict)
-    content_type: Optional[str] = None
-    elements: list[Any] = field(default_factory=list)
-    chunks: list[CompassDocumentChunk] = field(default_factory=list)
-    index_fields: list[str] = field(default_factory=list)
-    errors: list[dict[CompassSdkStage, str]] = field(default_factory=list)
+    content: dict[str, str] = field(default_factory=dict[str, str])
+    content_type: str | None = None
+    elements: list[Any] = field(default_factory=list[Any])
+    chunks: list[CompassDocumentChunk] = field(
+        default_factory=list[CompassDocumentChunk]
+    )
+    index_fields: list[str] = field(default_factory=list[str])
+    errors: list[dict[CompassSdkStage, str]] = field(
+        default_factory=list[dict[CompassSdkStage, str]]
+    )
     ignore_metadata_errors: bool = True
-    markdown: Optional[str] = None
+    markdown: str | None = None
 
     def has_data(self) -> bool:
         """Check if the document has any data."""
@@ -198,8 +202,7 @@ class CompassDocument(ValidatedModel):
 
     @staticmethod
     def adapt_doc_id_compass_doc(doc: dict[Any, Any]) -> "CompassDocument":
-        """
-        Adapt a document dictionary to a CompassDocument instance.
+        """Adapt a document dictionary to a CompassDocument instance.
 
         This dict is returned from Parser client.
         """
@@ -239,7 +242,7 @@ class DocumentChunkAsset(BaseModel):
     asset_type: AssetType
     content_type: str
     asset_data: str
-    asset_id: Optional[str] = None
+    asset_id: str | None = None
 
 
 class Chunk(BaseModel):
@@ -250,9 +253,9 @@ class Chunk(BaseModel):
     parent_document_id: str
     path: str = ""
     content: dict[str, Any]
-    origin: Optional[dict[str, Any]] = None
-    assets: Optional[list[DocumentChunkAsset]] = None
-    asset_ids: Optional[list[str]] = None
+    origin: dict[str, Any] | None = None
+    assets: list[DocumentChunkAsset] | None = None
+    asset_ids: list[str] | None = None
 
 
 class Document(BaseModel):
@@ -263,8 +266,8 @@ class Document(BaseModel):
     parent_document_id: DocumentId
     content: dict[str, Any]
     chunks: list[Chunk]
-    index_fields: Optional[list[str]] = None
-    authorized_groups: Optional[list[str]] = None
+    index_fields: list[str] | None = None
+    authorized_groups: list[str] | None = None
 
 
 class DocumentAttributes(BaseModel):
@@ -290,7 +293,7 @@ class ParseableDocumentConfig(BaseModel):
 class ParseableDocument(BaseModel):
     """A document to be sent to Compass for parsing."""
 
-    id: uuid.UUID
+    id: str
     filename: Annotated[
         str, StringConstraints(min_length=1)
     ]  # Ensures the filename is a non-empty string
@@ -307,23 +310,29 @@ class UploadDocumentsInput(BaseModel):
     documents: list[ParseableDocument]
 
 
+class UploadDocumentsResult(BaseModel):
+    """A model for the result of a call to upload_documents API."""
+
+    upload_id: UUID4
+    document_ids: list[str]
+
+
 class PutDocumentsInput(BaseModel):
     """A model for the input of a call to put_documents API."""
 
     documents: list[Document]
-    authorized_groups: Optional[list[str]] = None
+    authorized_groups: list[str] | None = None
     merge_groups_on_conflict: bool = False
 
 
 class PutDocumentResult(BaseModel):
-    """
-    A model for the response of put_document.
+    """A model for the response of put_document.
 
     This model is also used by the put_documents and edit_group_authorization APIs.
     """
 
     document_id: str
-    error: Optional[str]
+    error: str | None
 
 
 class PutDocumentsResponse(BaseModel):
@@ -336,12 +345,12 @@ class UploadDocumentsStatus(BaseModel):
     """A model for the response of status for documents when uploaded via async API."""
 
     upload_id: uuid.UUID
-    document_id: uuid.UUID
+    document_id: str
     destinations: list[str]
     file_name: str
-    state: Optional[str]
-    last_error: Optional[str]
-    parsed_presigned_url: Optional[str]
+    state: str | None
+    last_error: str | None
+    parsed_presigned_url: str | None
 
 
 class ParsedDocumentResponse(BaseModel):
@@ -349,13 +358,12 @@ class ParsedDocumentResponse(BaseModel):
 
     upload_id: uuid.UUID
     document_id: str
-    documents: Optional[list[CompassDocument]]
+    documents: list[CompassDocument] | None
     state: str
 
     @staticmethod
     def convert(data: dict[str, Any]) -> "ParsedDocumentResponse":
-        """
-        Convert a dictionary to a ParsedDocumentResponse instance.
+        """Convert a dictionary to a ParsedDocumentResponse instance.
 
         :param data: Dictionary containing the document data.
         :return: ParsedDocumentResponse instance.

@@ -1,24 +1,20 @@
 """
-Compass parser client for document parsing operations.
+Async parser client for document parsing operations.
 
-This module provides the CompassParserClient class which handles document
-parsing operations including file processing, metadata extraction, and
-integration with various filesystems via fsspec.
+This module provides the CompassParserAsyncClient for asynchronous document
+parsing operations with support for multiple file formats and filesystems.
 """
 
 # Python imports
 import json
 import logging
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from typing import Any
 
 # 3rd party imports
 import httpx
-
-# 3rd party imports
-from pydantic import ValidationError
 from tenacity import (
     retry,
     retry_if_not_exception_type,
@@ -42,7 +38,7 @@ from cohere_compass.models import (
     MetadataConfig,
     ParserConfig,
 )
-from cohere_compass.utils import imap_queued, open_document, scan_folder
+from cohere_compass.utils import async_map, open_document, scan_folder
 
 Fn_or_Dict = dict[str, Any] | Callable[[CompassDocument], dict[str, Any]]
 
@@ -50,23 +46,22 @@ Fn_or_Dict = dict[str, Any] | Callable[[CompassDocument], dict[str, Any]]
 logger = logging.getLogger(__name__)
 
 
-class CompassParserClient:
+class CompassParserAsyncClient:
     """
     Client to interact with the CompassParser API.
 
-    Handles document parsing operations with support for multiple file formats (PDF,
-    DOCX, JSON, CSV, etc.) and integrates with various filesystems (local, S3, GCS) via
-    fsspec. The client maintains default parser and metadata configurations that can be
-    overridden per file.
+    It allows to process files using the parser and metadata configurations specified in
+    the parameters. The client is stateful, that is, it can be initialized with parser
+    and metadata configurations that will be used for all subsequent files processed by
+    the client.  Also, independently of the default configurations, the client allows to
+    pass specific configurations for each file when calling the process_file or
+    process_files methods.  The client is responsible for opening the files and sending
+    them to the CompassParser API for processing. The resulting documents are returned
+    as CompassDocument objects.
 
-    Attributes:
-        parser_url: URL of the CompassParser API.
-        parser_config: Default parser configuration for processing files.
-        metadata_config: Default metadata configuration for processing files.
-        bearer_token: Optional authentication token.
-        num_workers: Number of parallel workers for processing.
-        timeout: Request timeout duration.
-
+    :param parser_url: URL of the CompassParser API
+    :param parser_config: Default parser configuration to use when processing files
+    :param metadata_config: Default metadata configuration to use when processing files
     """
 
     def __init__(
@@ -82,14 +77,20 @@ class CompassParserClient:
         """
         Initialize the CompassParserClient.
 
-        Args:
-            parser_url: URL of the CompassParser API.
-            parser_config: Default parser configuration to use when processing files.
-            metadata_config: Default metadata configuration for extracting metadata.
-            bearer_token: Optional bearer token for API authentication.
-            num_workers: Number of parallel workers for file processing.
-            timeout: Request timeout duration for API calls.
+        The parser_config and metadata_config are optional, and if not provided, the
+        default configurations will be used. If the parser/metadata configs are
+        provided, they will be used for all subsequent files processed by the client
+        unless specific configs are passed when calling the process_file or
+        process_files methods.
 
+        :param parser_url: the URL of the CompassParser API
+        :param parser_config: the parser configuration to use when processing files if
+            no parser configuration is specified in the method calls (process_file or
+            process_files)
+        :param metadata_config: the metadata configuration to use when processing files
+            if no metadata configuration is specified in the method calls (process_file
+            or process_files)
+        :param bearer_token (optional): The bearer token for authentication.
         """
         self.parser_url = (
             parser_url if not parser_url.endswith("/") else parser_url[:-1]
@@ -99,7 +100,7 @@ class CompassParserClient:
         self.thread_pool = ThreadPoolExecutor(num_workers)
         self.num_workers = num_workers
         self.timeout = timeout
-        self.httpx_client = httpx.Client(timeout=self.timeout.total_seconds())
+        self.httpx = httpx.AsyncClient(timeout=self.timeout.total_seconds())
 
         self.metadata_config = metadata_config
         logger.info(
@@ -151,7 +152,7 @@ class CompassParserClient:
             custom_context=custom_context if custom_context else None,
         )
 
-    def process_files(
+    async def process_files(
         self,
         *,
         filenames: list[str],
@@ -159,7 +160,7 @@ class CompassParserClient:
         parser_config: ParserConfig | None = None,
         metadata_config: MetadataConfig | None = None,
         custom_context: Fn_or_Dict | None = None,
-    ) -> Iterable[CompassDocument | tuple[str, Exception]]:
+    ):
         """
         Process a list of files.
 
@@ -186,10 +187,10 @@ class CompassParserClient:
         :returns: List of processed documents
         """
 
-        def process_file(i: int) -> list[CompassDocument] | tuple[str, Exception]:
+        async def process_file(i: int) -> list[CompassDocument] | tuple[str, Exception]:
             filename = filenames[i]
             try:
-                return self.process_file(
+                return await self.process_file(
                     filename=filename,
                     file_id=file_ids[i] if file_ids else None,
                     parser_config=parser_config,
@@ -199,14 +200,14 @@ class CompassParserClient:
             except Exception as e:
                 return filename, e
 
-        for results in imap_queued(
-            self.thread_pool,
+        for results in await async_map(
             process_file,
             range(len(filenames)),
-            max_queued=self.num_workers,
+            self.num_workers,
         ):
             if isinstance(results, list):
-                yield from results
+                for r in results:
+                    yield r
             else:
                 yield results
 
@@ -224,10 +225,10 @@ class CompassParserClient:
     @retry(
         stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
         wait=wait_fixed(DEFAULT_RETRY_WAIT),
-        retry=retry_if_not_exception_type((CompassClientError, ValidationError)),
-        reraise=True,
+        # todo find alternative to InvalidSchema
+        retry=retry_if_not_exception_type((CompassClientError,)),
     )
-    def process_file(
+    async def process_file(
         self,
         *,
         filename: str,
@@ -236,7 +237,6 @@ class CompassParserClient:
         parser_config: ParserConfig | None = None,
         metadata_config: MetadataConfig | None = None,
         custom_context: Fn_or_Dict | None = None,
-        timeout: timedelta | None = None,
     ) -> list[CompassDocument]:
         """
         Process a file.
@@ -258,8 +258,6 @@ class CompassParserClient:
         :param custom_context: Additional data to add to compass document. Fields will
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
-        :param timeout: Timeout in seconds for the process_file request. If None, uses
-            the timeout set when creating the client.
 
         :returns: List of resulting documents
         """
@@ -268,7 +266,7 @@ class CompassParserClient:
             logger.error(f"Error opening document: {doc.errors}")
             return []
 
-        return self._process_file_bytes(
+        return await self._process_file_bytes(
             params=self._get_file_params(
                 parser_config=parser_config,
                 metadata_config=metadata_config,
@@ -278,16 +276,15 @@ class CompassParserClient:
             filename=filename,
             file_bytes=doc.filebytes,
             custom_context=custom_context,
-            timeout=timeout,
         )
 
     @retry(
         stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
         wait=wait_fixed(DEFAULT_RETRY_WAIT),
-        retry=retry_if_not_exception_type((CompassClientError, ValidationError)),
-        reraise=True,
+        # todo find alternative to InvalidSchema
+        retry=retry_if_not_exception_type((CompassClientError,)),
     )
-    def process_file_bytes(
+    async def process_file_bytes(
         self,
         *,
         filename: str,
@@ -326,7 +323,7 @@ class CompassParserClient:
 
         :returns: List of resulting documents
         """
-        return self._process_file_bytes(
+        return await self._process_file_bytes(
             params=self._get_file_params(
                 parser_config=parser_config,
                 metadata_config=metadata_config,
@@ -356,7 +353,7 @@ class CompassParserClient:
             content_type=content_type,
         )
 
-    def _process_file_bytes(
+    async def _process_file_bytes(
         self,
         *,
         params: ProcessFileParameters,
@@ -376,7 +373,7 @@ class CompassParserClient:
         if self.bearer_token:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
-        res = self.httpx_client.post(
+        res = await self.httpx.post(
             url=f"{self.parser_url}/v1/process_file",
             data={"data": json.dumps(params.model_dump())},
             files={"file": (filename, file_bytes)},
@@ -396,14 +393,46 @@ class CompassParserClient:
 
         docs: list[CompassDocument] = []
         for doc in res.json()["docs"]:
-            if doc.get("errors"):
-                logger.error(f"Error processing file {filename}: {doc['errors']}")
-            else:
-                compass_doc = CompassDocument.adapt_doc_id_compass_doc(doc)
-                additional_metadata = CompassParserClient._get_metadata(
-                    doc=compass_doc, custom_context=custom_context
-                )
-                compass_doc.content = {**compass_doc.content, **additional_metadata}
-                docs.append(compass_doc)
+            compass_doc = self._adapt_doc_id_compass_doc(doc)
+            if compass_doc.errors:
+                doc_id = compass_doc.metadata.document_id
+                logger.warning(f"Document {doc_id} has errors: {compass_doc.errors}")
+            additional_metadata = CompassParserAsyncClient._get_metadata(
+                doc=compass_doc, custom_context=custom_context
+            )
+            compass_doc.content = {**compass_doc.content, **additional_metadata}
+            compass_doc.errors = doc.get("errors", [])
+            docs.append(compass_doc)
 
         return docs
+
+    @staticmethod
+    def _adapt_doc_id_compass_doc(doc: dict[Any, Any]) -> CompassDocument:
+        metadata = doc["metadata"]
+        if "document_id" not in metadata:
+            metadata["document_id"] = metadata.pop("doc_id")
+            metadata["parent_document_id"] = metadata.pop("parent_doc_id")
+
+        chunks = doc["chunks"]
+        for chunk in chunks:
+            if "parent_document_id" not in chunk:
+                chunk["parent_document_id"] = chunk.pop("parent_doc_id")
+            if "document_id" not in chunk:
+                chunk["document_id"] = chunk.pop("doc_id")
+            if "path" not in chunk:
+                chunk["path"] = doc["metadata"]["filename"]
+
+        res = CompassDocument(
+            filebytes=doc["filebytes"],
+            metadata=metadata,
+            content=doc["content"],
+            content_type=doc["content_type"],
+            elements=doc["elements"],
+            chunks=chunks,
+            index_fields=doc["index_fields"],
+            errors=doc["errors"],
+            ignore_metadata_errors=doc["ignore_metadata_errors"],
+            markdown=doc["markdown"],
+        )
+
+        return res
