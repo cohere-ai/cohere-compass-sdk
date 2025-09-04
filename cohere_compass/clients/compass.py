@@ -205,22 +205,12 @@ class CompassClient:
         bearer_token: str | None = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
         retry_wait: timedelta = DEFAULT_RETRY_WAIT,
-        include_api_in_url: bool = True,
     ):
         """
         Initialize the Compass client.
 
-        IMPORTANT NOTE: If the user desires, a custom HTTP session can be passed. In
-        this case, however, it is the responsibility of the user to manage thread
-        safety. The user should ensure that the session is not shared among multiple
-        threads. If in doubt, do not pass a custom session and let us handle the dirty
-        work.
-
         :param index_url: The base URL for the index API.
         :param bearer_token (optional): The bearer token for authentication.
-        :param http_session (optional): An optional HTTP session to use for requests.
-        :param include_api_in_url: Whether to include '/api' in the base URL.
-               Defaults to True.
         """
         self.index_url = index_url if index_url.endswith("/") else f"{index_url}/"
         self.httpx_client = httpx.Client(timeout=DEFAULT_COMPASS_CLIENT_TIMEOUT)
@@ -233,11 +223,10 @@ class CompassClient:
             raise ValueError("retry_wait must be a non-negative integer.")
         self.max_retries = max_retries
         self.retry_wait = retry_wait
-        self.include_api_in_url = include_api_in_url
 
     def get_models(
         self,
-    ):
+    ) -> dict[str, list[str]]:
         """
         Get the models available in Compass.
 
@@ -248,9 +237,13 @@ class CompassClient:
         :param max_retries: the maximum number of times to retry the request
         :param sleep_retry_seconds: the number of seconds to sleep between retries
         """
-        return self._send_request(
+        result = self._send_request(
             api_name="get_models",
         )
+        if not isinstance(result.result, dict):
+            raise ValueError("Invalid response from Compass API")
+
+        return result.result
 
     def create_index(
         self,
@@ -1010,10 +1003,7 @@ class CompassClient:
             )
         http_method, api_path = API_DEFINITIONS[api_name]
 
-        if self.include_api_in_url:
-            target_path = f"{self.index_url}api/v1/{api_path}"
-        else:
-            target_path = f"{self.index_url}v1/{api_path}"
+        target_path = f"{self.index_url}v1/{api_path}"
         target_path = target_path.format(**url_params)
 
         @retry(

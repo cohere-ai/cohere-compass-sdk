@@ -1,7 +1,7 @@
 import argparse
 import json
 
-from compass_sdk_examples.utils import get_compass_api
+from compass_sdk_examples.utils import get_compass_client
 
 
 def parse_args():
@@ -53,7 +53,7 @@ def main():
         print("Error: Invalid JSON in query argument")
         return
 
-    client = get_compass_api()
+    client = get_compass_client()
 
     # Inline scroll_all_chunks functionality
     if query is None:
