@@ -2,7 +2,7 @@
 import uuid
 from dataclasses import field
 from enum import Enum
-from typing import Annotated, Any
+from typing import Annotated, Any, TypeAlias
 
 # 3rd party imports
 from pydantic import (
@@ -13,7 +13,6 @@ from pydantic import (
     StringConstraints,
     model_validator,
 )
-from typing_extensions import TypeAlias
 
 # Local imports
 from cohere_compass.constants import URL_SAFE_STRING_PATTERN
@@ -52,7 +51,7 @@ class CompassDocumentChunkAsset(BaseModel):
     asset_type: AssetType
     content_type: str
     asset_data: str
-    asset_id: Optional[str] = None
+    asset_id: str | None = None
 
 
 class CompassDocumentChunk(ValidatedModel):
@@ -243,7 +242,7 @@ class DocumentChunkAsset(BaseModel):
     asset_type: AssetType
     content_type: str
     asset_data: str
-    asset_id: Optional[str] = None
+    asset_id: str | None = None
 
 
 class Chunk(BaseModel):
@@ -343,9 +342,9 @@ class UploadDocumentsStatus(BaseModel):
     document_id: uuid.UUID
     destinations: list[str]
     file_name: str
-    state: Optional[str]
-    last_error: Optional[str]
-    parsed_presigned_url: Optional[str]
+    state: str | None
+    last_error: str | None
+    parsed_presigned_url: str | None
 
 
 class ParsedDocumentResponse(BaseModel):
@@ -353,7 +352,7 @@ class ParsedDocumentResponse(BaseModel):
 
     upload_id: uuid.UUID
     document_id: str
-    documents: Optional[list[CompassDocument]]
+    documents: list[CompassDocument] | None
     state: str
 
     @staticmethod
