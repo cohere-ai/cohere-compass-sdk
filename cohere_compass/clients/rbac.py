@@ -1,9 +1,8 @@
 import json
 from typing import TypeVar
 
-import requests
+import httpx
 from pydantic import BaseModel
-from requests import HTTPError
 
 from cohere_compass.models import (
     GroupCreateRequest,
@@ -62,20 +61,20 @@ class CompassRootClient:
 
     @staticmethod
     def _fetch_entities(url: str, headers: Headers, entity_type: type[T]) -> list[T]:
-        response = requests.get(url, headers=headers)
-        CompassRootClient.raise_for_status(response)
+        response = httpx.get(url, headers=headers)
+        response.raise_for_status()
         return [entity_type.model_validate(entity) for entity in response.json()]
 
     @staticmethod
     def _create_entities(
         url: str, headers: Headers, entity_request: list[T], entity_response: type[U]
     ) -> list[U]:
-        response = requests.post(
+        response = httpx.post(
             url,
             json=[json.loads(entity.model_dump_json()) for entity in entity_request],
             headers=headers,
         )
-        CompassRootClient.raise_for_status(response)
+        response.raise_for_status()
         return [
             entity_response.model_validate(response) for response in response.json()
         ]
@@ -85,8 +84,8 @@ class CompassRootClient:
         url: str, headers: Headers, names: list[str], entity_response: type[U]
     ) -> list[U]:
         entities = ",".join(names)
-        response = requests.delete(f"{url}/{entities}", headers=headers)
-        CompassRootClient.raise_for_status(response)
+        response = httpx.delete(f"{url}/{entities}", headers=headers)
+        response.raise_for_status()
         return [entity_response.model_validate(entity) for entity in response.json()]
 
     def fetch_users(self) -> list[UserFetchResponse]:
@@ -244,11 +243,11 @@ class CompassRootClient:
 
         :returns: A list containing the deleted role mappings.
         """
-        response = requests.delete(
+        response = httpx.delete(
             f"{self.base_url}/v1/role-mappings/role/{role_name}/group/{group_name}",
             headers=self.headers,
         )
-        self.raise_for_status(response)
+        response.raise_for_status()
         return [
             RoleMappingDeleteResponse.model_validate(role_mapping)
             for role_mapping in response.json()
@@ -265,11 +264,11 @@ class CompassRootClient:
 
         :returns: Response containing the group name and user name.
         """
-        response = requests.delete(
+        response = httpx.delete(
             f"{self.base_url}/v1/group/{group_name}/user/{user_name}",
             headers=self.headers,
         )
-        self.raise_for_status(response)
+        response.raise_for_status()
         return GroupUserDeleteResponse.model_validate(response.json())
 
     def update_role(
@@ -283,45 +282,10 @@ class CompassRootClient:
 
         :returns: Response containing the updated role and its new policies.
         """
-        response = requests.put(
+        response = httpx.put(
             f"{self.base_url}/v1/roles/{role_name}",
             json=[json.loads(policy.model_dump_json()) for policy in policies],
             headers=self.headers,
         )
-        self.raise_for_status(response)
+        response.raise_for_status()
         return RoleCreateResponse.model_validate(response.json())
-
-    @staticmethod
-    def raise_for_status(response: requests.Response):
-        """
-        Raise an exception if the response status code is not in the 200 range.
-
-        :param response: Response object from the request.
-
-        :raises HTTPError: If the response status code is not in the 200 range.
-        """
-        http_error_msg = ""
-        if isinstance(response.reason, bytes):
-            # We attempt to decode utf-8 first because some servers
-            # choose to localize their reason strings. If the string
-            # isn't utf-8, we fall back to iso-8859-1 for all other
-            # encodings. (See PR #3538)
-            try:
-                reason = response.reason.decode("utf-8")
-            except UnicodeDecodeError:
-                reason = response.reason.decode("iso-8859-1")
-        else:
-            reason = response.content
-
-        if 400 <= response.status_code < 500:
-            http_error_msg = (
-                f"{response.status_code} Client Error: {reason} for url: {response.url}"
-            )
-
-        elif 500 <= response.status_code < 600:
-            http_error_msg = (
-                f"{response.status_code} Server Error: {reason} for url: {response.url}"
-            )
-
-        if http_error_msg:
-            raise HTTPError(http_error_msg, response=response)

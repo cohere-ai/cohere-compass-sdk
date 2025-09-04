@@ -1,13 +1,11 @@
-from compass_sdk_examples.utils import get_compass_api
+from compass_sdk_examples.utils import get_compass_client
 
 
 def main():
-    client = get_compass_api()
+    client = get_compass_client()
     print("Making a call to list indexes...")
+
     response = client.list_indexes()
-    if response.error:
-        print(f"Error: {response.error}")
-        return
     if not response.result:
         print("Unexpected error: request didn't return any result.")
         return
