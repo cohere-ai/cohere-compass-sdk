@@ -3,10 +3,10 @@ from typing import Optional
 from cohere_compass.clients import CompassClient
 from cohere_compass.models import RetrievedChunkExtended
 
-COMPASS_API_URL = ...
-BEARER_TOKEN = ...
-INDEX_NAME = ...
-DOCUMENT_ID = ...
+COMPASS_API_URL = "<COMPASS_API_URL>"
+BEARER_TOKEN = "<BEARER_TOKEN>"
+INDEX_NAME = "<INDEX_NAME>"
+DOCUMENT_ID = "<DOCUMENT_ID>"
 
 compass_client = CompassClient(
     index_url=COMPASS_API_URL,
@@ -27,6 +27,7 @@ def call_direct_search_scroll(
         return hits
 
     results_scroll = compass_client.direct_search_scroll(
+        index_name=INDEX_NAME,
         scroll_id=scroll_id,
         scroll="1m",
     )

@@ -1,9 +1,9 @@
 from cohere_compass.clients.access_control import CompassRootClient
 from cohere_compass.models.access_control import Group, Permission, Policy, Role
-from requests.exceptions import HTTPError
+from httpx import HTTPStatusError
 
-COMPASS_API_URL = ...
-ROOT_USER_TOKEN = ...
+COMPASS_API_URL = "<COMPASS_API_URL>"
+ROOT_USER_TOKEN = "<ROOT_USER_TOKEN>"
 
 compass_root_client = CompassRootClient(
     compass_url=COMPASS_API_URL,
@@ -17,7 +17,7 @@ try:
             Group(group_name="unique_group_name_2"),
         ]
     )
-except HTTPError as e:
+except HTTPStatusError as e:
     if e.response.status_code == 409:
         print("Group already exists.")
     else:
@@ -32,7 +32,7 @@ try:
             ),
         ]
     )
-except HTTPError as e:
+except HTTPStatusError as e:
     if e.response.status_code == 409:
         print("Role already exists.")
     else:

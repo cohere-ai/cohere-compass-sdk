@@ -1,9 +1,9 @@
 from cohere_compass.clients.compass import CompassClient
 from cohere_compass.exceptions import CompassError
 
-COMPASS_API_URL = ...
-BEARER_TOKEN = ...
-INDEX_NAME = ...
+COMPASS_API_URL = "<COMPASS_API_URL>"
+BEARER_TOKEN = "<BEARER_TOKEN>"
+INDEX_NAME = "<INDEX_NAME>"
 
 client = CompassClient(index_url=COMPASS_API_URL, bearer_token=BEARER_TOKEN)
 try:

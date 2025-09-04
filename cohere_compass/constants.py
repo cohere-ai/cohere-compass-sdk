@@ -1,5 +1,14 @@
+"""
+Constants and default values used throughout the Cohere Compass SDK.
+
+This module defines configuration constants for timeouts, retries, chunk sizes,
+and other default parameters used by the SDK.
+"""
+
+from datetime import timedelta
+
 DEFAULT_MAX_CHUNKS_PER_REQUEST = 100
-DEFAULT_SLEEP_RETRY_SECONDS = 5
+DEFAULT_RETRY_WAIT = timedelta(seconds=5)
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_MAX_ERROR_RATE = 0.5
 DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES = 500_000_000
@@ -36,4 +45,6 @@ METADATA_HEURISTICS_ATTRIBUTES = [
 
 UUID_NAMESPACE = "00000000-0000-0000-0000-000000000000"
 
+DEFAULT_COMPASS_CLIENT_TIMEOUT = timedelta(minutes=1)  # seconds
+DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT = timedelta(minutes=5)
 URL_SAFE_STRING_PATTERN = r"^[^\s\"\/\\?#><']*$"

@@ -1,6 +1,6 @@
 import argparse
 
-from compass_sdk_examples.utils import get_compass_api
+from compass_sdk_examples.utils import get_compass_client
 
 
 def parse_args():
@@ -37,7 +37,7 @@ def main():
     index_name = args.index_name
     query = args.query
 
-    client = get_compass_api()
+    client = get_compass_client()
     # feel free to change the index name and query.
     response = client.search_documents(index_name=index_name, query=query)
     print(response.model_dump_json(indent=2))

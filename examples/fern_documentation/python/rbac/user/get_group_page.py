@@ -3,9 +3,9 @@ from typing import Optional
 from cohere_compass.clients.access_control import CompassRootClient
 from cohere_compass.models.access_control import Group, PageDirection, PageInfo
 
-COMPASS_API_URL = ...
-ROOT_USER_TOKEN = ...
-USER_NAME = ...
+COMPASS_API_URL = "<COMPASS_API_URL>"
+ROOT_USER_TOKEN = "<ROOT_USER_TOKEN>"
+USER_NAME = "<USER_NAME>"
 
 compass_root_client = CompassRootClient(
     compass_url=COMPASS_API_URL,
