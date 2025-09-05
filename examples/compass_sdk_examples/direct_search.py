@@ -33,7 +33,7 @@ def parse_args():
         "--size",
         type=int,
         help="Number of results to return (default: 10).",
-        default=10,
+        default=3,
     )
     parser.add_argument(
         "--sort-field",
@@ -80,33 +80,44 @@ def main():
             print(f"Sorting by: {sort_field} ({sort_order})")
 
         response = client.direct_search(
-            index_name=index_name, query=query, size=size, sort_by=sort_by
+            index_name=index_name,
+            query=query,
+            sort_by=sort_by,
+            size=size,
+            scroll="1m",
         )
 
-        if not response.hits:
-            print("No results found.")
-            return
+        for _ in range(3):  # up to 3 scrolls to avoid lots of results.
+            if not response.hits:
+                print("No results found.")
+                break
 
-        print(f"\nFound {len(response.hits)} results:")
-        print("=" * 50)
+            print(f"\nFound {len(response.hits)} results:")
+            print("=" * 50)
 
-        for i, hit in enumerate(response.hits, 1):
-            print(f"\n--- Result {i} (Score: {hit.score:.4f}) ---")
-            print(f"Chunk ID: {hit.chunk_id}")
-            print(f"Document ID: {hit.document_id}")
-            print(f"Path: {hit.path}")
-            print(f"Sort ID: {hit.sort_id}")
+            for i, hit in enumerate(response.hits, 1):
+                print(f"\n--- Result {i} (Score: {hit.score:.4f}) ---")
+                print(f"Chunk ID: {hit.chunk_id}")
+                print(f"Document ID: {hit.document_id}")
+                print(f"Path: {hit.path}")
+                print(f"Sort ID: {hit.sort_id}")
 
-            # Show content preview
-            content_str = str(hit.content)[:200]
-            print(f"Content preview: {content_str}...")
+                # Show content preview
+                content_str = str(hit.content)[:200]
+                print(f"Content preview: {content_str}...")
 
-            if hit.assets_info:
-                print(f"Assets: {len(hit.assets_info)} asset(s)")
+                if hit.assets_info:
+                    print(f"Assets: {len(hit.assets_info)} asset(s)")
 
-        if response.scroll_id:
-            print(f"\nScroll ID for pagination: {response.scroll_id}")
-            print("Use scroll_all_chunks.py to retrieve all results with scrolling.")
+            if response.scroll_id:
+                print(f"\nScroll ID for next page: {response.scroll_id}")
+                response = client.direct_search_scroll(
+                    scroll_id=response.scroll_id,
+                    index_name=index_name,
+                    scroll="1m",
+                )
+            else:
+                break
 
     except Exception as e:
         print(f"Error performing direct search: {e}")
