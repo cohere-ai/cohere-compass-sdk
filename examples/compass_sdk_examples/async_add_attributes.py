@@ -1,9 +1,10 @@
 import argparse
+import asyncio
 import json
 
 from cohere_compass.models.documents import DocumentAttributes
 
-from compass_sdk_examples.utils import get_compass_client
+from compass_sdk_examples.utils import get_compass_client_async
 
 
 def parse_args():
@@ -12,7 +13,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(
         description="""
-        Add custom attributes to an existing document in a Compass index.
+        Add custom attributes to an existing document in a Compass index using async client.
         Attributes are added to the document's content field and become searchable.
 
         Examples:
@@ -42,7 +43,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+async def main():
     args = parse_args()
     index_name = args.index_name
     document_id = args.document_id
@@ -53,7 +54,7 @@ def main():
         print("Error: Invalid JSON in attributes argument")
         return
 
-    client = get_compass_client()
+    client = get_compass_client_async()
 
     try:
         # Create DocumentAttributes object
@@ -66,7 +67,7 @@ def main():
         )
         print(f"Attributes to add: {json.dumps(attributes_dict, indent=2)}")
 
-        client.add_attributes(
+        await client.add_attributes(
             index_name=index_name, document_id=document_id, attributes=attributes
         )
 
@@ -74,7 +75,9 @@ def main():
 
     except Exception as e:
         print(f"Error adding attributes: {e}")
+    finally:
+        await client.aclose()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
