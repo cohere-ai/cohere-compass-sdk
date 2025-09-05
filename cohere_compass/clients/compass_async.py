@@ -56,7 +56,7 @@ from cohere_compass.models import (
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.datasources import PaginatedList
 from cohere_compass.models.documents import DocumentAttributes, PutDocumentsResponse
-from cohere_compass.models.search import GetDocumentResponse
+from cohere_compass.models.search import GetDocumentResponse, SortBy
 from cohere_compass.utils import async_apply, partition_documents
 
 
@@ -684,6 +684,7 @@ class CompassAsyncClient:
         *,
         index_name: str,
         query: dict[str, Any],
+        sort_by: list[SortBy] | None = None,
         size: int = 100,
         scroll: str | None = None,
     ) -> DirectSearchResponse:
@@ -698,7 +699,7 @@ class CompassAsyncClient:
         :returns: the direct search results
         :raises CompassError: if the search fails
         """
-        data = DirectSearchInput(query=query, size=size, scroll=scroll)
+        data = DirectSearchInput(query=query, size=size, scroll=scroll, sort_by=sort_by)
 
         result = await self._send_request(
             api_name="direct_search",
