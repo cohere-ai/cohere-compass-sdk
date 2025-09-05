@@ -335,7 +335,7 @@ class CompassClient:
 
         :returns: the response from the Compass API
         """
-        return self._send_request(
+        self._send_request(
             api_name="delete_document",
             document_id=document_id,
             index_name=index_name,
