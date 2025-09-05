@@ -14,7 +14,6 @@ from typing import Any, Literal
 
 # 3rd party imports
 import httpx
-from deprecated import deprecated
 from joblib import Parallel, delayed  # type: ignore
 from pydantic import BaseModel
 from tenacity import retry, retry_if_not_exception_type, stop_after_attempt, wait_fixed
@@ -209,6 +208,7 @@ class CompassClient:
         bearer_token: str | None = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
         retry_wait: timedelta = DEFAULT_RETRY_WAIT,
+        timeout: timedelta = DEFAULT_COMPASS_CLIENT_TIMEOUT,
     ):
         """
         Initialize the Compass client.
@@ -217,7 +217,8 @@ class CompassClient:
         :param bearer_token (optional): The bearer token for authentication.
         """
         self.index_url = index_url if index_url.endswith("/") else f"{index_url}/"
-        self.httpx_client = httpx.Client(timeout=DEFAULT_COMPASS_CLIENT_TIMEOUT)
+        self.timeout = timeout
+        self.httpx_client = httpx.Client(timeout=self.timeout.total_seconds())
 
         self.bearer_token = bearer_token
 
