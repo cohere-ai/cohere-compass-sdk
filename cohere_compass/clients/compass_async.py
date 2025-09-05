@@ -187,7 +187,7 @@ class CompassAsyncClient:
         :param index_name: the name of the index
         :returns: the response from the Compass API
         """
-        return await self._send_request(
+        await self._send_request(
             api_name="delete_index",
             index_name=index_name,
         )
