@@ -3,6 +3,7 @@ import json
 import logging
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from typing import Any
 
 # 3rd party imports
@@ -64,6 +65,7 @@ class CompassParserAsyncClient:
         metadata_config: MetadataConfig = MetadataConfig(),
         bearer_token: str | None = None,
         num_workers: int = 1,
+        timeout: timedelta = DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT,
     ):
         """
         Initialize the CompassParserClient.
@@ -90,9 +92,8 @@ class CompassParserAsyncClient:
         self.bearer_token = bearer_token
         self.thread_pool = ThreadPoolExecutor(num_workers)
         self.num_workers = num_workers
-        self.httpx_client = httpx.AsyncClient(
-            timeout=DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT
-        )
+        self.timeout = timeout
+        self.httpx = httpx.AsyncClient(timeout=self.timeout.total_seconds())
 
         self.metadata_config = metadata_config
         logger.info(
@@ -286,6 +287,7 @@ class CompassParserAsyncClient:
         parser_config: ParserConfig | None = None,
         metadata_config: MetadataConfig | None = None,
         custom_context: Fn_or_Dict | None = None,
+        timeout: timedelta | None = None,
     ) -> list[CompassDocument]:
         """
         Process a file.
@@ -309,6 +311,8 @@ class CompassParserAsyncClient:
         :param custom_context: Additional data to add to compass document. Fields will
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
+        :param timeout: Timeout in seconds for the process_file request. If None, uses
+            the timeout set when creating the client.
 
         :returns: List of resulting documents
         """
@@ -322,6 +326,7 @@ class CompassParserAsyncClient:
             filename=filename,
             file_bytes=file_bytes,
             custom_context=custom_context,
+            timeout=timeout,
         )
 
     def _get_file_params(
@@ -348,6 +353,7 @@ class CompassParserAsyncClient:
         filename: str,
         file_bytes: bytes,
         custom_context: Fn_or_Dict | None = None,
+        timeout: timedelta | None = None,
     ) -> list[CompassDocument]:
         if len(file_bytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
             max_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
@@ -360,11 +366,12 @@ class CompassParserAsyncClient:
         if self.bearer_token:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
-        res = await self.httpx_client.post(
+        res = await self.httpx.post(
             url=f"{self.parser_url}/v1/process_file",
             data={"data": json.dumps(params.model_dump())},
             files={"file": (filename, file_bytes)},
             headers=headers,
+            timeout=(timeout or self.timeout).total_seconds(),
         )
 
         if res.is_error:

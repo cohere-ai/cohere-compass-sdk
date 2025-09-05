@@ -3,6 +3,7 @@ import json
 import logging
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from typing import Any
 
 # 3rd party imports
@@ -67,7 +68,7 @@ class CompassParserClient:
         metadata_config: MetadataConfig = MetadataConfig(),
         bearer_token: str | None = None,
         num_workers: int = 1,
-        process_file_timeout_seconds: int | None = None,
+        timeout: timedelta = DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT,
     ):
         """
         Initialize the CompassParserClient.
@@ -86,8 +87,7 @@ class CompassParserClient:
             if no metadata configuration is specified in the method calls (process_file
             or process_files)
         :param bearer_token (optional): The bearer token for authentication.
-        :param process_file_timeout (optional):
-            Timeout in seconds for the process_file request.
+        :param timeout (optional): Timeout for
         """
         self.parser_url = (
             parser_url if not parser_url.endswith("/") else parser_url[:-1]
@@ -96,10 +96,10 @@ class CompassParserClient:
         self.bearer_token = bearer_token
         self.thread_pool = ThreadPoolExecutor(num_workers)
         self.num_workers = num_workers
-        self.httpx_client = httpx.Client(timeout=DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT)
+        self.timeout = timeout
+        self.httpx_client = httpx.Client(timeout=self.timeout.total_seconds())
 
         self.metadata_config = metadata_config
-        self.process_file_timeout_seconds = process_file_timeout_seconds
         logger.info(
             f"CompassParserClient initialized with parser_url: {self.parser_url}"
         )
@@ -234,7 +234,7 @@ class CompassParserClient:
         parser_config: ParserConfig | None = None,
         metadata_config: MetadataConfig | None = None,
         custom_context: Fn_or_Dict | None = None,
-        timeout: int | None = None,
+        timeout: timedelta | None = None,
     ) -> list[CompassDocument]:
         """
         Process a file.
@@ -276,7 +276,7 @@ class CompassParserClient:
             filename=filename,
             file_bytes=doc.filebytes,
             custom_context=custom_context,
-            timeout=timeout or self.process_file_timeout_seconds,
+            timeout=timeout,
         )
 
     @retry(
@@ -295,7 +295,7 @@ class CompassParserClient:
         parser_config: ParserConfig | None = None,
         metadata_config: MetadataConfig | None = None,
         custom_context: Fn_or_Dict | None = None,
-        timeout: int | None = None,
+        timeout: timedelta | None = None,
     ) -> list[CompassDocument]:
         """
         Process a file.
@@ -334,7 +334,7 @@ class CompassParserClient:
             filename=filename,
             file_bytes=file_bytes,
             custom_context=custom_context,
-            timeout=timeout or self.process_file_timeout_seconds,
+            timeout=timeout,
         )
 
     def _get_file_params(
@@ -361,7 +361,7 @@ class CompassParserClient:
         filename: str,
         file_bytes: bytes,
         custom_context: Fn_or_Dict | None = None,
-        timeout: int | None = None,
+        timeout: timedelta | None = None,
     ) -> list[CompassDocument]:
         if len(file_bytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
             max_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
@@ -379,7 +379,7 @@ class CompassParserClient:
             data={"data": json.dumps(params.model_dump())},
             files={"file": (filename, file_bytes)},
             headers=headers,
-            timeout=timeout,
+            timeout=(timeout or self.timeout).total_seconds(),
         )
 
         if res.is_error:
