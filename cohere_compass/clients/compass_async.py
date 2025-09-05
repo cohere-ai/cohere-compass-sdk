@@ -54,7 +54,12 @@ from cohere_compass.models import (
 )
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.datasources import PaginatedList
-from cohere_compass.models.documents import DocumentAttributes, PutDocumentsResponse
+from cohere_compass.models.documents import (
+    DocumentAttributes,
+    ParsedDocumentResponse,
+    PutDocumentsResponse,
+    UploadDocumentsStatus,
+)
 from cohere_compass.models.indexes import ListIndexesResponse
 from cohere_compass.models.search import GetDocumentResponse, SortBy
 from cohere_compass.utils import async_apply, partition_documents
@@ -334,6 +339,54 @@ class CompassAsyncClient:
         )
 
         return result.result  # type: ignore
+
+    async def upload_document_status(
+        self,
+        *,
+        index_name: str,
+        upload_id: str,
+    ) -> list[UploadDocumentsStatus] | None:
+        """
+        Status of the document upload.
+
+        :param index_name: the name of the index
+        :param upload_id: the upload id returned when uploading the document
+        :param max_retries: the maximum number of times to retry a request if it fails
+        :param sleep_retry_seconds: interval between API request retries
+
+        :returns: an error message if the request failed, otherwise None
+        """
+        result = await self._send_request(
+            api_name="upload_documents_status",
+            index_name=index_name,
+            upload_id=upload_id,
+        )
+
+        return [UploadDocumentsStatus(**r) for r in result.result]  # type: ignore
+
+    async def download_parsed_document(
+        self,
+        *,
+        index_name: str,
+        upload_id: str,
+    ) -> list[ParsedDocumentResponse] | None:
+        """
+        Download the parsed document from Compass.
+
+        :param index_name: the name of the index
+        :param upload_id: the upload id returned when uploading the document
+        :param max_retries: the maximum number of times to retry a request if it fails
+        :param sleep_retry_seconds: interval between API request retries
+
+        :returns: a list of parsed documents or an error message if the request failed
+        """
+        result = await self._send_request(
+            api_name="download_parsed_document",
+            index_name=index_name,
+            upload_id=upload_id,
+        )
+
+        return [ParsedDocumentResponse.convert(data=r) for r in result.result]
 
     async def insert_docs(
         self,
