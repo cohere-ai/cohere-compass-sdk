@@ -388,8 +388,6 @@ class CompassClient:
         :param index_name: the name of the index
         :param document_id: the document to modify
         :param attributes: the attributes to add to the document
-
-        :returns: an error message if the request failed, otherwise None
         """
         self._send_request(
             api_name="add_attributes",
