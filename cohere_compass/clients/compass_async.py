@@ -75,7 +75,6 @@ class CompassAsyncClient:
         bearer_token: str | None = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
         retry_wait: timedelta = DEFAULT_RETRY_WAIT,
-        include_api_in_url: bool = True,
     ):
         """
         Initialize the Compass client.
@@ -89,8 +88,6 @@ class CompassAsyncClient:
         :param index_url: The base URL for the index API.
         :param bearer_token (optional): The bearer token for authentication.
         :param http_session (optional): An optional HTTP session to use for requests.
-        :param include_api_in_url: Whether to include '/api' in the base URL.
-               Defaults to True.
         """
         self.index_url = index_url if index_url.endswith("/") else f"{index_url}/"
         self.httpx_client = httpx.AsyncClient(timeout=DEFAULT_COMPASS_CLIENT_TIMEOUT)
@@ -105,7 +102,6 @@ class CompassAsyncClient:
             )
         self.max_retries = max_retries
         self.retry_wait = retry_wait
-        self.include_api_in_url = include_api_in_url
 
     async def aclose(self):
         """Close the HTTP client."""
@@ -856,10 +852,7 @@ class CompassAsyncClient:
             )
         http_method, api_path = API_DEFINITIONS[api_name]
 
-        if self.include_api_in_url:
-            target_path = f"{self.index_url}api/v1/{api_path}"
-        else:
-            target_path = f"{self.index_url}v1/{api_path}"
+        target_path = f"{self.index_url}v1/{api_path}"
         target_path = target_path.format(**url_params)
 
         @retry(
