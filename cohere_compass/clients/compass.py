@@ -63,6 +63,7 @@ from cohere_compass.models.documents import (
     PutDocumentsResponse,
     UploadDocumentsStatus,
 )
+from cohere_compass.models.indexes import ListIndexesResponse
 from cohere_compass.models.search import (
     GetDocumentResponse,
     SortBy,
@@ -371,10 +372,9 @@ class CompassClient:
 
         :returns: the response from the Compass API
         """
-        return self._send_request(
-            api_name="list_indexes",
-            index_name="",
-        )
+        result = self._send_request(api_name="list_indexes")
+
+        return ListIndexesResponse.model_validate(result.result)
 
     def add_attributes(
         self,

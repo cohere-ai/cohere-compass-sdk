@@ -55,6 +55,7 @@ from cohere_compass.models import (
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.datasources import PaginatedList
 from cohere_compass.models.documents import DocumentAttributes, PutDocumentsResponse
+from cohere_compass.models.indexes import ListIndexesResponse
 from cohere_compass.models.search import GetDocumentResponse, SortBy
 from cohere_compass.utils import async_apply, partition_documents
 
@@ -241,10 +242,8 @@ class CompassAsyncClient:
 
         :returns: the response from the Compass API
         """
-        return await self._send_request(
-            api_name="list_indexes",
-            index_name="",
-        )
+        result = await self._send_request(api_name="list_indexes")
+        return ListIndexesResponse.model_validate(result.result)
 
     async def add_attributes(
         self,
