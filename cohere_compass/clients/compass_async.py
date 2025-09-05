@@ -101,6 +101,10 @@ class CompassAsyncClient:
         self.retry_wait = retry_wait
         self.include_api_in_url = include_api_in_url
 
+    async def aclose(self):
+        """Close the HTTP client."""
+        await self.httpx_client.aclose()
+
     async def get_models(
         self,
     ):

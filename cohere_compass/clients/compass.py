@@ -227,6 +227,10 @@ class CompassClient:
         self.max_retries = max_retries
         self.retry_wait = retry_wait
 
+    def close(self):
+        """Close the HTTP client."""
+        self.httpx_client.close()
+
     def get_models(
         self,
     ) -> dict[str, list[str]]:
