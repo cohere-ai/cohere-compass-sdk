@@ -363,7 +363,8 @@ class CompassClient:
             document_id=document_id,
             index_name=index_name,
         )
-        return GetDocumentResponse.model_validate(result.result)
+        response = GetDocumentResponse.model_validate(result.result)
+        return response.document
 
     def list_indexes(
         self,
@@ -514,6 +515,7 @@ class CompassClient:
         self,
         *,
         index_name: str,
+        # TODO: Change to Iterable
         docs: Iterator[CompassDocument],
         max_chunks_per_request: int = DEFAULT_MAX_CHUNKS_PER_REQUEST,
         max_error_rate: float = DEFAULT_MAX_ERROR_RATE,

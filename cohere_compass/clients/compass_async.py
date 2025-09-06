@@ -235,7 +235,8 @@ class CompassAsyncClient:
             document_id=document_id,
             index_name=index_name,
         )
-        return GetDocumentResponse.model_validate(result.result)
+        response = GetDocumentResponse.model_validate(result.result)
+        return response.document
 
     async def list_indexes(
         self,

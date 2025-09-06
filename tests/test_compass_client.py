@@ -3,30 +3,36 @@ from collections.abc import Callable
 from typing import Any, Literal
 
 import httpx
+import pytest
 import respx
+from pydantic import ValidationError
 from respx import MockRouter
 
 from cohere_compass.clients import CompassClient
 from cohere_compass.models import CompassDocument
 from cohere_compass.models.config import IndexConfig
-from cohere_compass.models.documents import DocumentAttributes
-from cohere_compass.models.search import SortBy
+from cohere_compass.models.documents import (
+    AssetType,
+    CompassDocumentMetadata,
+    DocumentAttributes,
+)
+from cohere_compass.models.indexes import IndexInfo
 
 HTTPMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
 
 
-def simple_compass_client_test(
+def mock_endpoint(
     method: HTTPMethod,
     url: str,
     status_code: int = 200,
+    response_body: Any = None,
     expected_request_body: dict[Any, Any] | None = None,
 ):
     def decorator(test_func: Callable[..., Any]) -> Callable[..., Any]:
         @respx.mock(assert_all_mocked=True)
-        # @functools.wraps(test_func)
         def wrapper(respx_mock: MockRouter, *args: Any, **kwargs: Any):
             route = getattr(respx_mock, method.lower())(url).mock(
-                return_value=httpx.Response(status_code)
+                return_value=httpx.Response(status_code, json=response_body)
             )
 
             test_func(*args, **kwargs)
@@ -45,9 +51,9 @@ def simple_compass_client_test(
     return decorator
 
 
-@simple_compass_client_test(
+@mock_endpoint(
     "DELETE",
-    "http://test.com/api/v1/indexes/test_index/documents/test_id",
+    "http://test.com/v1/indexes/test_index/documents/test_id",
     201,
 )
 def test_delete_url_formatted_with_doc_and_index():
@@ -56,9 +62,9 @@ def test_delete_url_formatted_with_doc_and_index():
     compass.delete_document(index_name="test_index", document_id="test_id")
 
 
-@simple_compass_client_test(
+@mock_endpoint(
     "PUT",
-    "http://test.com/api/v1/indexes/test_index",
+    "http://test.com/v1/indexes/test_index",
     200,
 )
 def test_create_index_formatted_with_index():
@@ -66,9 +72,9 @@ def test_create_index_formatted_with_index():
     compass.create_index(index_name="test_index")
 
 
-@simple_compass_client_test(
+@mock_endpoint(
     "PUT",
-    "http://test.com/api/v1/indexes/test_index",
+    "http://test.com/v1/indexes/test_index",
     200,
     {"number_of_shards": 5},
 )
@@ -90,7 +96,7 @@ def test_create_index_with_index_config():
 #
 # def test_create_index_400s_propagated_to_caller(requests_mock: Mocker):
 #     requests_mock.put(
-#         "http://test.com/api/v1/indexes/test-index",
+#         "http://test.com/v1/indexes/test-index",
 #         status_code=404,
 #         json={"error": "invalid request"},
 #     )
@@ -101,9 +107,9 @@ def test_create_index_with_index_config():
 #     assert len(requests_mock.request_history) == 1
 
 
-@simple_compass_client_test(
+@mock_endpoint(
     "PUT",
-    "http://test.com/api/v1/indexes/test_index/documents",
+    "http://test.com/v1/indexes/test_index/documents",
     200,
     {
         "documents": [
@@ -124,9 +130,9 @@ def test_put_documents_payload_and_url_exist():
     compass.insert_docs(index_name="test_index", docs=iter([CompassDocument()]))
 
 
-@simple_compass_client_test(
+@mock_endpoint(
     "PUT",
-    "http://test.com/api/v1/indexes/test_index/documents",
+    "http://test.com/v1/indexes/test_index/documents",
     200,
     {
         "documents": [
@@ -147,46 +153,125 @@ def test_put_document_payload_and_url_exist():
     compass.insert_doc(index_name="test_index", doc=CompassDocument())
 
 
-# TODO - Re-enable this.
-# def test_put_document_payload_with_invalid_document_id(requests_mock: Mocker):
-#     doc = CompassDocument(
-#         filebytes=b"",
-#         metadata=CompassDocumentMetadata(
-#             document_id="bypass-validation", filename="tests/docs/sample.doc"
-#         ),
-#     )
-#     doc.metadata.document_id = "something/with/slashes"
-#     compass = CompassClient(index_url="http://test.com")
-#     with pytest.raises(ValidationError) as exc_info:
-#         compass.insert_doc(index_name="test_index", doc=doc)
-#     assert "String should match pattern" in str(exc_info)
-#     assert len(requests_mock.request_history) == 0
+@respx.mock(assert_all_mocked=True)
+def test_put_document_payload_with_invalid_document_id(respx_mock: MockRouter):
+    doc = CompassDocument(
+        filebytes=b"",
+        metadata=CompassDocumentMetadata(
+            document_id="bypass-validation", filename="tests/docs/sample.doc"
+        ),
+    )
+    doc.metadata.document_id = "something/with/slashes"
+    compass = CompassClient(index_url="http://test.com")
+    with pytest.raises(ValidationError) as exc_info:
+        compass.insert_doc(index_name="test_index", doc=doc)
+        assert "String should match pattern" in str(exc_info)
 
 
-@simple_compass_client_test(
+@mock_endpoint(
     "GET",
-    "http://test.com/api/v1/indexes",
+    "http://test.com/v1/indexes",
     200,
+    response_body={
+        "indexes": [
+            {
+                "name": "test_index",
+                "count": 1,
+                "parent_doc_count": 1,
+            }
+        ]
+    },
 )
 def test_list_indices_is_valid():
-    # Running...
     compass = CompassClient(index_url="http://test.com")
-    compass.list_indexes()
+    response = compass.list_indexes()
+    assert response.indexes == [
+        IndexInfo(name="test_index", count=1, parent_doc_count=1)
+    ]
 
 
-@simple_compass_client_test(
+@mock_endpoint(
     "GET",
-    "http://test.com/api/v1/indexes/test_index/documents/test_id",
+    "http://test.com/v1/indexes/test_index/documents/test_id",
     200,
+    response_body={
+        "document": {
+            "document_id": "test-document-id",
+            "path": "test-path",
+            "parent_document_id": "test-parent-document-id",
+            "content": {
+                "field-1": "value-1",
+                "field-2": "value-2",
+            },
+            "index_fields": ["field-1", "field-2"],
+            "authorized_groups": ["group-1", "group-2"],
+            "chunks": [
+                {
+                    "chunk_id": "test-chunk-id",
+                    "sort_id": 1,
+                    "parent_document_id": "test-parent-document-id",
+                    "content": {
+                        "field-1": "value-1",
+                        "field-2": "value-2",
+                    },
+                    "origin": {
+                        "field-1": "value-1",
+                        "field-2": "value-2",
+                    },
+                    "assets_info": [
+                        {
+                            "asset_id": "test-asset-id",
+                            "asset_type": AssetType.PAGE_IMAGE,
+                            "content_type": "test-content-type",
+                            "presigned_url": "test-presigned-url",
+                        },
+                        {
+                            "asset_id": "test-asset-id",
+                            "asset_type": AssetType.PAGE_MARKDOWN,
+                            "content_type": "test-content-type",
+                            "presigned_url": "test-presigned-url",
+                        },
+                    ],
+                }
+            ],
+        }
+    },
 )
-def test_get_documents_is_valid():
+def test_get_document_is_valid():
     compass = CompassClient(index_url="http://test.com")
-    compass.get_document(index_name="test_index", document_id="test_id")
+    document = compass.get_document(index_name="test_index", document_id="test_id")
+
+    assert document.document_id == "test-document-id"
+    assert document.path == "test-path"
+    assert document.parent_document_id == "test-parent-document-id"
+    assert document.content == {"field-1": "value-1", "field-2": "value-2"}
+    assert document.index_fields == ["field-1", "field-2"]
+    assert document.authorized_groups == ["group-1", "group-2"]
+
+    assert document.chunks[0].chunk_id == "test-chunk-id"
+    assert document.chunks[0].sort_id == 1
+    assert document.chunks[0].parent_document_id == "test-parent-document-id"
+    assert document.chunks[0].content == {"field-1": "value-1", "field-2": "value-2"}
+    assert document.chunks[0].origin == {"field-1": "value-1", "field-2": "value-2"}
+
+    assert document.chunks[0].assets_info is not None
+    assert len(document.chunks[0].assets_info) == 2
+
+    assert document.chunks[0].assets_info[0].asset_id == "test-asset-id"
+    assert document.chunks[0].assets_info[0].asset_type == AssetType.PAGE_IMAGE
+    assert document.chunks[0].assets_info[0].content_type == "test-content-type"
+    assert document.chunks[0].assets_info[0].presigned_url == "test-presigned-url"
+
+    assert document.chunks[0].assets_info[1].asset_id == "test-asset-id"
+
+    assert document.chunks[0].assets_info[1].asset_type == AssetType.PAGE_MARKDOWN
+    assert document.chunks[0].assets_info[1].content_type == "test-content-type"
+    assert document.chunks[0].assets_info[1].presigned_url == "test-presigned-url"
 
 
-@simple_compass_client_test(
+@mock_endpoint(
     "POST",
-    "http://test.com/api/v1/indexes/test_index/_refresh",
+    "http://test.com/v1/indexes/test_index/_refresh",
     200,
 )
 def test_refresh_is_valid():
@@ -194,9 +279,9 @@ def test_refresh_is_valid():
     compass.refresh_index(index_name="test_index")
 
 
-@simple_compass_client_test(
+@mock_endpoint(
     "POST",
-    "http://test.com/api/v1/indexes/test_index/documents/test_id/_add_attributes",
+    "http://test.com/v1/indexes/test_index/documents/test_id/_add_attributes",
     200,
     {"fake": "context"},
 )
@@ -213,7 +298,7 @@ def test_add_attributes_is_valid():
 
 def test_get_document_asset_with_json_asset(respx_mock: MockRouter):
     respx_mock.get(
-        "http://test.com/api/v1/indexes/test_index/documents/test_id/assets/test_asset_id"
+        "http://test.com/v1/indexes/test_index/documents/test_id/assets/test_asset_id"
     ).mock(
         return_value=httpx.Response(
             200,
@@ -233,7 +318,7 @@ def test_get_document_asset_with_json_asset(respx_mock: MockRouter):
 
 def test_get_document_asset_markdown(respx_mock: MockRouter):
     respx_mock.get(
-        "http://test.com/api/v1/indexes/test_index/documents/test_id/assets/test_asset_id"
+        "http://test.com/v1/indexes/test_index/documents/test_id/assets/test_asset_id"
     ).mock(
         return_value=httpx.Response(
             200,
@@ -252,7 +337,7 @@ def test_get_document_asset_markdown(respx_mock: MockRouter):
 
 def test_get_document_asset_image(respx_mock: MockRouter):
     respx_mock.get(
-        "http://test.com/api/v1/indexes/test_index/documents/test_id/assets/test_asset_id"
+        "http://test.com/v1/indexes/test_index/documents/test_id/assets/test_asset_id"
     ).mock(
         return_value=httpx.Response(
             200,
@@ -271,7 +356,7 @@ def test_get_document_asset_image(respx_mock: MockRouter):
 
 def test_direct_search_is_valid(respx_mock: MockRouter):
     route = respx_mock.post(
-        "http://test.com/api/v1/indexes/test_index/_direct_search"
+        "http://test.com/v1/indexes/test_index/_direct_search"
     ).mock(
         return_value=httpx.Response(
             200,
@@ -293,7 +378,7 @@ def test_direct_search_is_valid(respx_mock: MockRouter):
 def test_direct_search_scroll_is_valid(respx_mock: MockRouter):
     index_name = "test_index"
     route = respx_mock.post(
-        f"http://test.com/api/v1/indexes/{index_name}/_direct_search/scroll",
+        f"http://test.com/v1/indexes/{index_name}/_direct_search/scroll",
     ).mock(
         return_value=httpx.Response(
             200,
@@ -323,7 +408,7 @@ def test_direct_search_scroll_is_valid(respx_mock: MockRouter):
 # def test_direct_search_with_sort_by_single_field(requests_mock_200s: Mocker):
 #     # Register mock response for the direct_search endpoint
 #     requests_mock_200s.post(
-#         "http://test.com/api/v1/indexes/test_index/_direct_search",
+#         "http://test.com/v1/indexes/test_index/_direct_search",
 #         json={"hits": [], "scroll_id": "test_scroll_id"},
 #     )
 #
@@ -335,7 +420,7 @@ def test_direct_search_scroll_is_valid(respx_mock: MockRouter):
 #     assert requests_mock_200s.request_history[0].method == "POST"
 #     assert (
 #         requests_mock_200s.request_history[0].url
-#         == "http://test.com/api/v1/indexes/test_index/_direct_search"
+#         == "http://test.com/v1/indexes/test_index/_direct_search"
 #     )
 #     payload = requests_mock_200s.request_history[0].json()
 #     assert "sort_by" in payload
@@ -345,7 +430,7 @@ def test_direct_search_scroll_is_valid(respx_mock: MockRouter):
 # def test_direct_search_with_sort_by_multiple_fields(requests_mock_200s: Mocker):
 #     # Register mock response for the direct_search endpoint
 #     requests_mock_200s.post(
-#         "http://test.com/api/v1/indexes/test_index/_direct_search",
+#         "http://test.com/v1/indexes/test_index/_direct_search",
 #         json={"hits": [], "scroll_id": "test_scroll_id"},
 #     )
 #
@@ -360,7 +445,7 @@ def test_direct_search_scroll_is_valid(respx_mock: MockRouter):
 #     assert requests_mock_200s.request_history[0].method == "POST"
 #     assert (
 #         requests_mock_200s.request_history[0].url
-#         == "http://test.com/api/v1/indexes/test_index/_direct_search"
+#         == "http://test.com/v1/indexes/test_index/_direct_search"
 #     )
 #     payload = requests_mock_200s.request_history[0].json()
 #     assert "sort_by" in payload
@@ -373,7 +458,7 @@ def test_direct_search_scroll_is_valid(respx_mock: MockRouter):
 # def test_direct_search_without_sort_by(requests_mock_200s: Mocker):
 #     # Register mock response for the direct_search endpoint
 #     requests_mock_200s.post(
-#         "http://test.com/api/v1/indexes/test_index/_direct_search",
+#         "http://test.com/v1/indexes/test_index/_direct_search",
 #         json={"hits": [], "scroll_id": "test_scroll_id"},
 #     )
 #
@@ -382,17 +467,18 @@ def test_direct_search_scroll_is_valid(respx_mock: MockRouter):
 #     assert requests_mock_200s.request_history[0].method == "POST"
 #     assert (
 #         requests_mock_200s.request_history[0].url
-#         == "http://test.com/api/v1/indexes/test_index/_direct_search"
+#         == "http://test.com/v1/indexes/test_index/_direct_search"
 #     )
 #     payload = requests_mock_200s.request_history[0].json()
 #     assert "sort_by" not in payload or payload["sort_by"] is None
 #
 
 
-def test_proper_handling_of_returned_tuple_from_parser():
-    compass = CompassClient(index_url="http://test.com")
-    docs = compass.insert_docs(
-        index_name="test_index",
-        docs=iter([("test_file.pdf", "time out")]),  # type: ignore
-    )
-    assert docs == [{"test_file.pdf": "time out"}]
+# def test_proper_handling_of_returned_tuple_from_parser():
+#     compass = CompassClient(index_url="http://test.com")
+#     docs = compass.insert_docs(
+#         index_name="test_index",
+#         docs=iter([("test_file.pdf", "time out")]),  # type: ignore
+#     )
+#     assert docs == [{"test_file.pdf": "time out"}]
+#
