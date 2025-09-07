@@ -1,7 +1,6 @@
 # Python imports
 import base64
 import os
-import uuid
 from collections import deque
 from collections.abc import Iterable
 from datetime import timedelta
@@ -22,7 +21,6 @@ from cohere_compass.clients.compass import (
 )
 from cohere_compass.constants import (
     DEFAULT_COMPASS_CLIENT_TIMEOUT,
-    DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_CHUNKS_PER_REQUEST,
     DEFAULT_MAX_ERROR_RATE,
     DEFAULT_MAX_RETRIES,
@@ -56,8 +54,10 @@ from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.datasources import PaginatedList
 from cohere_compass.models.documents import (
     DocumentAttributes,
+    ParseableDocumentConfig,
     ParsedDocumentResponse,
     PutDocumentsResponse,
+    UploadDocumentsResult,
     UploadDocumentsStatus,
 )
 from cohere_compass.models.indexes import ListIndexesResponse
@@ -302,7 +302,8 @@ class CompassAsyncClient:
         content_type: str,
         document_id: str,
         attributes: DocumentAttributes = DocumentAttributes(),
-    ) -> str | dict[str, Any] | None:
+        config: ParseableDocumentConfig = ParseableDocumentConfig(),
+    ) -> UploadDocumentsResult:
         """
         Parse and insert a document into an index in Compass.
 
@@ -315,12 +316,6 @@ class CompassAsyncClient:
 
         :returns: an error message if the request failed, otherwise None
         """
-        if len(filebytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
-            max_file_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
-            err = f"File too large, supported file size is {max_file_size_mb} mb"
-            logger.error(err)
-            return err
-
         b64 = base64.b64encode(filebytes).decode("utf-8")
         doc = ParseableDocument(
             id=document_id,
@@ -329,6 +324,7 @@ class CompassAsyncClient:
             content_length_bytes=len(filebytes),
             content_encoded_bytes=b64,
             attributes=attributes,
+            config=config,
         )
 
         result = await self._send_request(
@@ -337,7 +333,7 @@ class CompassAsyncClient:
             index_name=index_name,
         )
 
-        return result.result  # type: ignore
+        return UploadDocumentsResult.model_validate(result.result)
 
     async def upload_document_status(
         self,
@@ -552,12 +548,10 @@ class CompassAsyncClient:
 
         :param datasource_id: the id of the datasource
         """
-        result = await self._send_request(
+        await self._send_request(
             api_name="delete_datasources",
             datasource_id=datasource_id,
         )
-
-        return result.result
 
     async def sync_datasource(
         self,
@@ -569,12 +563,10 @@ class CompassAsyncClient:
 
         :param datasource_id: the id of the datasource
         """
-        result = await self._send_request(
+        await self._send_request(
             api_name="sync_datasource",
             datasource_id=datasource_id,
         )
-
-        return result.result
 
     async def list_datasources_objects_states(
         self,

@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import threading
-import uuid
 from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -677,12 +676,10 @@ class CompassClient:
 
         :param datasource_id: the id of the datasource
         """
-        result = self._send_request(
+        self._send_request(
             api_name="delete_datasources",
             datasource_id=datasource_id,
         )
-
-        return result.result
 
     def sync_datasource(
         self,
@@ -694,12 +691,10 @@ class CompassClient:
 
         :param datasource_id: the id of the datasource
         """
-        result = self._send_request(
+        self._send_request(
             api_name="sync_datasource",
             datasource_id=datasource_id,
         )
-
-        return result.result
 
     def list_datasources_objects_states(
         self,
