@@ -498,8 +498,6 @@ class CompassClient:
 
         :param index_name: the name of the index
         :param upload_id: the upload id returned when uploading the document
-        :param max_retries: the maximum number of times to retry a request if it fails
-        :param sleep_retry_seconds: interval between API request retries
 
         :returns: a list of parsed documents or an error message if the request failed
         """
@@ -893,8 +891,6 @@ class CompassClient:
         :param scroll_id: the scroll ID from a previous direct_search call
         :param index_name: the name of the index same as used in direct_search
         :param scroll: the scroll duration (e.g. "1m" for 1 minute)
-        :param max_retries: the maximum number of times to retry the request
-        :param sleep_retry_seconds: the number of seconds to sleep between retries
 
         :returns: the next batch of search results
         :raises CompassError: if the scroll search fails
