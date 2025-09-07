@@ -51,6 +51,7 @@ from cohere_compass.models import (
     SearchFilter,
     SearchInput,
     UploadDocumentsInput,
+    UploadDocumentsResult,
 )
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.datasources import PaginatedList
@@ -147,11 +148,11 @@ API_DEFINITIONS = {
     ),
     "upload_documents_status": (
         "GET",
-        "indexes/{{index_name}}/documents/_upload/{{upload_id}}/status",
+        "indexes/{index_name}/documents/_upload/{upload_id}/status",
     ),
     "download_parsed_document": (
         "GET",
-        "indexes/{{index_name}}/documents/_upload/{{upload_id}}/download",
+        "indexes/{index_name}/documents/_upload/{upload_id}/download",
     ),
     # Search APIs
     "search_documents": (
@@ -427,10 +428,10 @@ class CompassClient:
         filename: str,
         filebytes: bytes,
         content_type: ContentTypeEnum,
-        document_id: uuid.UUID,
+        document_id: str,
         attributes: DocumentAttributes = DocumentAttributes(),
         config: ParseableDocumentConfig = ParseableDocumentConfig(),
-    ) -> str | dict[str, Any] | None:
+    ) -> UploadDocumentsResult:
         """
         Parse and insert a document into an index in Compass.
 
@@ -461,14 +462,14 @@ class CompassClient:
             index_name=index_name,
         )
 
-        return result.result  # type: ignore
+        return UploadDocumentsResult.model_validate(result.result)
 
     def upload_document_status(
         self,
         *,
         index_name: str,
         upload_id: str,
-    ) -> list[UploadDocumentsStatus] | None:
+    ) -> list[UploadDocumentsStatus]:
         """
         Status of the document upload.
 
@@ -492,7 +493,7 @@ class CompassClient:
         *,
         index_name: str,
         upload_id: str,
-    ) -> list[ParsedDocumentResponse] | None:
+    ) -> list[ParsedDocumentResponse]:
         """
         Download the parsed document from Compass.
 
@@ -630,7 +631,7 @@ class CompassClient:
         self,
         *,
         datasource: CreateDataSource,
-    ) -> DataSource | str:
+    ) -> DataSource:
         """
         Create a new datasource in Compass.
 
@@ -643,7 +644,7 @@ class CompassClient:
 
         return DataSource.model_validate(result.result)
 
-    def list_datasources(self) -> PaginatedList[DataSource] | str:
+    def list_datasources(self) -> PaginatedList[DataSource]:
         """List all datasources in Compass."""
         result = self._send_request(api_name="list_datasources")
 
@@ -706,7 +707,7 @@ class CompassClient:
         datasource_id: str,
         skip: int = 0,
         limit: int = 100,
-    ) -> PaginatedList[DocumentStatus] | str:
+    ) -> PaginatedList[DocumentStatus]:
         """
         List all objects states in a datasource in Compass.
 

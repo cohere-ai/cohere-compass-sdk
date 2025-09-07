@@ -6,6 +6,7 @@ from typing import Annotated, Any, TypeAlias
 
 # 3rd party imports
 from pydantic import (
+    UUID4,
     BaseModel,
     ConfigDict,
     Field,
@@ -293,7 +294,7 @@ class ParseableDocumentConfig(BaseModel):
 class ParseableDocument(BaseModel):
     """A document to be sent to Compass for parsing."""
 
-    id: uuid.UUID
+    id: str
     filename: Annotated[
         str, StringConstraints(min_length=1)
     ]  # Ensures the filename is a non-empty string
@@ -308,6 +309,13 @@ class UploadDocumentsInput(BaseModel):
     """A model for the input of a call to upload_documents API."""
 
     documents: list[ParseableDocument]
+
+
+class UploadDocumentsResult(BaseModel):
+    """A model for the result of a call to upload_documents API."""
+
+    upload_id: UUID4
+    document_ids: list[str]
 
 
 class PutDocumentsInput(BaseModel):
@@ -339,7 +347,7 @@ class UploadDocumentsStatus(BaseModel):
     """A model for the response of status for documents when uploaded via async API."""
 
     upload_id: uuid.UUID
-    document_id: uuid.UUID
+    document_id: str
     destinations: list[str]
     file_name: str
     state: str | None

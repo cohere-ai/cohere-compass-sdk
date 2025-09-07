@@ -300,7 +300,7 @@ class CompassAsyncClient:
         filename: str,
         filebytes: bytes,
         content_type: str,
-        document_id: uuid.UUID,
+        document_id: str,
         attributes: DocumentAttributes = DocumentAttributes(),
     ) -> str | dict[str, Any] | None:
         """
