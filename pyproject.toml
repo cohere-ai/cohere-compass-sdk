@@ -23,6 +23,7 @@ pytest-asyncio = "^0.24.0"
 pytest-mock = "^3.14.0"
 respx = "^0.22.0"
 ruff = "^0.8.1"
+pytest-cov = "^6.3.0"
 
 [tool.pyright]
 reportMissingImports = false
@@ -59,3 +60,38 @@ mccabe = { max-complexity = 15 }
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["D"]
+
+[tool.pytest.ini_options]
+addopts = """
+    --cov=cohere_compass
+    --cov-report=term-missing
+    --cov-report=html
+    --cov-report=xml
+    --cov-branch
+    """
+pythonpath = ["./"]
+testpaths = "tests"
+xfail_strict = true
+
+[tool.coverage.run]
+branch = true
+source = ["cohere_compass"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+fail_under = 80
+ignore_errors = true
+omit = [
+    "tests/*",
+    "setup.py",
+]
+
+[tool.coverage.html]
+directory = "coverage_html"
