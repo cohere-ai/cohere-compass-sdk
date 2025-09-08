@@ -7,25 +7,19 @@ def parse_args():
     """
     Parse the user arguments using argparse.
     """
-    # Set up argument parsing
     parser = argparse.ArgumentParser(
-        description="""
-This script searches for documents in an existing index in Compass.
-""".strip(),
-        add_help=True,
+        description="Retrieve a specific document from a Compass index."
     )
-
-    # Arguments
     parser.add_argument(
         "--index-name",
         type=str,
-        help="Specify the name of the index to search in.",
+        help="Specify the name of the index.",
         required=True,
     )
     parser.add_argument(
-        "--query",
+        "--document-id",
         type=str,
-        help="Specify the query to search for.",
+        help="Specify the ID of the document to retrieve.",
         required=True,
     )
 
@@ -35,12 +29,18 @@ This script searches for documents in an existing index in Compass.
 def main():
     args = parse_args()
     index_name = args.index_name
-    query = args.query
+    document_id = args.document_id
 
     client = get_compass_client()
-    # feel free to change the index name and query.
-    response = client.search_documents(index_name=index_name, query=query)
-    print(response.model_dump_json(indent=2))
+
+    try:
+        print(f"Retrieving document '{document_id}' from index '{index_name}'...")
+        result = client.get_document(index_name=index_name, document_id=document_id)
+
+        print(result.model_dump_json(indent=2))
+
+    except Exception as e:
+        print(f"Error retrieving document: {e}")
 
 
 if __name__ == "__main__":

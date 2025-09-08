@@ -14,8 +14,8 @@ class PaginatedList(pydantic.BaseModel, typing.Generic[T]):
     """Model class for a paginated list of items."""
 
     value: list[T]
-    skip: typing.Optional[int]
-    limit: typing.Optional[int]
+    skip: int | None
+    limit: int | None
 
 
 class OneDriveConfig(pydantic.BaseModel):
@@ -30,11 +30,11 @@ class AzureBlobStorageConfig(pydantic.BaseModel):
     type: typing.Literal["msft_azure_blob_storage"]
     connection_string: str
     container_name: str
-    name_starts_with: typing.Optional[str] = None
+    name_starts_with: str | None = None
 
 
 DatasourceConfig = typing.Annotated[
-    typing.Union[AzureBlobStorageConfig, OneDriveConfig],
+    AzureBlobStorageConfig | OneDriveConfig,
     pydantic.Field(discriminator="type"),
 ]
 
@@ -42,29 +42,29 @@ DatasourceConfig = typing.Annotated[
 class DataSource(pydantic.BaseModel):
     """Model class for a data source."""
 
-    id: typing.Optional[pydantic.UUID4] = None
+    id: pydantic.UUID4 | None = None
     name: str
-    description: typing.Optional[str] = None
+    description: str | None = None
     config: DatasourceConfig
     destinations: list[str]
     enabled: bool = True
-    created_at: typing.Optional[datetime.datetime] = None
-    updated_at: typing.Optional[datetime.datetime] = None
+    created_at: datetime.datetime | None = None
+    updated_at: datetime.datetime | None = None
 
 
 class CreateDataSource(pydantic.BaseModel):
     """Model class for the create_datasource API."""
 
     datasource: DataSource
-    state_key: typing.Optional[str] = None
+    state_key: str | None = None
 
 
 class DocumentStatus(pydantic.BaseModel):
     """Model class for the response of the list_datasources_objects_states API."""
 
     document_id: str
-    source_id: typing.Optional[str]
+    source_id: str | None
     state: str
     destinations: list[str]
     created_at: datetime.datetime
-    updated_at: typing.Optional[datetime.datetime] = None
+    updated_at: datetime.datetime | None = None
