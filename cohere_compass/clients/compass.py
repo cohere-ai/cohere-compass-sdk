@@ -184,9 +184,9 @@ class CompassClient:
             "get_document_asset": f"{base_api}/v1/indexes/{{index_name}}/documents/{{document_id}}/assets/{{asset_id}}",  # noqa: E501
             "add_attributes": f"{base_api}/v1/indexes/{{index_name}}/documents/{{document_id}}/_add_attributes",  # noqa: E501
             "refresh": f"{base_api}/v1/indexes/{{index_name}}/_refresh",
-            "upload_documents": f"{base_api}/v1/indexes/{{index_name}}/documents/_upload",  # noqa: E501
-            "upload_documents_status": f"{base_api}/v1/indexes/{{index_name}}/documents/_upload/{{upload_id}}/status",  # noqa: E501
-            "download_parsed_document": f"{base_api}/v1/indexes/{{index_name}}/documents/_upload/{{upload_id}}/download",  # noqa: E501
+            "upload_documents": f"{base_api}/v1/indexes/{{index_name}}/documents/upload",  # noqa: E501
+            "upload_documents_status": f"{base_api}/v1/indexes/{{index_name}}/documents/upload/{{upload_id}}",  # noqa: E501
+            "download_parsed_document": f"{base_api}/v1/indexes/{{index_name}}/documents/upload/{{upload_id}}/_download",  # noqa: E501
             "update_group_authorization": f"{base_api}/v1/indexes/{{index_name}}/group_authorization",  # noqa: E501
             "direct_search": f"{base_api}/v1/indexes/{{index_name}}/_direct_search",
             "direct_search_scroll": f"{base_api}/v1/indexes/_direct_search/scroll",
