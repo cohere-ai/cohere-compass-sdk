@@ -427,3 +427,73 @@ class ContentTypeEnum(str, Enum):
 
     # Message types
     MessageRfc822 = "message/rfc822"  # eml files
+    ODS = "application/vnd.oasis.opendocument.spreadsheet"
+    ODP = "application/vnd.oasis.opendocument.presentation"
+
+    @staticmethod
+    def detect_content_type(filename: str) -> Optional["ContentTypeEnum"]:
+        """
+        Detect the content type based on the file extension.
+
+        :param filename: The name of the file.
+        :return: The corresponding ContentTypeEnum value.
+        """
+        extension = "." + filename.split(".")[-1].lower()
+        return FILE_EXT_TO_CONTENT_TYPE.get(extension, None)
+
+
+FILE_EXT_TO_CONTENT_TYPE = {
+    ".pdf": ContentTypeEnum.ApplicationPdf,
+    ".docx": ContentTypeEnum.ApplicationMsword,
+    ".jpg": ContentTypeEnum.ImageJpeg,
+    ".jpeg": ContentTypeEnum.ImageJpeg,
+    ".TextPlain": ContentTypeEnum.TextPlain,
+    ".text": ContentTypeEnum.TextPlain,
+    ".log": ContentTypeEnum.TextPlain,
+    ".eml": ContentTypeEnum.MessageRfc822,
+    ".xml": ContentTypeEnum.ApplicationXml,
+    ".heic": ContentTypeEnum.ImageHeic,
+    ".htm": ContentTypeEnum.TextHtml,
+    ".html": ContentTypeEnum.TextHtml,
+    ".md": ContentTypeEnum.TextMarkdown,
+    ".org": ContentTypeEnum.TextOrg,
+    ".rst": ContentTypeEnum.TextRst,
+    ".xlsx": ContentTypeEnum.ApplicationVndOpenXMLSpreadsheet,
+    ".pptx": ContentTypeEnum.ApplicationVndMsPowerpoint,
+    ".p7s": ContentTypeEnum.MessageRfc822,
+    ".png": ContentTypeEnum.ImagePng,
+    ".doc": ContentTypeEnum.ApplicationMsword,
+    ".zip": ContentTypeEnum.ApplicationEpubZip,
+    ".xls": ContentTypeEnum.ApplicationVndMsExcel,
+    ".ppt": ContentTypeEnum.ApplicationVndMsPowerpoint,
+    ".rtf": ContentTypeEnum.TextRtf,
+    ".json": ContentTypeEnum.ApplicationJson,
+    ".jsonl": ContentTypeEnum.ApplicationJsonl,
+    ".epub": ContentTypeEnum.ApplicationEpubZip,
+    ".msg": ContentTypeEnum.ApplicationMsOutlook,
+    ".odt": ContentTypeEnum.ApplicationMsword,
+    ".ods": ContentTypeEnum.ODS,
+    ".odp": ContentTypeEnum.ODP,
+    ".csv": ContentTypeEnum.TextCsv,
+    ".tsv": ContentTypeEnum.TextTsv,
+    ".tab": ContentTypeEnum.TextTsv,
+    ".parquet": ContentTypeEnum.Parquet,
+    ".tiff": ContentTypeEnum.ImageTiff,
+    ".bmp": ContentTypeEnum.ImageBmp,
+    ".wav": ContentTypeEnum.AudioWav,
+    ".js": ContentTypeEnum.TextPlain,
+    ".py": ContentTypeEnum.TextPlain,
+    ".java": ContentTypeEnum.TextPlain,
+    ".cpp": ContentTypeEnum.TextPlain,
+    ".cc": ContentTypeEnum.TextPlain,
+    ".cxx": ContentTypeEnum.TextPlain,
+    ".c": ContentTypeEnum.TextPlain,
+    ".cs": ContentTypeEnum.TextPlain,
+    ".php": ContentTypeEnum.TextPlain,
+    ".rb": ContentTypeEnum.TextPlain,
+    ".swift": ContentTypeEnum.TextPlain,
+    ".ts": ContentTypeEnum.TextPlain,
+    ".go": ContentTypeEnum.TextPlain,
+    ".yaml": ContentTypeEnum.TextPlain,
+    ".yml": ContentTypeEnum.TextPlain,
+}
