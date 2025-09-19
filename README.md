@@ -18,8 +18,7 @@ systems (e.g., local, S3, GCS, etc.).
 To insert parsed documents into a `Compass` index, the Compass SDK provides a
 `CompassClient` class that allows to interact with a Compass API server. The Compass API
 is also a RESTful API that allows to create, delete and search documents in a Compass
-index. To install a Compass API service, please refer to the [Compass
-documentation](https://github.com/cohere-ai/compass)
+index.
 
 ## Table of Contents
 
