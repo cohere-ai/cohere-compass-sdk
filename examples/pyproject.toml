@@ -2,9 +2,9 @@
 name = "compass-sdk-examples"
 version = "0.1.0"
 description = "Various examples of how to use the Compass SDK"
-authors = [{ name = "Your Name", email = "you@example.com" }]
+authors = []
 readme = "README.md"
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 
 
 [build-system]
