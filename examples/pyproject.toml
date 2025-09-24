@@ -16,8 +16,8 @@ cohere-compass-sdk = {path = "..", develop = true}
 dotenv = "^0.9.9"
 
 [tool.poetry.group.dev.dependencies]
-pyright = "^1.1.396"
-ruff = "^0.9.9"
+pyright = "^1.1.405"
+ruff = "^0.13.1"
 
 [project.scripts]
 create_index = 'compass_sdk_examples.create_index:main'

@@ -7,23 +7,21 @@ readme = "README.md"
 packages = [{ include = "cohere_compass" }]
 
 [tool.poetry.dependencies]
-fsspec = ">=2024.6.1"
-joblib = "1.4.2"
-pydantic = ">=2.6.3"
+fsspec = "^2025.9.0"
+joblib = "^1.5.2"
+pydantic = "^2.11.9"
 python = ">=3.11,<4.0"
-tenacity = "^8.2.3"
+tenacity = "^9.1.2"
 httpx = "^0.28.1"
-Deprecated = "^1.2.18"
-typing-extensions = "^4.14.1"
 
 [tool.poetry.group.dev.dependencies]
-pyright = "^1.1.390"
-pytest = "^8.3.3"
-pytest-asyncio = "^0.24.0"
-pytest-mock = "^3.14.0"
+pyright = "^1.1.405"
+pytest = "^8.4.2"
+pytest-asyncio = "^1.2.0"
+pytest-mock = "^3.15.1"
 respx = "^0.22.0"
-ruff = "^0.8.1"
-pytest-cov = "^6.3.0"
+ruff = "^0.13.1"
+pytest-cov = "^7.0.0"
 
 [tool.pyright]
 reportMissingImports = false
