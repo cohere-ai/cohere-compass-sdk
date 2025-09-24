@@ -1,11 +1,13 @@
-from compass_sdk_examples.utils import get_compass_client
+import asyncio
+
+from compass_sdk_examples.utils import get_compass_client_async
 
 
-def main():
-    client = get_compass_client()
+async def main():
+    client = get_compass_client_async()
     print("Making a call to list indexes...")
 
-    response = client.list_indexes()
+    response = await client.list_indexes()
 
     if not response.indexes:
         print("No indexes found.")
@@ -20,4 +22,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -1,3 +1,5 @@
+"""Models for core functionality in the Cohere Compass SDK."""
+
 from pydantic import BaseModel
 
 
