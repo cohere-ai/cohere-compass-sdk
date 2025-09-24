@@ -440,7 +440,7 @@ class TestCompassRootClient:
     def test_delete_roles(
         self, root_client: CompassRootClient, respx_mock: MockRouter
     ) -> None:
-        mock_response = [
+        mock_response: list[dict[str, Any]] = [
             {
                 "role_name": "role1",
                 "policies": [],
@@ -484,7 +484,6 @@ class TestCompassRootClient:
         groups = [
             Group(
                 group_name="testers",
-                display_name="Testing Team",
             )
         ]
 

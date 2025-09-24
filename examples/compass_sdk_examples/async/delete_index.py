@@ -28,7 +28,8 @@ async def main():
     client = get_compass_client_async()
 
     print(
-        f"WARNING: This will permanently delete index '{index_name}' and all its documents."
+        f"WARNING: This will permanently delete index '{index_name}' "
+        "and all its documents."
     )
     confirmation = input("Are you sure you want to continue? (y/N): ")
     if confirmation.lower() not in ["y", "yes"]:

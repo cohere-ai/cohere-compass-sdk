@@ -36,8 +36,6 @@ R = TypeVar("R")
 
 logger = logging.getLogger(__name__)
 
-# TODO Review this file again and see which methods are actually needed.
-
 
 def imap_queued(
     executor: Executor, f: Callable[[T], U], it: Iterable[T], max_queued: int

@@ -13,7 +13,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(
         description="""
-        Add custom attributes to an existing document in a Compass index using async client.
+        Add attributes to an existing document in a Compass index using async client.
         Attributes are added to the document's content field and become searchable.
 
         Examples:

@@ -12,7 +12,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(
         description="""
-        Add custom attributes to an existing document in a Compass index.
+        Add attributes to an existing document in a Compass index.
         Attributes are added to the document's content field and become searchable.
 
         Examples:

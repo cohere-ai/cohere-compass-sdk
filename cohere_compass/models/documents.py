@@ -70,7 +70,8 @@ class CompassDocumentChunk(ValidatedModel):
     path: str | None = ""
 
     def parent_doc_is_split(self):
-        """Check if the parent document is split.
+        """
+        Check if the parent document is split.
 
         :returns: True if the document ID is different from the parent document ID,
         indicating that the parent document is split; False otherwise.
@@ -97,7 +98,8 @@ class CompassSdkStage(str, Enum):
 
 
 class CompassDocument(ValidatedModel):
-    """A model class for a Compass document.
+    """
+    A model class for a Compass document.
 
     The model contains all the information required to process a document and insert it
     into the index. It includes:
@@ -202,7 +204,8 @@ class CompassDocument(ValidatedModel):
 
     @staticmethod
     def adapt_doc_id_compass_doc(doc: dict[Any, Any]) -> "CompassDocument":
-        """Adapt a document dictionary to a CompassDocument instance.
+        """
+        Adapt a document dictionary to a CompassDocument instance.
 
         This dict is returned from Parser client.
         """
@@ -326,7 +329,8 @@ class PutDocumentsInput(BaseModel):
 
 
 class PutDocumentResult(BaseModel):
-    """A model for the response of put_document.
+    """
+    A model for the response of put_document.
 
     This model is also used by the put_documents and edit_group_authorization APIs.
     """
@@ -363,7 +367,8 @@ class ParsedDocumentResponse(BaseModel):
 
     @staticmethod
     def convert(data: dict[str, Any]) -> "ParsedDocumentResponse":
-        """Convert a dictionary to a ParsedDocumentResponse instance.
+        """
+        Convert a dictionary to a ParsedDocumentResponse instance.
 
         :param data: Dictionary containing the document data.
         :return: ParsedDocumentResponse instance.

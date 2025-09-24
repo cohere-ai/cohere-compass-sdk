@@ -9,7 +9,7 @@ def parse_args():
     Parse the user arguments using argparse.
     """
     parser = argparse.ArgumentParser(
-        description="Delete a specific document from a Compass index using async client."
+        description="Delete a specific document from a Compass index."
     )
     parser.add_argument(
         "--index-name",

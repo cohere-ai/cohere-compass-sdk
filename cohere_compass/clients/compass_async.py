@@ -395,6 +395,9 @@ class CompassAsyncClient:
             upload_id=upload_id,
         )
 
+        if not isinstance(result.result, list):
+            raise ValueError("Invalid response from Compass API")
+
         return [ParsedDocumentResponse.convert(data=r) for r in result.result]
 
     async def insert_docs(

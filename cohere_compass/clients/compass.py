@@ -87,12 +87,12 @@ class SendRequestResult:
     It's used for internal error handling and retry logic.
 
     Attributes:
-        result: The response data if successful (string, bytes, or dict), None on failure.
+        result: The response data if successful, otherwise None.
         content_type: The content type of the response, None if not available.
 
     """
 
-    result: str | bytes | dict[str, Any] | None = None
+    result: str | bytes | dict[str, Any] | list[dict[str, Any]] | None = None
     content_type: str | None = None
 
 
@@ -466,7 +466,8 @@ class CompassClient:
         Args:
             index_name: The name of the index.
             doc: The parsed compass document to insert.
-            authorized_groups: Optional list of groups authorized to access this document.
+            authorized_groups: Optional list of groups authorized to access this
+                document.
             merge_groups_on_conflict: Whether to merge groups on conflict.
 
         Returns:
@@ -595,13 +596,17 @@ class CompassClient:
         Args:
             index_name: The name of the index.
             docs: Iterator of parsed documents to insert.
-            max_chunks_per_request: Maximum number of chunks to send in a single request.
+            max_chunks_per_request: Maximum number of chunks to send in a single
+                request.
             max_error_rate: Maximum error rate allowed before stopping insertion.
             errors_sliding_window_size: Size of the sliding window to track errors.
-            skip_first_n_docs: Number of docs to skip indexing (useful for resuming failed insertions).
+            skip_first_n_docs: Number of docs to skip indexing (useful for resuming
+                failed insertions).
             num_jobs: Number of parallel jobs to use for insertion.
-            authorized_groups: Groups authorized to access the documents (None makes documents public).
-            merge_groups_on_conflict: Whether to merge groups when upserting documents with security.
+            authorized_groups: Groups authorized to access the documents (None makes
+                documents public).
+            merge_groups_on_conflict: Whether to merge groups when upserting documents
+                with security.
 
         Returns:
             List of error details if any errors occurred, None otherwise.
