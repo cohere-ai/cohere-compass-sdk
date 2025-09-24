@@ -1,8 +1,6 @@
 import argparse
 import asyncio
 
-from cohere_compass.models import CompassDocument
-
 from compass_sdk_examples.utils import (
     get_compass_client_async,
     get_compass_parser_client,
@@ -53,15 +51,17 @@ async def main():
 
     print(f"Inserting documents from {folder_path} into index '{index_name}'...")
     parser = get_compass_parser_client()
-    docs: list[CompassDocument] = []
-    response = parser.process_folder(folder_path=folder_path)
-    for d in response:
-        if isinstance(d, tuple):
-            filename, ex = d
-            print(f"Failed to parse {filename}: {ex}")
-        else:
-            docs.append(d)
-    await client.insert_docs(index_name=index_name, docs=iter(docs))
+
+    def process_folder():
+        response = parser.process_folder(folder_path=folder_path)
+        for d in response:
+            if isinstance(d, tuple):
+                filename, ex = d
+                print(f"Failed to parse {filename}: {ex}")
+            else:
+                yield d
+
+    await client.insert_docs(index_name=index_name, docs=process_folder())
     print(f"Documents inserted into index '{index_name}'.")
 
 

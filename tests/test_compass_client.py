@@ -153,7 +153,7 @@ def test_create_index_400s_propagated_to_caller(
     },
 )
 def test_put_documents_payload_and_url_exist(client: CompassClient):
-    client.insert_docs(index_name="test_index", docs=iter([CompassDocument()]))
+    client.insert_docs(index_name="test_index", docs=[CompassDocument()])
 
 
 @mock_endpoint(

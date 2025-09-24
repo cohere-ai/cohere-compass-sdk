@@ -302,7 +302,7 @@ class CompassAsyncClient:
         """
         return await self.insert_docs(
             index_name=index_name,
-            docs=iter([doc]),
+            docs=[doc],
             authorized_groups=authorized_groups,
             merge_groups_on_conflict=merge_groups_on_conflict,
         )

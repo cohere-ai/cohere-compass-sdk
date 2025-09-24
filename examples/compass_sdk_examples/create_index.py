@@ -57,7 +57,7 @@ def main():
             print(f"Failed to parse {filename}: {ex}")
         else:
             docs.append(d)
-    client.insert_docs(index_name=index_name, docs=iter(docs))
+    client.insert_docs(index_name=index_name, docs=docs)
     print(f"Documents inserted into index '{index_name}'.")
 
 

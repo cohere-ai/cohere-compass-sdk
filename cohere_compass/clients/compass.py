@@ -13,7 +13,7 @@ import os
 import re
 import threading
 from collections import deque
-from collections.abc import Iterator
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import timedelta
 from statistics import mean
@@ -475,7 +475,7 @@ class CompassClient:
         """
         return self.insert_docs(
             index_name=index_name,
-            docs=iter([doc]),
+            docs=[doc],
             authorized_groups=authorized_groups,
             merge_groups_on_conflict=merge_groups_on_conflict,
         )
@@ -580,8 +580,7 @@ class CompassClient:
         self,
         *,
         index_name: str,
-        # TODO: Change to Iterable
-        docs: Iterator[CompassDocument],
+        docs: Iterable[CompassDocument],
         max_chunks_per_request: int = DEFAULT_MAX_CHUNKS_PER_REQUEST,
         max_error_rate: float = DEFAULT_MAX_ERROR_RATE,
         errors_sliding_window_size: int | None = 10,
