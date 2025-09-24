@@ -569,7 +569,7 @@ def test_upload_document(client: CompassClient, respx_mock: MockRouter):
     document_id = "test_document_id"
 
     route = respx_mock.post(
-        "http://test.com/v1/indexes/test_index/documents/_upload"
+        "http://test.com/v1/indexes/test_index/documents/upload"
     ).mock(
         return_value=httpx.Response(
             200, json={"upload_id": str(upload_id), "document_ids": [document_id]}
@@ -595,7 +595,7 @@ def test_upload_document_status(client: CompassClient, respx_mock: MockRouter):
     upload_id = uuid.uuid4()
 
     route = respx_mock.get(
-        "http://test.com/v1/indexes/test_index/documents/_upload/upload_123/status"
+        "http://test.com/v1/indexes/test_index/documents/upload/upload_123/status"
     ).mock(
         return_value=httpx.Response(
             200,
@@ -633,7 +633,7 @@ def test_download_parsed_document(client: CompassClient, respx_mock: MockRouter)
     upload_id = uuid.uuid4()
 
     route = respx_mock.get(
-        "http://test.com/v1/indexes/test_index/documents/_upload/upload123/download"
+        "http://test.com/v1/indexes/test_index/documents/upload/upload123/_download"
     ).mock(
         return_value=httpx.Response(
             200,
