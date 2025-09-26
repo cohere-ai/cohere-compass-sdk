@@ -1,9 +1,9 @@
 """
 Compass client for document indexing and search operations.
 
-This module provides the CompassClient class which handles document indexing,
-searching, and management operations with the Compass API. It includes support
-for batch operations, retry logic, and comprehensive error handling.
+This module provides the CompassClient class which handles document indexing, searching,
+and management operations with the Compass API. It includes support for batch
+operations, retry logic, and comprehensive error handling.
 """
 
 # Python imports
@@ -39,6 +39,7 @@ from cohere_compass.exceptions import (
     CompassAuthError,
     CompassClientError,
     CompassError,
+    CompassInsertionError,
     CompassMaxErrorRateExceeded,
 )
 from cohere_compass.models import (
@@ -70,16 +71,17 @@ from cohere_compass.models.documents import (
     PutDocumentsResponse,
     UploadDocumentsStatus,
 )
-from cohere_compass.models.indexes import ListIndexesResponse
+from cohere_compass.models.indexes import IndexDetails, ListIndexesResponse
 from cohere_compass.models.search import (
     GetDocumentResponse,
+    RetrievedDocument,
     SortBy,
 )
 from cohere_compass.utils import partition_documents
 
 
 @dataclass
-class SendRequestResult:
+class _SendRequestResult:
     """
     Result of a retryable HTTP request operation.
 
@@ -258,9 +260,20 @@ class CompassClient:
 
     def get_models(
         self,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> dict[str, list[str]]:
         """
         Get the models available in Compass.
+
+        Args:
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
         Returns:
             Dictionary with model roles as keys ("dense", "rerank", "sparse") and lists
@@ -269,6 +282,9 @@ class CompassClient:
         """
         result = self._send_request(
             api_name="get_models",
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
         if not isinstance(result.result, dict):
             raise ValueError("Invalid response from Compass API")
@@ -280,6 +296,9 @@ class CompassClient:
         *,
         index_name: str,
         index_config: IndexConfig | None = None,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ):
         """
         Create an index in Compass.
@@ -287,9 +306,13 @@ class CompassClient:
         Args:
             index_name: The name of the index to create.
             index_config: Optional configuration for the index.
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
-        Returns:
-            Response from the Compass API.
 
         Raises:
             ValueError: If index_name contains invalid characters.
@@ -299,22 +322,35 @@ class CompassClient:
             raise ValueError(
                 f"Invalid index name '{index_name}', please avoid special characters."
             )
-        return self._send_request(
+        self._send_request(
             api_name="create_index",
             index_name=index_name,
             data=index_config,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
     def get_index_details(
         self,
         *,
         index_name: str,
-    ) -> IndexConfig:
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> IndexDetails:
         """
         Get the details of an index in Compass.
 
         Args:
             index_name: The name of the index to query.
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
+
 
         Returns:
             IndexConfig object containing the index details.
@@ -323,48 +359,69 @@ class CompassClient:
         result = self._send_request(
             api_name="get_index_details",
             index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
-        return IndexConfig.model_validate(result.result)
+        return IndexDetails.model_validate(result.result)
 
     def refresh_index(
         self,
         *,
         index_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ):
         """
         Refresh an index to make recent changes searchable.
 
         Args:
             index_name: The name of the index to refresh.
-
-        Returns:
-            Response from the Compass API.
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
         """
-        return self._send_request(
+        self._send_request(
             api_name="refresh",
             index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
     def delete_index(
         self,
         *,
         index_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ):
         """
         Delete an index from Compass.
 
         Args:
             index_name: The name of the index to delete.
-
-        Returns:
-            Response from the Compass API.
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
         """
         self._send_request(
             api_name="delete_index",
             index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
     def delete_document(
@@ -372,6 +429,9 @@ class CompassClient:
         *,
         index_name: str,
         document_id: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ):
         """
         Delete a document from Compass.
@@ -379,15 +439,21 @@ class CompassClient:
         Args:
             index_name: The name of the index containing the document.
             document_id: The ID of the document to delete.
-
-        Returns:
-            Response from the Compass API.
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
         """
         self._send_request(
             api_name="delete_document",
             document_id=document_id,
             index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
     def get_document(
@@ -395,37 +461,65 @@ class CompassClient:
         *,
         index_name: str,
         document_id: str,
-    ):
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> RetrievedDocument:
         """
         Get a document from Compass.
 
         Args:
             index_name: The name of the index containing the document.
             document_id: The ID of the document to retrieve.
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
         Returns:
-            The requested document.
+            RetrievedDocument object containing the requested document.
 
         """
         result = self._send_request(
             api_name="get_document",
             document_id=document_id,
             index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
         response = GetDocumentResponse.model_validate(result.result)
         return response.document
 
     def list_indexes(
         self,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ):
         """
         List all indexes in Compass.
+
+        Args:
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
         Returns:
             ListIndexesResponse containing all available indexes.
 
         """
-        result = self._send_request(api_name="list_indexes")
+        result = self._send_request(
+            api_name="list_indexes",
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
 
         return ListIndexesResponse.model_validate(result.result)
 
@@ -435,6 +529,9 @@ class CompassClient:
         index_name: str,
         document_id: str,
         attributes: DocumentAttributes,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ):
         """
         Update the content field of an existing document with additional attributes.
@@ -443,6 +540,13 @@ class CompassClient:
             index_name: The name of the index containing the document.
             document_id: The ID of the document to modify.
             attributes: The attributes to add to the document.
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
+
 
         """
         self._send_request(
@@ -450,6 +554,9 @@ class CompassClient:
             document_id=document_id,
             data=attributes,
             index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
     def insert_doc(
@@ -459,7 +566,10 @@ class CompassClient:
         doc: CompassDocument,
         authorized_groups: list[str] | None = None,
         merge_groups_on_conflict: bool = False,
-    ) -> list[dict[str, str]] | None:
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ):
         """
         Insert a parsed document into an index in Compass.
 
@@ -469,16 +579,22 @@ class CompassClient:
             authorized_groups: Optional list of groups authorized to access this
                 document.
             merge_groups_on_conflict: Whether to merge groups on conflict.
-
-        Returns:
-            List of error details if any, None otherwise.
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
         """
-        return self.insert_docs(
+        self.insert_docs(
             index_name=index_name,
             docs=[doc],
             authorized_groups=authorized_groups,
             merge_groups_on_conflict=merge_groups_on_conflict,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
     def upload_document(
@@ -491,6 +607,9 @@ class CompassClient:
         document_id: str,
         attributes: DocumentAttributes = DocumentAttributes(),
         config: ParseableDocumentConfig = ParseableDocumentConfig(),
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> UploadDocumentsResult:
         """
         Parse and insert a document into an index in Compass.
@@ -503,6 +622,12 @@ class CompassClient:
             document_id: The ID to assign to the document.
             attributes: Additional attributes to add to the document.
             config: Configuration for the document parsing.
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
         Returns:
             UploadDocumentsResult containing the upload ID and status.
@@ -523,6 +648,9 @@ class CompassClient:
             api_name="upload_documents",
             data=UploadDocumentsInput(documents=[doc]),
             index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
         return UploadDocumentsResult.model_validate(result.result)
@@ -532,6 +660,9 @@ class CompassClient:
         *,
         index_name: str,
         upload_id: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> list[UploadDocumentsStatus]:
         """
         Get status of document upload.
@@ -539,6 +670,12 @@ class CompassClient:
         Args:
             index_name: The name of the index.
             upload_id: The upload ID returned when uploading the document.
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
         Returns:
             List of UploadDocumentsStatus objects containing upload status information.
@@ -548,6 +685,9 @@ class CompassClient:
             api_name="upload_documents_status",
             index_name=index_name,
             upload_id=upload_id,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
         return [UploadDocumentsStatus(**r) for r in result.result]  # type: ignore
@@ -557,6 +697,9 @@ class CompassClient:
         *,
         index_name: str,
         upload_id: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> list[ParsedDocumentResponse]:
         """
         Download the parsed document from Compass.
@@ -564,6 +707,12 @@ class CompassClient:
         Args:
             index_name: The name of the index.
             upload_id: The upload ID returned when uploading the document.
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
         Returns:
             List of ParsedDocumentResponse objects containing the parsed documents.
@@ -573,6 +722,9 @@ class CompassClient:
             api_name="download_parsed_document",
             index_name=index_name,
             upload_id=upload_id,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
         return [ParsedDocumentResponse.convert(data=r) for r in result.result]  # type: ignore
@@ -589,7 +741,10 @@ class CompassClient:
         num_jobs: int | None = None,
         authorized_groups: list[str] | None = None,
         merge_groups_on_conflict: bool = False,
-    ) -> list[dict[str, str]] | None:
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ):
         """
         Insert multiple parsed documents into an index in Compass.
 
@@ -607,6 +762,13 @@ class CompassClient:
                 documents public).
             merge_groups_on_conflict: Whether to merge groups when upserting documents
                 with security.
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
+
 
         Returns:
             List of error details if any errors occurred, None otherwise.
@@ -644,6 +806,9 @@ class CompassClient:
                     api_name="put_documents",
                     data=put_docs_input,
                     index_name=index_name,
+                    max_retries=max_retries,
+                    retry_wait=retry_wait,
+                    timeout=timeout,
                 )
                 num_succeeded += len(compass_docs)
             except CompassError as e:
@@ -692,28 +857,65 @@ class CompassClient:
             )
         except CompassMaxErrorRateExceeded as e:
             logger.error(e.message)
-        return errors if len(errors) > 0 else None
+
+        if errors:
+            raise CompassInsertionError(errors=errors)
 
     def create_datasource(
         self,
         *,
         datasource: CreateDataSource,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> DataSource:
         """
         Create a new datasource in Compass.
 
-        :param datasource: the datasource to create
+        Args:
+            datasource: the datasource to create
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
+
         """
         result = self._send_request(
             api_name="create_datasource",
             data=datasource,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
         return DataSource.model_validate(result.result)
 
-    def list_datasources(self) -> PaginatedList[DataSource]:
-        """List all datasources in Compass."""
-        result = self._send_request(api_name="list_datasources")
+    def list_datasources(
+        self,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> PaginatedList[DataSource]:
+        """
+        List all datasources in Compass.
+
+        Args:
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
+
+        """
+        result = self._send_request(
+            api_name="list_datasources",
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
 
         return PaginatedList[DataSource].model_validate(result.result)
 
@@ -721,15 +923,29 @@ class CompassClient:
         self,
         *,
         datasource_id: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ):
         """
         Get a datasource in Compass.
 
-        :param datasource_id: the id of the datasource
+        Args:
+            datasource_id: the id of the datasource
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
+
         """
         result = self._send_request(
             api_name="get_datasource",
             datasource_id=datasource_id,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
         return DataSource.model_validate(result.result)
@@ -738,30 +954,58 @@ class CompassClient:
         self,
         *,
         datasource_id: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ):
         """
         Delete a datasource in Compass.
 
-        :param datasource_id: the id of the datasource
+        Args:
+            datasource_id: the id of the datasource
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
+
         """
         self._send_request(
             api_name="delete_datasources",
             datasource_id=datasource_id,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
     def sync_datasource(
         self,
         *,
         datasource_id: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ):
         """
         Sync a datasource in Compass.
 
-        :param datasource_id: the id of the datasource
+        Args:
+            datasource_id: the id of the datasource
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
+
         """
         self._send_request(
             api_name="sync_datasource",
             datasource_id=datasource_id,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
     def list_datasources_objects_states(
@@ -770,19 +1014,33 @@ class CompassClient:
         datasource_id: str,
         skip: int = 0,
         limit: int = 100,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> PaginatedList[DocumentStatus]:
         """
         List all objects states in a datasource in Compass.
 
-        :param datasource_id: the id of the datasource
-        :param skip: the number of objects to skip
-        :param limit: the number of objects to return
+        Args:
+            datasource_id: the id of the datasource
+            skip: the number of objects to skip
+            limit: the number of objects to return
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
+
         """
         result = self._send_request(
             api_name="list_datasources_objects_states",
             datasource_id=datasource_id,
             skip=str(skip),
             limit=str(limit),
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
         return PaginatedList[DocumentStatus].model_validate(result.result)
@@ -796,6 +1054,9 @@ class CompassClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ):
         return self._send_request(
             api_name=api_name,
@@ -803,6 +1064,9 @@ class CompassClient:
             data=SearchInput(
                 query=query, top_k=top_k, filters=filters, rerank_model=rerank_model
             ),
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
     def search_documents(
@@ -813,17 +1077,29 @@ class CompassClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> SearchDocumentsResponse:
         """
         Search documents in an index.
 
-        :param index_name: the name of the index
-        :param query: the search query
-        :param top_k: the number of documents to return
-        :param filters: the search filters to apply
-        :param rerank_model: the model to use for reranking the results
+        Args:
+            index_name: the name of the index
+            query: the search query
+            top_k: the number of documents to return
+            filters: the search filters to apply
+            rerank_model: the model to use for reranking the results
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
-        :returns: the search results
+        Returns:
+            SearchDocumentsResponse object containing the search results
+
         """
         result = self._search(
             api_name="search_documents",
@@ -832,6 +1108,9 @@ class CompassClient:
             top_k=top_k,
             filters=filters,
             rerank_model=rerank_model,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
         return SearchDocumentsResponse.model_validate(result.result)
@@ -844,17 +1123,29 @@ class CompassClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> SearchChunksResponse:
         """
         Search chunks in an index.
 
-        :param index_name: the name of the index
-        :param query: the search query
-        :param top_k: the number of chunks to return
-        :param filters: the search filters to apply
-        :param rerank_model: the model to use for reranking the results
+        Args:
+            index_name: the name of the index
+            query: the search query
+            top_k: the number of chunks to return
+            filters: the search filters to apply
+            rerank_model: the model to use for reranking the results
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
-        :returns: the search results
+        Returns:
+            SearchChunksResponse object containing the search results
+
         """
         result = self._search(
             api_name="search_chunks",
@@ -863,6 +1154,9 @@ class CompassClient:
             top_k=top_k,
             filters=filters,
             rerank_model=rerank_model,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
         return SearchChunksResponse.model_validate(result.result)
@@ -873,28 +1167,44 @@ class CompassClient:
         index_name: str,
         document_id: str,
         asset_id: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> tuple[str | bytes | dict[str, Any], str]:
         """
         Get an asset from a document in Compass.
 
-        :param index_name: the name of the index
-        :param document_id: the id of the document
-        :param asset_id: the id of the asset
+        Args:
+            index_name: the name of the index
+            document_id: the id of the document
+            asset_id: the id of the asset
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
-        :returns: A tuple of the content and content type of the asset. The variable
-        type of the content is either str, bytes, or dict[str, Any], depending on the
-        asset type. For example, if the asset is an image, the content type will be
-        bytes; if the asset is a markdown, the content type will be str; if the asset is
-        a json, the content type will be dict[str, Any].
+        Returns:
+            A tuple of the content and content type of the asset. The variable type of
+            the content is either str, bytes, or dict[str, Any], depending on the asset
+            type. For example, if the asset is an image, the content type will be bytes;
+            if the asset is a markdown, the content type will be str; if the asset is a
+            json, the content type will be dict[str, Any].
 
-        :raises CompassError: if the asset cannot be retrieved, either because it
-        doesn't exist or the user doesn't have permission to access it.
+        Raises:
+            CompassError: if the asset cannot be retrieved, either because it doesn't
+                exist or the user doesn't have permission to access it.
+
         """
         result = self._send_request(
             api_name="get_document_asset",
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
         return result.result, result.content_type  # type: ignore
@@ -904,17 +1214,31 @@ class CompassClient:
         *,
         index_name: str,
         group_auth_input: GroupAuthorizationInput,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> PutDocumentsResponse:
         """
         Edit group authorization for an index.
 
-        :param index_name: the name of the index
-        :param group_auth_input: the group authorization input
+        Args:
+            index_name: the name of the index
+            group_auth_input: the group authorization input
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
+
         """
         result = self._send_request(
             api_name="update_group_authorization",
             index_name=index_name,
             data=group_auth_input,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
         return PutDocumentsResponse.model_validate(result.result)
 
@@ -926,17 +1250,29 @@ class CompassClient:
         sort_by: list[SortBy] | None = None,
         size: int = 100,
         scroll: str | None = None,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> DirectSearchResponse:
         """
         Perform a direct search query against the Compass API.
 
-        :param index_name: the name of the index
-        :param query: the direct search query (e.g. {"match_all": {}})
-        :param size: the number of results to return
-        :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        Args:
+            index_name: the name of the index
+            query: the direct search query (e.g. {"match_all": {}})
+            sort_by: the sort by criteria
+            size: the number of results to return
+            scroll: the scroll duration (e.g. "1m" for 1 minute)
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
         :returns: the direct search results
         :raises CompassError: if the search fails
+
         """
         data = DirectSearchInput(query=query, size=size, sort_by=sort_by, scroll=scroll)
 
@@ -944,6 +1280,9 @@ class CompassClient:
             api_name="direct_search",
             index_name=index_name,
             data=data,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
         return DirectSearchResponse.model_validate(result.result)
@@ -954,22 +1293,39 @@ class CompassClient:
         index_name: str,
         scroll_id: str,
         scroll: str = "1m",
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> DirectSearchResponse:
         """
         Continue a search using a scroll ID from a previous direct_search call.
 
-        :param scroll_id: the scroll ID from a previous direct_search call
-        :param index_name: the name of the index same as used in direct_search
-        :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        Args:
+            scroll_id: the scroll ID from a previous direct_search call
+            index_name: the name of the index same as used in direct_search
+            scroll: the scroll duration (e.g. "1m" for 1 minute)
+            max_retries: Maximum number of retries for failed requests. If not provided,
+                the default from the client will be used.
+            retry_wait: Time to wait between retries. If not provided, the default from
+                the client will be used.
+            timeout: Request timeout duration. If not provided, the default from the
+                client will be used.
 
-        :returns: the next batch of search results
-        :raises CompassError: if the scroll search fails
+        Returns:
+            the next batch of search results
+
+        Raises:
+            CompassError: if the scroll search fails
+
         """
         data = DirectSearchScrollInput(scroll_id=scroll_id, scroll=scroll)
         result = self._send_request(
             api_name="direct_search_scroll",
             index_name=index_name,
             data=data,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
         )
 
         return DirectSearchResponse.model_validate(result.result)
@@ -979,7 +1335,10 @@ class CompassClient:
         http_method: str,
         target_path: str,
         data: BaseModel | None = None,
+        timeout: timedelta | None = None,
     ):
+        timeout = timeout or self.timeout
+
         data_dict = data.model_dump(mode="json", exclude_none=True) if data else None
 
         headers = None
@@ -987,17 +1346,31 @@ class CompassClient:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
         if http_method == "GET":
-            response = self.httpx_client.get(target_path, headers=headers)
+            response = self.httpx_client.get(
+                target_path,
+                headers=headers,
+                timeout=timeout.total_seconds(),
+            )
         elif http_method == "POST":
             response = self.httpx_client.post(
-                target_path, json=data_dict, headers=headers
+                target_path,
+                json=data_dict,
+                headers=headers,
+                timeout=timeout.total_seconds(),
             )
         elif http_method == "PUT":
             response = self.httpx_client.put(
-                target_path, json=data_dict, headers=headers
+                target_path,
+                json=data_dict,
+                headers=headers,
+                timeout=timeout.total_seconds(),
             )
         elif http_method == "DELETE":
-            response = self.httpx_client.delete(target_path, headers=headers)
+            response = self.httpx_client.delete(
+                target_path,
+                headers=headers,
+                timeout=timeout.total_seconds(),
+            )
         else:
             raise RuntimeError(f"Unsupported HTTP method: {http_method}")
 
@@ -1015,7 +1388,7 @@ class CompassClient:
         else:
             # To handle response from other APIs.
             result = response.json() if response.text else None
-        return SendRequestResult(
+        return _SendRequestResult(
             result=result,
             content_type=content_type,
         )
@@ -1024,8 +1397,11 @@ class CompassClient:
         self,
         api_name: str,
         data: BaseModel | None = None,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
         **url_params: str,
-    ) -> SendRequestResult:
+    ) -> _SendRequestResult:
         """
         Send a request to the Compass API.
 
@@ -1034,6 +1410,10 @@ class CompassClient:
         :param data: the data to send
         :returns: An error message if the request failed, otherwise None.
         """
+        max_retries = max_retries or self.max_retries
+        retry_wait = retry_wait or self.retry_wait
+        timeout = timeout or self.timeout
+
         if api_name not in API_DEFINITIONS:
             raise CompassError(
                 f"API name '{api_name}' is not defined in the API definitions."
@@ -1044,18 +1424,19 @@ class CompassClient:
         target_path = target_path.format(**url_params)
 
         @retry(
-            stop=stop_after_attempt(self.max_retries),
-            wait=wait_fixed(self.retry_wait),
+            stop=stop_after_attempt(max_retries),
+            wait=wait_fixed(retry_wait),
             reraise=True,  # re-raise last exception instead of wrapping in RetryError
             # todo find alternative to InvalidSchema
             retry=retry_if_not_exception_type((CompassClientError,)),
         )
-        def _send_request_with_retry() -> SendRequestResult:
+        def _send_request_with_retry() -> _SendRequestResult:
             try:
                 return self._send_http_request(
                     http_method=http_method,
                     target_path=target_path,
                     data=data,
+                    timeout=timeout,
                 )
             except httpx.HTTPStatusError as e:
                 if e.response.status_code == 401:
@@ -1069,14 +1450,14 @@ class CompassClient:
                     logger.warning(
                         f"Failed to send request to {api_name} {target_path}: "
                         f"{type(e)} {error}. Going to sleep for "
-                        f"{self.retry_wait} seconds and retrying."
+                        f"{retry_wait} seconds and retrying."
                     )
                     raise e
             except Exception as e:
                 error = str(e)
                 logger.warning(
                     f"Failed to send request to {api_name} {target_path}: {type(e)} "
-                    f"{error}. Sleeping {self.retry_wait} seconds and retrying..."
+                    f"{error}. Sleeping {retry_wait} seconds and retrying..."
                 )
                 raise e
 

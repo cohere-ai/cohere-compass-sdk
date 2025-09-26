@@ -42,7 +42,7 @@ from cohere_compass.models import (
     MetadataConfig,
     ParserConfig,
 )
-from cohere_compass.utils import imap_queued, open_document, scan_folder
+from cohere_compass.utils import imap_parallel, open_document, scan_folder
 
 Fn_or_Dict = dict[str, Any] | Callable[[CompassDocument], dict[str, Any]]
 
@@ -199,11 +199,11 @@ class CompassParserClient:
             except Exception as e:
                 return filename, e
 
-        for results in imap_queued(
+        for results in imap_parallel(
             self.thread_pool,
             process_file,
             range(len(filenames)),
-            max_queued=self.num_workers,
+            max_parallelism=self.num_workers,
         ):
             if isinstance(results, list):
                 yield from results

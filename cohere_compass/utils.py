@@ -12,7 +12,7 @@ import glob
 import logging
 import os
 import uuid
-from collections.abc import Awaitable, Callable, Iterable, Iterator
+from collections.abc import Awaitable, Callable, Iterable
 from concurrent import futures
 from concurrent.futures import Executor
 from typing import TypeVar
@@ -37,11 +37,11 @@ R = TypeVar("R")
 logger = logging.getLogger(__name__)
 
 
-def imap_queued(
-    executor: Executor, f: Callable[[T], U], it: Iterable[T], max_queued: int
-) -> Iterator[U]:
+def imap_parallel(
+    executor: Executor, f: Callable[[T], U], it: Iterable[T], max_parallelism: int
+):
     """
-    Map a function over an iterable using parallel execution with queue limit.
+    Map a function over an iterable using parallel execution with parallelism limit.
 
     Similar to Python's built-in map(), but uses an executor to parallelize
     the function calls and limits the number of concurrent futures.
@@ -50,21 +50,22 @@ def imap_queued(
         executor: The executor to use for parallel execution.
         f: The function to apply to each item.
         it: The iterable to map over.
-        max_queued: Maximum number of futures to keep in flight.
+        max_parallelism: Maximum number of futures to keep in flight.
 
     Yields:
         Results from applying f to each item in it.
 
     Raises:
-        AssertionError: If max_queued is less than 1.
+        ValueError: If max_parallelism is less than 1.
 
     """
-    assert max_queued >= 1
+    if max_parallelism < 1:
+        raise ValueError("max_parallelism must be at least 1")
     futures_set: set[futures.Future[U]] = set()
 
     for x in it:
         futures_set.add(executor.submit(f, x))
-        while len(futures_set) > max_queued:
+        while len(futures_set) > max_parallelism:
             done, futures_set = futures.wait(
                 futures_set, return_when=futures.FIRST_COMPLETED
             )

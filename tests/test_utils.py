@@ -19,7 +19,7 @@ from cohere_compass.utils import (
     async_apply,
     async_map,
     generate_doc_id_from_bytes,
-    imap_queued,
+    imap_parallel,
     open_document,
     partition_documents,
     scan_folder,
@@ -32,7 +32,7 @@ def test_imap_queued_basic_functionality():
         return x * x
 
     executor = ThreadPoolExecutor(max_workers=2)
-    results = list(imap_queued(executor, square, range(5), max_queued=2))
+    results = list(imap_parallel(executor, square, range(5), max_parallelism=2))
     executor.shutdown()
 
     assert sorted(results) == [0, 1, 4, 9, 16]
@@ -45,7 +45,7 @@ def test_imap_queued_with_exception_handling():
         return x * 2
 
     executor = ThreadPoolExecutor(max_workers=2)
-    results = list(imap_queued(executor, may_fail, range(4), max_queued=2))
+    results = list(imap_parallel(executor, may_fail, range(4), max_parallelism=2))
     executor.shutdown()
 
     # Should get results for all except the failed one
@@ -64,7 +64,7 @@ def test_imap_queued_max_queued_limit():
         return x
 
     executor = ThreadPoolExecutor(max_workers=2)
-    results = list(imap_queued(executor, track_calls, range(10), max_queued=3))
+    results = list(imap_parallel(executor, track_calls, range(10), max_parallelism=3))
     executor.shutdown()
 
     assert len(results) == 10
@@ -74,7 +74,9 @@ def test_imap_queued_max_queued_limit():
 def test_empty_iterable():
     executor = ThreadPoolExecutor(max_workers=2)
     empty_iterable: list[int] = []
-    results = list(imap_queued(executor, lambda x: x, empty_iterable, max_queued=2))
+    results = list(
+        imap_parallel(executor, lambda x: x, empty_iterable, max_parallelism=2)
+    )
     executor.shutdown()
 
     assert results == []

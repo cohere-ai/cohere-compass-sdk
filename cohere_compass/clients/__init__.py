@@ -9,8 +9,16 @@ This module exports all client classes for interacting with Compass APIs:
 - CompassRootClient: RBAC access control client
 """
 
-from cohere_compass.clients.access_control import *  # noqa: F403
-from cohere_compass.clients.compass import *  # noqa: F403
-from cohere_compass.clients.compass_async import *  # noqa: F403
-from cohere_compass.clients.parser import *  # noqa: F403
-from cohere_compass.clients.parser_async import *  # noqa: F403
+from cohere_compass.clients.access_control import CompassRootClient
+from cohere_compass.clients.compass import CompassClient
+from cohere_compass.clients.compass_async import CompassAsyncClient
+from cohere_compass.clients.parser import CompassParserClient
+from cohere_compass.clients.parser_async import CompassParserAsyncClient
+
+__all__ = [
+    "CompassAsyncClient",
+    "CompassClient",
+    "CompassParserAsyncClient",
+    "CompassParserClient",
+    "CompassRootClient",
+]

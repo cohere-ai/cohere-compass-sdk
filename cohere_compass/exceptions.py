@@ -58,6 +58,27 @@ class CompassAuthError(CompassClientError):
         super().__init__(self.message)
 
 
+class CompassInsertionError(CompassError):
+    """Exception raised for insertion errors in the Compass client."""
+
+    def __init__(
+        self,
+        message: str = "Insertion error occurred.",
+        errors: list[dict[str, str]] = [],
+    ):
+        """
+        Initialize CompassInsertionError.
+
+        Args:
+            message: Error message to display.
+            errors: List of errors.
+
+        """
+        self.message = message
+        self.errors = errors
+        super().__init__(self.message)
+
+
 class CompassMaxErrorRateExceeded(Exception):
     """
     Exception raised when error rate during document insertion exceeds threshold.

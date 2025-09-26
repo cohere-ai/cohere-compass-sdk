@@ -28,7 +28,7 @@ from cohere_compass.models.documents import (
     DocumentAttributes,
     UploadDocumentsResult,
 )
-from cohere_compass.models.indexes import IndexInfo
+from cohere_compass.models.indexes import IndexDetails, IndexInfo
 from cohere_compass.models.search import (
     SortBy,
 )
@@ -540,12 +540,12 @@ def test_get_index_details(client: CompassClient, respx_mock: MockRouter):
         return_value=httpx.Response(
             200,
             json={
-                "number_of_shards": 5,
-                "number_of_replicas": 1,
-                "knn_index_engine": "faiss",
-                "analyzer": "english",
+                "name": "test_index",
+                "count": 10,
+                "parent_doc_count": 20,
                 "dense_model": "embed-english-v3.0",
                 "sparse_model": "sparse-v1.0",
+                "analyzer": "english",
             },
         )
     )
@@ -553,13 +553,13 @@ def test_get_index_details(client: CompassClient, respx_mock: MockRouter):
     result = client.get_index_details(index_name="test_index")
 
     assert route.called
-    assert result == IndexConfig(
-        number_of_shards=5,
-        number_of_replicas=1,
-        knn_index_engine="faiss",
-        analyzer="english",
+    assert result == IndexDetails(
+        name="test_index",
+        count=10,
+        parent_doc_count=20,
         dense_model="embed-english-v3.0",
         sparse_model="sparse-v1.0",
+        analyzer="english",
     )
 
 

@@ -14,6 +14,22 @@ class IndexInfo(BaseModel):
     )
 
 
+class IndexDetails(IndexInfo):
+    """Model representing the details of an index."""
+
+    dense_model: str = Field(
+        description="The name of the dense model used for embedding documents "
+        "in the index.",
+    )
+    sparse_model: str = Field(
+        description="The name of the sparse model used for embedding documents "
+        "in the index.",
+    )
+    analyzer: str = Field(
+        description="The name of the analyzer used for the index.",
+    )
+
+
 class ListIndexesResponse(BaseModel):
     """Response object for list_indexes API."""
 
