@@ -1,8 +1,8 @@
 from cohere_compass.clients.access_control import CompassRootClient
 
-COMPASS_API_URL = ...
-ROOT_USER_TOKEN = ...
-GROUP_NAME = ...
+COMPASS_API_URL = "<COMPASS_API_URL>"
+ROOT_USER_TOKEN = "<ROOT_USER_TOKEN>"
+GROUP_NAME = "<GROUP_NAME>"
 
 compass_root_client = CompassRootClient(
     compass_url=COMPASS_API_URL,

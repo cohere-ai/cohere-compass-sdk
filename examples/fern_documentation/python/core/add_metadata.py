@@ -1,10 +1,10 @@
 from cohere_compass.clients import CompassClient
 from cohere_compass.models import DocumentAttributes
 
-COMPASS_API_URL = ...
-BEARER_TOKEN = ...
-INDEX_NAME = ...
-DOCUMENT_ID = ...
+COMPASS_API_URL = "<COMPASS_API_URL>"
+BEARER_TOKEN = "<BEARER_TOKEN>"
+INDEX_NAME = "<INDEX_NAME>"
+DOCUMENT_ID = "<DOCUMENT_ID>"
 
 compass_client = CompassClient(
     index_url=COMPASS_API_URL,
@@ -14,11 +14,8 @@ compass_client = CompassClient(
 doc_attr = DocumentAttributes()
 doc_attr.key = "value"
 
-error = compass_client.add_attributes(
+compass_client.add_attributes(
     index_name=INDEX_NAME,
     document_id=DOCUMENT_ID,
     attributes=doc_attr,
 )
-
-if error:
-    raise Exception(f"Failed to add attributes: {error}")

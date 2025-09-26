@@ -2,20 +2,21 @@ import json
 
 from cohere_compass.clients import CompassClient
 
-COMPASS_API_URL = ...
-BEARER_TOKEN = ...
-INDEX_NAME = ...
-DOCUMENT_ID = ...
-SEARCH_QUERY = ...
+COMPASS_API_URL = "<COMPASS_API_URL>"
+BEARER_TOKEN = "<BEARER_TOKEN>"
+INDEX_NAME = "<INDEX_NAME>"
+DOCUMENT_ID = "<DOCUMENT_ID>"
+SEARCH_QUERY = "<SEARCH_QUERY>"
 
 compass_client = CompassClient(
     index_url=COMPASS_API_URL,
     bearer_token=BEARER_TOKEN,
 )
 
-results = compass_client.search_chunks(index_name=INDEX_NAME, query=SEARCH_QUERY)
-if results.error:
-    raise Exception(f"Failed to search chunks: {results.error}")
+try:
+    results = compass_client.search_chunks(index_name=INDEX_NAME, query=SEARCH_QUERY)
+except Exception as e:
+    raise Exception(f"Failed to search chunks: {e}")
 
 hits = results.hits
 
