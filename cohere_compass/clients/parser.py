@@ -371,9 +371,9 @@ class CompassParserClient:
         timeout: Optional[int] = None,
     ) -> list[CompassDocument]:
         if len(file_bytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
-            max_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES / 1000_000
+            max_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES // 1_000_000
             logger.error(
-                f"File too large, supported file size is {max_size_mb} mb"
+                f"File too large, supported file size is {max_size_mb} MB"
                 + f"filename {filename}"
             )
             return []
