@@ -77,6 +77,8 @@ from cohere_compass.models.documents import (
 )
 from cohere_compass.models.search import SortBy
 
+DEFAULT_TIMEOUT_SECONDS = 30
+
 
 @dataclass
 class _RetryResult:
