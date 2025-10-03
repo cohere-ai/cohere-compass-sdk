@@ -1225,7 +1225,10 @@ class CompassClient:
                     headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
                 response = self.api_method[api_name](
-                    target_path, json=data_dict, headers=headers
+                    target_path,
+                    json=data_dict,
+                    headers=headers,
+                    timeout=DEFAULT_TIMEOUT_SECONDS,
                 )
 
                 if response.ok:
