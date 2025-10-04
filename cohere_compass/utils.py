@@ -12,7 +12,7 @@ import glob
 import logging
 import os
 import uuid
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, Iterable
 from concurrent import futures
 from concurrent.futures import Executor
 from typing import TypeVar
@@ -35,6 +35,23 @@ U = TypeVar("U")
 R = TypeVar("R")
 
 logger = logging.getLogger(__name__)
+
+
+async def async_enumerate(
+    iterable: AsyncIterable[T], start: int = 0
+) -> AsyncIterator[tuple[int, T]]:
+    """
+    Enumerate an async iterable, just like Python's `enumerate()` but for async.
+
+    :param iterable: The iterable to enumerate.
+    :param start: The start index.
+
+    :return: An async iterator of tuples of the index and the item.
+    """
+    i = start
+    async for item in iterable:
+        yield i, item
+        i += 1
 
 
 def imap_parallel(
@@ -118,7 +135,7 @@ async def async_map(
 
 async def async_apply(
     func: Callable[..., Awaitable[None]],
-    iterable: Iterable[T],
+    iterable: Iterable[T] | AsyncIterable[T],
     limit: int | None = None,
 ) -> None:
     """
@@ -139,7 +156,10 @@ async def async_apply(
         async def _task(item: T):
             await func(item)
 
-    tasks = [_task(item) for item in iterable]
+    if isinstance(iterable, AsyncIterable):
+        tasks = [_task(item) async for item in iterable]
+    else:
+        tasks = [_task(item) for item in iterable]
     await asyncio.gather(*tasks)
 
 
@@ -254,7 +274,56 @@ def partition_documents(
     request_block: list[tuple[CompassDocument, Document]] = []
     errors: list[dict[str, str]] = []
     num_chunks = 0
-    for _, doc in enumerate(docs, 1):
+    for doc in docs:
+        if doc.status != CompassDocumentStatus.Success:
+            logger.error(
+                f"Document {doc.metadata.document_id} has errors: {doc.errors}"
+            )
+            for error in doc.errors:
+                errors.append({doc.metadata.document_id: next(iter(error.values()))})
+        else:
+            num_chunks += (
+                len(doc.chunks) if doc.status == CompassDocumentStatus.Success else 0
+            )
+            if num_chunks > max_chunks_per_request:
+                yield request_block, errors
+                request_block, errors = [], []
+                num_chunks = 0
+
+            request_block.append(
+                (
+                    doc,
+                    Document(
+                        document_id=doc.metadata.document_id,
+                        parent_document_id=doc.metadata.parent_document_id,
+                        path=doc.metadata.filename,
+                        content=doc.content,
+                        chunks=[Chunk(**c.model_dump()) for c in doc.chunks],
+                        index_fields=doc.index_fields,
+                    ),
+                )
+            )
+
+    if len(request_block) > 0 or len(errors) > 0:
+        yield request_block, errors
+
+
+async def partition_documents_async(
+    docs: AsyncIterable[CompassDocument],
+    max_chunks_per_request: int,
+):
+    """
+    Create request blocks to send to the Compass API.
+
+    :param docs: the documents to send
+    :param max_chunks_per_request: the maximum number of chunks to send in a single
+        API request
+    :return: an iterator over the request blocks
+    """
+    request_block: list[tuple[CompassDocument, Document]] = []
+    errors: list[dict[str, str]] = []
+    num_chunks = 0
+    async for doc in docs:
         if doc.status != CompassDocumentStatus.Success:
             logger.error(
                 f"Document {doc.metadata.document_id} has errors: {doc.errors}"

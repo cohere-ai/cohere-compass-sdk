@@ -10,7 +10,7 @@ concurrent operations and comprehensive error handling.
 import base64
 import os
 from collections import deque
-from collections.abc import Iterable
+from collections.abc import AsyncIterable, Iterable
 from datetime import timedelta
 from statistics import mean
 from typing import Any, Literal
@@ -71,7 +71,11 @@ from cohere_compass.models.documents import (
 )
 from cohere_compass.models.indexes import IndexDetails, ListIndexesResponse
 from cohere_compass.models.search import GetDocumentResponse, RetrievedDocument, SortBy
-from cohere_compass.utils import async_apply, partition_documents
+from cohere_compass.utils import (
+    async_apply,
+    async_enumerate,
+    partition_documents_async,
+)
 
 
 class CompassAsyncClient:
@@ -589,7 +593,7 @@ class CompassAsyncClient:
         self,
         *,
         index_name: str,
-        docs: Iterable[CompassDocument],
+        docs: Iterable[CompassDocument] | AsyncIterable[CompassDocument],
         max_chunks_per_request: int = DEFAULT_MAX_CHUNKS_PER_REQUEST,
         max_error_rate: float = DEFAULT_MAX_ERROR_RATE,
         errors_sliding_window_size: int | None = 10,
@@ -692,7 +696,18 @@ class CompassAsyncClient:
         )  # Keep track of the results of the last N API calls
         num_succeeded = 0
         errors: list[dict[str, str]] = []
-        requests_iter = partition_documents(docs, max_chunks_per_request)
+
+        async def docs_async_iter():
+            if isinstance(docs, AsyncIterable):
+                async for doc in docs:
+                    yield doc
+            else:
+                for doc in docs:
+                    yield doc
+
+        requests_iter = partition_documents_async(
+            docs_async_iter(), max_chunks_per_request
+        )
 
         try:
             num_jobs = num_jobs or os.cpu_count()
@@ -702,7 +717,9 @@ class CompassAsyncClient:
                     previous_errors,
                     i,
                 )
-                for i, (request_block, previous_errors) in enumerate(requests_iter, 1)
+                async for i, (request_block, previous_errors) in async_enumerate(
+                    requests_iter, 1
+                )
                 if i > skip_first_n_docs
             )
             await async_apply(put_request, args, num_jobs)
