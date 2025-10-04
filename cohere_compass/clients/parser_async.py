@@ -72,6 +72,7 @@ class CompassParserAsyncClient:
         bearer_token: str | None = None,
         num_workers: int = 1,
         timeout: timedelta = DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT,
+        httpx_client: httpx.AsyncClient | None = None,
     ):
         """
         Initialize the CompassParserClient.
@@ -90,6 +91,14 @@ class CompassParserAsyncClient:
             if no metadata configuration is specified in the method calls (process_file
             or process_files)
         :param bearer_token (optional): The bearer token for authentication.
+        :param num_workers (optional): The number of workers to use for processing
+            files.
+        :param timeout (optional): The timeout to use for the httpx client. Default is
+            DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT. Notice that if an httpx client is
+            provided, the timeout will be ignored.
+        :param httpx_client (optional): The httpx client to use for making requests.
+            If not provided, a new httpx client will be created with the timeout set
+            when creating the client.
         """
         self.parser_url = (
             parser_url if not parser_url.endswith("/") else parser_url[:-1]
@@ -99,7 +108,9 @@ class CompassParserAsyncClient:
         self.thread_pool = ThreadPoolExecutor(num_workers)
         self.num_workers = num_workers
         self.timeout = timeout
-        self.httpx = httpx.AsyncClient(timeout=self.timeout.total_seconds())
+        self.httpx = httpx_client or httpx.AsyncClient(
+            timeout=self.timeout.total_seconds()
+        )
 
         self.metadata_config = metadata_config
         logger.info(

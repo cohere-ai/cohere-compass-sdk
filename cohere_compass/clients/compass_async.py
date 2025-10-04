@@ -90,6 +90,7 @@ class CompassAsyncClient:
         max_retries: int = DEFAULT_MAX_RETRIES,
         retry_wait: timedelta = DEFAULT_RETRY_WAIT,
         timeout: timedelta = DEFAULT_COMPASS_CLIENT_TIMEOUT,
+        httpx_client: httpx.AsyncClient | None = None,
     ):
         """
         Initialize the async Compass client.
@@ -99,7 +100,13 @@ class CompassAsyncClient:
             bearer_token: Optional bearer token for API authentication.
             max_retries: Maximum number of retries for failed requests.
             retry_wait: Time to wait between retries.
-            timeout: Request timeout duration.
+            timeout: Request timeout duration. If not specified, it defaults to
+                DEFAULT_COMPASS_CLIENT_TIMEOUT. Notice that if an httpx client is
+                provided, the timeout will be ignored.
+            httpx_client: The httpx client to use for making requests. If not provided,
+                a new httpx client will be created with the timeout set when creating
+                the client.
+
 
         Raises:
             ValueError: If max_retries is negative or retry_wait is negative.
@@ -107,7 +114,9 @@ class CompassAsyncClient:
         """
         self.index_url = index_url if index_url.endswith("/") else f"{index_url}/"
         self.timeout = timeout
-        self.httpx_client = httpx.AsyncClient(timeout=self.timeout.total_seconds())
+        self.httpx_client = httpx_client or httpx.AsyncClient(
+            timeout=self.timeout.total_seconds()
+        )
 
         self.bearer_token = bearer_token
 

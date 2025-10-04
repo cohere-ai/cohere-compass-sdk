@@ -77,18 +77,33 @@ class CompassParserClient:
         bearer_token: str | None = None,
         num_workers: int = 1,
         timeout: timedelta = DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT,
+        httpx_client: httpx.Client | None = None,
     ):
         """
         Initialize the CompassParserClient.
 
-        Args:
-            parser_url: URL of the CompassParser API.
-            parser_config: Default parser configuration to use when processing files.
-            metadata_config: Default metadata configuration for extracting metadata.
-            bearer_token: Optional bearer token for API authentication.
-            num_workers: Number of parallel workers for file processing.
-            timeout: Request timeout duration for API calls.
+        The parser_config and metadata_config are optional, and if not provided, the
+        default configurations will be used. If the parser/metadata configs are
+        provided, they will be used for all subsequent files processed by the client
+        unless specific configs are passed when calling the process_file or
+        process_files methods.
 
+        :param parser_url: the URL of the CompassParser API
+        :param parser_config: the parser configuration to use when processing files if
+            no parser configuration is specified in the method calls (process_file or
+            process_files)
+        :param metadata_config: the metadata configuration to use when processing files
+            if no metadata configuration is specified in the method calls (process_file
+            or process_files)
+        :param bearer_token (optional): The bearer token for authentication.
+        :param num_workers (optional): The number of workers to use for processing
+            files.
+        :param timeout (optional): The timeout to use for the httpx client. Default is
+            DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT. Notice that if an httpx client is
+            provided, the timeout will be ignored.
+        :param httpx_client (optional): The httpx client to use for making requests.
+            If not provided, a new httpx client will be created with the timeout set
+            when creating the client.
         """
         self.parser_url = (
             parser_url if not parser_url.endswith("/") else parser_url[:-1]
@@ -98,7 +113,9 @@ class CompassParserClient:
         self.thread_pool = ThreadPoolExecutor(num_workers)
         self.num_workers = num_workers
         self.timeout = timeout
-        self.httpx_client = httpx.Client(timeout=self.timeout.total_seconds())
+        self.httpx_client = httpx_client or httpx.Client(
+            timeout=self.timeout.total_seconds()
+        )
 
         self.metadata_config = metadata_config
         logger.info(
