@@ -32,7 +32,6 @@ from cohere_compass import (
 )
 from cohere_compass.constants import (
     DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT,
-    DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES,
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_WAIT,
 )
@@ -365,13 +364,6 @@ class CompassParserClient:
         custom_context: Fn_or_Dict | None = None,
         timeout: timedelta | None = None,
     ) -> list[CompassDocument]:
-        if len(file_bytes) > DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES:
-            max_size_mb = DEFAULT_MAX_ACCEPTED_FILE_SIZE_BYTES // 1_000_000
-            logger.error(
-                f"File too large, supported file size is {max_size_mb} MB"
-                + f"filename {filename}"
-            )
-            return []
         headers = None
         if self.bearer_token:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
