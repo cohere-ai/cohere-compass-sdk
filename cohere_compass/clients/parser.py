@@ -160,7 +160,7 @@ class CompassParserClient:
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
 
-        :returns: the list of processed documents
+        :return: the list of processed documents
         """
         filenames = scan_folder(
             folder_path=folder_path,
@@ -206,7 +206,7 @@ class CompassParserClient:
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
 
-        :returns: List of processed documents
+        :return: List of processed documents
         """
 
         def process_file(i: int) -> list[CompassDocument] | tuple[str, Exception]:
@@ -284,7 +284,7 @@ class CompassParserClient:
         :param timeout: Timeout in seconds for the process_file request. If None, uses
             the timeout set when creating the client.
 
-        :returns: List of resulting documents
+        :return: List of resulting documents
         """
         doc = open_document(filename)
         if doc.errors:
@@ -347,7 +347,7 @@ class CompassParserClient:
         :param timeout: Timeout in seconds for the process_file request. If None, uses
             the timeout set when creating the client.
 
-        :returns: List of resulting documents
+        :return: List of resulting documents
         """
         return self._process_file_bytes(
             params=self._get_file_params(

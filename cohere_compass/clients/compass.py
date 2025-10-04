@@ -231,20 +231,17 @@ class CompassClient:
         """
         Initialize the Compass client.
 
-        Args:
-            index_url: The base URL for the Compass API.
-            bearer_token: Optional bearer token for API authentication.
-            max_retries: Maximum number of retries for failed requests.
-            retry_wait: Time to wait between retries.
-            timeout: Request timeout duration. If not specified, it defaults to
-                DEFAULT_COMPASS_CLIENT_TIMEOUT.
-            httpx_client: The httpx client to use for making requests. If not provided,
-                a new httpx client will be created with the timeout set when creating
-                the client.
+        :param index_url: The base URL for the Compass API.
+        :param bearer_token: Optional bearer token for API authentication.
+        :param max_retries: Maximum number of retries for failed requests.
+        :param retry_wait: Time to wait between retries.
+        :param timeout: Request timeout duration. If not specified, it defaults to
+            DEFAULT_COMPASS_CLIENT_TIMEOUT.
+        :param httpx_client: The httpx client to use for making requests. If not
+            provided, a new httpx client will be created with the timeout set when
+            creating the client.
 
-        Raises:
-            ValueError: If max_retries is negative or retry_wait is negative.
-
+        :raises: ValueError: If max_retries is negative or retry_wait is negative.
         """
         self.index_url = index_url if index_url.endswith("/") else f"{index_url}/"
         self.timeout = (
@@ -282,18 +279,15 @@ class CompassClient:
         """
         Get the models available in Compass.
 
-        Args:
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
-        Returns:
-            Dictionary with model roles as keys ("dense", "rerank", "sparse") and lists
-            of model versions as values.
-
+        :return: Dictionary with model roles as keys ("dense", "rerank", "sparse") and
+            lists of model versions as values.
         """
         result = self._send_request(
             api_name="get_models",
@@ -318,19 +312,16 @@ class CompassClient:
         """
         Create an index in Compass.
 
-        Args:
-            index_name: The name of the index to create.
-            index_config: Optional configuration for the index.
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: The name of the index to create.
+        :param index_config: Optional configuration for the index.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
-
-        Raises:
-            ValueError: If index_name contains invalid characters.
+        :raises: ValueError: If index_name contains invalid characters.
 
         """
         if not re.match(URL_SAFE_STRING_PATTERN, index_name):
@@ -357,14 +348,13 @@ class CompassClient:
         """
         Get the details of an index in Compass.
 
-        Args:
-            index_name: The name of the index to query.
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: The name of the index to query.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
 
         Returns:
@@ -392,14 +382,13 @@ class CompassClient:
         """
         Refresh an index to make recent changes searchable.
 
-        Args:
-            index_name: The name of the index to refresh.
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: The name of the index to refresh.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         """
         self._send_request(
@@ -421,14 +410,13 @@ class CompassClient:
         """
         Delete an index from Compass.
 
-        Args:
-            index_name: The name of the index to delete.
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: The name of the index to delete.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         """
         self._send_request(
@@ -451,15 +439,14 @@ class CompassClient:
         """
         Delete a document from Compass.
 
-        Args:
-            index_name: The name of the index containing the document.
-            document_id: The ID of the document to delete.
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: The name of the index containing the document.
+        :param document_id: The ID of the document to delete.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         """
         self._send_request(
@@ -483,15 +470,14 @@ class CompassClient:
         """
         Get a document from Compass.
 
-        Args:
-            index_name: The name of the index containing the document.
-            document_id: The ID of the document to retrieve.
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: The name of the index containing the document.
+        :param document_id: The ID of the document to retrieve.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         Returns:
             RetrievedDocument object containing the requested document.
@@ -517,13 +503,12 @@ class CompassClient:
         """
         List all indexes in Compass.
 
-        Args:
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         Returns:
             ListIndexesResponse containing all available indexes.
@@ -551,16 +536,15 @@ class CompassClient:
         """
         Update the content field of an existing document with additional attributes.
 
-        Args:
-            index_name: The name of the index containing the document.
-            document_id: The ID of the document to modify.
-            attributes: The attributes to add to the document.
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: The name of the index containing the document.
+        :param document_id: The ID of the document to modify.
+        :param attributes: The attributes to add to the document.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
 
         """
@@ -588,18 +572,17 @@ class CompassClient:
         """
         Insert a parsed document into an index in Compass.
 
-        Args:
-            index_name: The name of the index.
-            doc: The parsed compass document to insert.
-            authorized_groups: Optional list of groups authorized to access this
-                document.
-            merge_groups_on_conflict: Whether to merge groups on conflict.
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: The name of the index.
+        :param doc: The parsed compass document to insert.
+        :param authorized_groups: Optional list of groups authorized to access this
+            document.
+        :param merge_groups_on_conflict: Whether to merge groups on conflict.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         """
         self.insert_docs(
@@ -629,20 +612,19 @@ class CompassClient:
         """
         Parse and insert a document into an index in Compass.
 
-        Args:
-            index_name: The name of the index.
-            filename: The filename of the document.
-            filebytes: The raw bytes of the document.
-            content_type: The content type of the document.
-            document_id: The ID to assign to the document.
-            attributes: Additional attributes to add to the document.
-            config: Configuration for the document parsing.
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: The name of the index.
+        :param filename: The filename of the document.
+        :param filebytes: The raw bytes of the document.
+        :param content_type: The content type of the document.
+        :param document_id: The ID to assign to the document.
+        :param attributes: Additional attributes to add to the document.
+        :param config: Configuration for the document parsing.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         Returns:
             UploadDocumentsResult containing the upload ID and status.
@@ -682,15 +664,14 @@ class CompassClient:
         """
         Get status of document upload.
 
-        Args:
-            index_name: The name of the index.
-            upload_id: The upload ID returned when uploading the document.
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: The name of the index.
+        :param upload_id: The upload ID returned when uploading the document.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         Returns:
             List of UploadDocumentsStatus objects containing upload status information.
@@ -719,15 +700,14 @@ class CompassClient:
         """
         Download the parsed document from Compass.
 
-        Args:
-            index_name: The name of the index.
-            upload_id: The upload ID returned when uploading the document.
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: The name of the index.
+        :param upload_id: The upload ID returned when uploading the document.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         Returns:
             List of ParsedDocumentResponse objects containing the parsed documents.
@@ -763,26 +743,25 @@ class CompassClient:
         """
         Insert multiple parsed documents into an index in Compass.
 
-        Args:
-            index_name: The name of the index.
-            docs: Iterator of parsed documents to insert.
-            max_chunks_per_request: Maximum number of chunks to send in a single
-                request.
-            max_error_rate: Maximum error rate allowed before stopping insertion.
-            errors_sliding_window_size: Size of the sliding window to track errors.
-            skip_first_n_docs: Number of docs to skip indexing (useful for resuming
-                failed insertions).
-            num_jobs: Number of parallel jobs to use for insertion.
-            authorized_groups: Groups authorized to access the documents (None makes
-                documents public).
-            merge_groups_on_conflict: Whether to merge groups when upserting documents
-                with security.
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: The name of the index.
+        :param docs: Iterator of parsed documents to insert.
+        :param max_chunks_per_request: Maximum number of chunks to send in a single
+            request.
+        :param max_error_rate: Maximum error rate allowed before stopping insertion.
+        :param errors_sliding_window_size: Size of the sliding window to track errors.
+        :param skip_first_n_docs: Number of docs to skip indexing (useful for resuming
+            failed insertions).
+        :param num_jobs: Number of parallel jobs to use for insertion.
+        :param authorized_groups: Groups authorized to access the documents (None makes
+            documents public).
+        :param merge_groups_on_conflict: Whether to merge groups when upserting
+            documents with security.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
 
         Returns:
@@ -887,14 +866,13 @@ class CompassClient:
         """
         Create a new datasource in Compass.
 
-        Args:
-            datasource: the datasource to create
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param datasource: the datasource to create
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         """
         result = self._send_request(
@@ -916,13 +894,12 @@ class CompassClient:
         """
         List all datasources in Compass.
 
-        Args:
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         """
         result = self._send_request(
@@ -945,14 +922,13 @@ class CompassClient:
         """
         Get a datasource in Compass.
 
-        Args:
-            datasource_id: the id of the datasource
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param datasource_id: the id of the datasource
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         """
         result = self._send_request(
@@ -976,14 +952,13 @@ class CompassClient:
         """
         Delete a datasource in Compass.
 
-        Args:
-            datasource_id: the id of the datasource
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param datasource_id: the id of the datasource
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         """
         self._send_request(
@@ -1005,14 +980,13 @@ class CompassClient:
         """
         Sync a datasource in Compass.
 
-        Args:
-            datasource_id: the id of the datasource
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param datasource_id: the id of the datasource
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         """
         self._send_request(
@@ -1036,16 +1010,15 @@ class CompassClient:
         """
         List all objects states in a datasource in Compass.
 
-        Args:
-            datasource_id: the id of the datasource
-            skip: the number of objects to skip
-            limit: the number of objects to return
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param datasource_id: the id of the datasource
+        :param skip: the number of objects to skip
+        :param limit: the number of objects to return
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         """
         result = self._send_request(
@@ -1099,18 +1072,17 @@ class CompassClient:
         """
         Search documents in an index.
 
-        Args:
-            index_name: the name of the index
-            query: the search query
-            top_k: the number of documents to return
-            filters: the search filters to apply
-            rerank_model: the model to use for reranking the results
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: the name of the index
+        :param query: the search query
+        :param top_k: the number of documents to return
+        :param filters: the search filters to apply
+        :param rerank_model: the model to use for reranking the results
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         Returns:
             SearchDocumentsResponse object containing the search results
@@ -1145,18 +1117,17 @@ class CompassClient:
         """
         Search chunks in an index.
 
-        Args:
-            index_name: the name of the index
-            query: the search query
-            top_k: the number of chunks to return
-            filters: the search filters to apply
-            rerank_model: the model to use for reranking the results
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: the name of the index
+        :param query: the search query
+        :param top_k: the number of chunks to return
+        :param filters: the search filters to apply
+        :param rerank_model: the model to use for reranking the results
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         Returns:
             SearchChunksResponse object containing the search results
@@ -1189,16 +1160,15 @@ class CompassClient:
         """
         Get an asset from a document in Compass.
 
-        Args:
-            index_name: the name of the index
-            document_id: the id of the document
-            asset_id: the id of the asset
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: the name of the index
+        :param document_id: the id of the document
+        :param asset_id: the id of the asset
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         Returns:
             A tuple of the content and content type of the asset. The variable type of
@@ -1236,15 +1206,14 @@ class CompassClient:
         """
         Edit group authorization for an index.
 
-        Args:
-            index_name: the name of the index
-            group_auth_input: the group authorization input
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: the name of the index
+        :param group_auth_input: the group authorization input
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         """
         result = self._send_request(
@@ -1272,20 +1241,19 @@ class CompassClient:
         """
         Perform a direct search query against the Compass API.
 
-        Args:
-            index_name: the name of the index
-            query: the direct search query (e.g. {"match_all": {}})
-            sort_by: the sort by criteria
-            size: the number of results to return
-            scroll: the scroll duration (e.g. "1m" for 1 minute)
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param index_name: the name of the index
+        :param query: the direct search query (e.g. {"match_all": {}})
+        :param sort_by: the sort by criteria
+        :param size: the number of results to return
+        :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
-        :returns: the direct search results
+        :return: the direct search results
         :raises CompassError: if the search fails
 
         """
@@ -1315,16 +1283,15 @@ class CompassClient:
         """
         Continue a search using a scroll ID from a previous direct_search call.
 
-        Args:
-            scroll_id: the scroll ID from a previous direct_search call
-            index_name: the name of the index same as used in direct_search
-            scroll: the scroll duration (e.g. "1m" for 1 minute)
-            max_retries: Maximum number of retries for failed requests. If not provided,
-                the default from the client will be used.
-            retry_wait: Time to wait between retries. If not provided, the default from
-                the client will be used.
-            timeout: Request timeout duration. If not provided, the default from the
-                client will be used.
+        :param scroll_id: the scroll ID from a previous direct_search call
+        :param index_name: the name of the index same as used in direct_search
+        :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
 
         Returns:
             the next batch of search results
@@ -1423,7 +1390,14 @@ class CompassClient:
         :param function: the function to call
         :param index_name: the name of the index
         :param data: the data to send
-        :returns: An error message if the request failed, otherwise None.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        :return: An error message if the request failed, otherwise None.
         """
         max_retries = max_retries or self.max_retries
         retry_wait = retry_wait or self.retry_wait

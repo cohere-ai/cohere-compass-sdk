@@ -46,17 +46,14 @@ def imap_parallel(
     Similar to Python's built-in map(), but uses an executor to parallelize
     the function calls and limits the number of concurrent futures.
 
-    Args:
-        executor: The executor to use for parallel execution.
-        f: The function to apply to each item.
-        it: The iterable to map over.
-        max_parallelism: Maximum number of futures to keep in flight.
+    :param executor: The executor to use for parallel execution.
+    :param f: The function to apply to each item.
+    :param it: The iterable to map over.
+    :param max_parallelism: Maximum number of futures to keep in flight.
 
-    Yields:
-        Results from applying f to each item in it.
+    :return: Yields results from applying f to each item in it.
 
-    Raises:
-        ValueError: If max_parallelism is less than 1.
+    :raises ValueError: If max_parallelism is less than 1.
 
     """
     if max_parallelism < 1:
@@ -93,13 +90,11 @@ async def async_map(
 
     The function preserves the original order of results.
 
-    Args:
-        func: An async function to apply to each item.
-        iterable: An iterable of input items.
-        limit: Maximum number of concurrent tasks.
+    :param func: An async function to apply to each item.
+    :param iterable: An iterable of input items.
+    :param limit: Maximum number of concurrent tasks.
 
-    Returns:
-        A list of results, in the same order as the input iterable.
+    :return: A list of results, in the same order as the input iterable.
 
     """
     results: dict[int, R] = {}
@@ -129,11 +124,9 @@ async def async_apply(
     """
     Apply an async function over an iterable with a limit on concurrent executions.
 
-    Args:
-        func: An async function to apply to the arguments.
-        iterable: One or more iterables whose elements will be passed to func.
-        limit: Maximum number of concurrent tasks.
-
+    :param func: An async function to apply to the arguments.
+    :param iterable: One or more iterables whose elements will be passed to func.
+    :param limit: Maximum number of concurrent tasks.
     """
     if limit is not None:
         semaphore = asyncio.Semaphore(limit)
@@ -157,12 +150,10 @@ def get_fs(document_path: str) -> AbstractFileSystem:
     Supports various filesystem types including local, S3, GCS, and others
     via the fsspec library.
 
-    Args:
-        document_path: Path to the document, can include filesystem prefix
-                      (e.g., "s3://bucket/file" or "/local/path").
+    :param document_path: Path to the document, can include filesystem prefix
+        (e.g., "s3://bucket/file" or "/local/path").
 
-    Returns:
-        AbstractFileSystem instance appropriate for the given path.
+    :return: AbstractFileSystem instance appropriate for the given path.
 
     """
     if document_path.find("://") >= 0:
@@ -179,7 +170,7 @@ def open_document(document_path: str) -> CompassDocument:
 
     :param document_path: the path to the document
 
-    :returns: a CompassDocument object.
+    :return: a CompassDocument object.
     """
     doc = CompassDocument(metadata=CompassDocumentMetadata(filename=document_path))
     try:
@@ -209,7 +200,7 @@ def scan_folder(
     :param recursive: whether to scan the folder recursively or to stick to the top
         level.
 
-    :returns: A list of file paths.
+    :return: A list of file paths.
     """
     fs = get_fs(folder_path)
     all_files: list[str] = []
@@ -241,7 +232,7 @@ def generate_doc_id_from_bytes(filebytes: bytes) -> uuid.UUID:
 
     :param filebytes: The bytes of the file to generate the UUID from.
 
-    :returns: The generated UUID based on the file bytes.
+    :return: The generated UUID based on the file bytes.
     """
     b64_string = base64.b64encode(filebytes).decode("utf-8")
     namespace = uuid.UUID(UUID_NAMESPACE)
@@ -258,7 +249,7 @@ def partition_documents(
     :param docs: the documents to send
     :param max_chunks_per_request: the maximum number of chunks to send in a single
         API request
-    :returns: an iterator over the request blocks
+    :return: an iterator over the request blocks
     """
     request_block: list[tuple[CompassDocument, Document]] = []
     errors: list[dict[str, str]] = []

@@ -73,7 +73,7 @@ class CompassDocumentChunk(ValidatedModel):
         """
         Check if the parent document is split.
 
-        :returns: True if the document ID is different from the parent document ID,
+        :return: True if the document ID is different from the parent document ID,
         indicating that the parent document is split; False otherwise.
         """
         return self.document_id != self.parent_document_id

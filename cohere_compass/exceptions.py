@@ -25,9 +25,8 @@ class CompassClientError(CompassError):
 
         CompassClientError is raised for all 4xx client errors from Compass APIs.
 
-        Args:
-            message: Error message to display.
-            code: HTTP status code associated with the error.
+        :param message: Error message to display.
+        :param code: HTTP status code associated with the error.
 
         """
         self.message = message
@@ -50,8 +49,7 @@ class CompassAuthError(CompassClientError):
         A specialization of CompassClientError used for authenticated-related client
         errors.
 
-        Args:
-            message: Error message to display.
+        :param message: Error message to display.
 
         """
         self.message = message
@@ -69,9 +67,8 @@ class CompassInsertionError(CompassError):
         """
         Initialize CompassInsertionError.
 
-        Args:
-            message: Error message to display.
-            errors: List of errors.
+        :param message: Error message to display.
+        :param errors: List of errors.
 
         """
         self.message = message
@@ -100,8 +97,7 @@ class CompassMaxErrorRateExceeded(Exception):
         """
         Initialize CompassMaxErrorRateExceeded.
 
-        Args:
-            message: Error message to display.
+        :param message: Error message to display.
 
         """
         self.message = message
