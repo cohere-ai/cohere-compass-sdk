@@ -1,9 +1,9 @@
 from cohere_compass.clients.access_control import CompassRootClient
 from cohere_compass.models.access_control import Group, User
-from requests.exceptions import HTTPError
+from httpx import HTTPStatusError
 
-COMPASS_API_URL = ...
-ROOT_USER_TOKEN = ...
+COMPASS_API_URL = "<COMPASS_API_URL>"
+ROOT_USER_TOKEN = "<ROOT_USER_TOKEN>"
 
 compass_root_client = CompassRootClient(
     compass_url=COMPASS_API_URL,
@@ -20,7 +20,7 @@ try:
 
     for group in groups:
         print(f"Created group: {group.group_name}")
-except HTTPError as e:
+except HTTPStatusError as e:
     if e.response.status_code == 409:
         print("Group already exists.")
     else:
@@ -33,7 +33,7 @@ try:
             User(user_name="unique_user_name_2"),
         ]
     )
-except HTTPError as e:
+except HTTPStatusError as e:
     if e.response.status_code == 409:
         print("User already exists.")
     else:
@@ -46,7 +46,7 @@ try:
         user_names=["unique_user_name_1"],
     )
     print("Group membership added: ", group_membership)
-except HTTPError as e:
+except HTTPStatusError as e:
     if e.response.status_code == 409:
         print("Membership already exists.")
     else:
@@ -59,7 +59,7 @@ try:
         user_names=["unique_user_name_2"],
     )
     print("Group membership added: ", group_membership)
-except HTTPError as e:
+except HTTPStatusError as e:
     if e.response.status_code == 409:
         print("Membership already exists.")
     else:

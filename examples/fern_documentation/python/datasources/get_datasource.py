@@ -1,9 +1,9 @@
 from cohere_compass.clients import CompassClient
 
-COMPASS_API_URL = ...
-BEARER_TOKEN = ...
+COMPASS_API_URL = "<COMPASS_API_URL>"
+BEARER_TOKEN = "<BEARER_TOKEN>"
 
-DATASOURCE_ID = ...
+DATASOURCE_ID = "<DATASOURCE_ID>"
 
 compass_client = CompassClient(
     index_url=COMPASS_API_URL,

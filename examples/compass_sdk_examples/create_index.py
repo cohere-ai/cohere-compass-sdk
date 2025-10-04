@@ -2,7 +2,7 @@ import argparse
 
 from cohere_compass.models import CompassDocument
 
-from compass_sdk_examples.utils import get_compass_api, get_compass_parser
+from compass_sdk_examples.utils import get_compass_client, get_compass_parser_client
 
 
 def parse_args():
@@ -27,7 +27,6 @@ This script creates an index in Compass and inserts documents into it.
         "--folder-path",
         type=str,
         help="Specify the path to the folder containing documents to insert.",
-        required=True,
     )
 
     return parser.parse_args()
@@ -38,14 +37,18 @@ def main():
     index_name = args.index_name
     folder_path = args.folder_path
 
-    client = get_compass_api()
+    client = get_compass_client()
 
     print(f"Creating index '{index_name}'...")
     client.create_index(index_name=index_name)
     print(f"Index '{index_name}' created.")
 
+    if not folder_path:
+        print("No folder path provided. Skipping document insertion.")
+        return
+
     print(f"Inserting documents from {folder_path} into index '{index_name}'...")
-    parser = get_compass_parser()
+    parser = get_compass_parser_client()
     docs: list[CompassDocument] = []
     response = parser.process_folder(folder_path=folder_path)
     for d in response:
@@ -54,7 +57,7 @@ def main():
             print(f"Failed to parse {filename}: {ex}")
         else:
             docs.append(d)
-    client.insert_docs(index_name=index_name, docs=iter(docs))
+    client.insert_docs(index_name=index_name, docs=docs)
     print(f"Documents inserted into index '{index_name}'.")
 
 

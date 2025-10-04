@@ -38,263 +38,83 @@ npm i -g markdown-toc # use sudo if you use a system-wide node installation.
 <!-- toc -->
 
 - [Getting Started](#getting-started)
+  * [Installation](#installation)
+- [V2 Migration Guide](#v2-migration-guide)
 - [Local Development](#local-development)
-  - [Create Python Virtual Environment](#create-python-virtual-environment)
-  - [Running Tests Locally](#running-tests-locally)
-    - [VSCode Users](#vscode-users)
-  - [Pre-commit](#pre-commit)
+  * [Create Python Virtual Environment](#create-python-virtual-environment)
+  * [Running Tests Locally](#running-tests-locally)
+    + [VSCode Users](#vscode-users)
+  * [Pre-commit](#pre-commit)
 
 <!-- tocstop -->
 
 ## Getting Started
 
-Fill in your URL, username, password, and path to test data below for an end to end run
-of parsing and searching.
-
 ### Installation
+
+To install the SDK using `pip`:
 
 ```bash
 pip install cohere-compass-sdk
 ```
 
-```Python
-from cohere_compass.clients.compass import CompassClient
-from cohere_compass.clients.parser import CompassParserClient
-from cohere_compass.models.config import MetadataStrategy, MetadataConfig
+If you are using a package management tool like `poetry` or `uv`:
 
-api_url = "<COMPASS_URL>"
-parser_url = "<PARSER URL>"
-bearer_token = "<PASS BEARER TOKEN IF ANY OTHERWISE LEAVE IT BLANK>"
-
-index = "test-index"
-data_to_index = "<PATH_TO_TEST_DATA>"
-
-# Parse the files before indexing
-parsing_client = CompassParserClient(parser_url = parser_url)
-metadata_config = MetadataConfig(
-    metadata_strategy=MetadataStrategy.No_Metadata,
-    commandr_extractable_attributes=["date", "link", "page_title", "authors"]
-)
-
-docs_to_index = parsing_client.process_folder(folder_path=data_to_index, metadata_config=metadata_config, recursive=True)
-
-# Create index and insert files
-compass_client = CompassClient(index_url=api_url, bearer_token=bearer_token)
-compass_client.create_index(index_name=index)
-results = compass_client.insert_docs(index_name=index, docs=docs_to_index)
-
-result = compass_client.search_chunks(index_name=index, query="test", top_k=1)
-print(f"Results preview: \n {result.hits} ... \n \n ")
+```
+poetry add cohere-compass-sdk
 ```
 
-### Adding filters to documents
+or
 
-#### Adding filter via dict
-
-```python
-from cohere_compass.clients.compass import CompassClient
-from cohere_compass.clients.parser import CompassParserClient
-from cohere_compass.models.search import SearchFilter
-
-api_url = "<COMPASS_URL>"
-parser_url = "<PARSER URL>"
-data_to_index = "<PATH_TO_TEST_DATA>"
-index = "test-index"
-bearer_token = "<PASS BEARER TOKEN IF ANY OTHERWISE LEAVE IT BLANK>"
-
-parsing_client = CompassParserClient(parser_url = parser_url)
-custom_context_dict = {
-    "doc_purpose": "demo"
-}
-
-docs_to_index = parsing_client.process_folder(folder_path=data_to_index, recursive=True, custom_context=custom_context_dict)
-
-compass_client = CompassClient(index_url=api_url, bearer_token=bearer_token)
-filter = SearchFilter(type=SearchFilter.FilterType.EQ, field="content.doc_purpose", value="demo")
-result = compass_client.search_chunks(index_name=index, query="*", filters=[filter])
-print(f"Results preview: \n {result.hits} ... \n \n ")
+```
+uv add cohere-compass-sdk
 ```
 
-#### Adding filter via function
+Once you install it, the best way to learn how to use the SDK is to head over to [our
+examples](https://github.com/cohere-ai/cohere-compass-sdk/tree/main/examples). For the
+API reference, you can visit this
+[link](https://cohere-preview-d28024ac-1edf-416c-95be-73c5fe85a7c5.docs.buildwithfern.com/compass/reference/list-indexes-v-1-indexes-get).
+
+## V2 Migration Guide
+
+To improve the quality of the SDK and address multiple long-standing issues, as well
+as supporting async clients, we decided to introduce v2.0, a new major version. v2.0 has
+breaking changes and will require code changes. Fortunately, the changes are minimal
+and can frequently be deduced just by looking at the new signatures of the APIs. Below
+is a summary:
+
+- Previously, we had multiple methods that relied on return values for error handling.
+  This is no more the case, and almost all methods now raise exceptions in case of errors.
+  This means that instead of a code like:
 
 ```python
-from cohere_compass.clients.compass import CompassClient
-from cohere_compass.clients.parser import CompassParserClient
-from cohere_compass.models.search import SearchFilter
-from cohere_compass.models.documents import CompassDocument
-
-api_url = "<COMPASS_URL>"
-parser_url = "<PARSER URL>"
-data_to_index = "<PATH_TO_TEST_DATA>"
-index = "test-index"
-bearer_token = "<PASS BEARER TOKEN IF ANY OTHERWISE LEAVE IT BLANK>"
-
-parsing_client = CompassParserClient(parser_url = parser_url)
-
-def custom_context_fn(input: CompassDocument):
-    content = input.content
-    if len(input.chunks) > 2:
-        content["new_doc_field"] = "more_than_two_chunks"
-    else:
-        content["new_doc_field"] = "less_than_two_chunks"
-    return content
-
-
-docs_to_index = parsing_client.process_folder(folder_path=data_to_index, recursive=True, custom_context=custom_context_fn)
-
-compass_client = CompassClient(index_url=api_url, bearer_token=bearer_token)
-filter = SearchFilter(type=SearchFilter.FilterType.EQ, field="content.new_doc_field", value="less_than_two_chunks")
-result = compass_client.search_chunks(index_name=index, query="*", filters=[filter])
-print(f"Results preview: \n {result.hits} ... \n \n ")
+result = compass_client.create_index(...)
+if result.error:
+    # do something about the error
 ```
 
-### RBAC
+you instead do:
 
 ```python
-from cohere_compass.clients.access_control import CompassRootClient
-from cohere_compass.models.access_control import Group, Permission, Policy, Role, User
-from requests.exceptions import HTTPError
-
-ROOT_BEARER_TOKEN = "<ROOT_BEARER_TOKEN>"
-API_URL = "<API_URL>"
-compass_root = CompassRootClient(API_URL, ROOT_BEARER_TOKEN)
-
-user = User(user_name="<USER_NAME>")
-group = Group(group_name="<GROUP_NAME>")
-role = Role(role_name="<ROLE_NAME>")
-indexes = ["<ALLOWED_INDEX or REGEX>"]
-permission = Permission.WRITE # or Permission.READ
-
 try:
-    # Create Users
-    users = client.create_users([user])
-
-    # Create Groups
-    groups = client.create_groups([group])
-
-    # Add Users to a Group
-    memberships = client.add_members_to_group(group.group_name, [user.user_name])
-
-    # Add Policies and Create a Role
-    role.policies = [
-        Policy(permission=Permission.READ, indexes=indexes),
-    ]
-    roles = client.create_roles([role])
-
-    # Update Role Policies
-    role.policies = [
-        Policy(permission=Permission.READ, indexes=indexes),
-        Policy(permission=Permission.WRITE, indexes=indexes),
-    ]
-    role = client.update_role(role)
-
-    # Assign Roles to a Group
-    role_assignments = client.add_roles_to_group(group.group_name, [role.role_name])
-
-    # Token for the user to access the indexes
-    USER_TO_TOKENS = {user.name: user.token for user in users}
-except HTTPError as e:
-    if e.response.status_code == 409:
-        print("A entity already exists", e.response.json())
+    result = compass_client.create_index(...)
+except:
+    # do something about the error
 ```
 
-### Reading RBAC Information
+- v2.0 supports async clients. Async clients maintain the same signature as their sync
+  counterparts. So, where you would do the following to create an index:
 
 ```python
-from cohere_compass.clients.access_control import CompassRootClient
-from cohere_compass.models.access_control import Group, Role, User, PageDirection
-from requests.exceptions import HTTPError
-
-ROOT_BEARER_TOKEN = "<ROOT_BEARER_TOKEN>"
-API_URL = "<API_URL>"
-compass_root = CompassRootClient(API_URL, ROOT_BEARER_TOKEN)
-
-user = User(user_name="<USER_NAME>")
-group = Group(group_name="<GROUP_NAME>")
-role = Role(role_name="<ROLE_NAME>")
-
-# List all Users in the RBAC system
-# First page
-user_page = client.get_users_page()
-# Subsequent pages
-user_page = client.get_users_page(page_info=user_page.page_info, direction=PageDirection.NEXT)
-
-# List all Groups in the RBAC system
-# First page
-group_page = client.get_groups_page()
-# Subsequent pages
-group_page = client.get_groups_page(page_info=group_page.page_info, direction=PageDirection.NEXT)
-
-# List all Roles in the RBAC system
-# First page
-role_page = client.get_roles_page()
-# Subsequent pages
-role_page = client.get_roles_page(page_info=role_page.page_info, direction=PageDirection.NEXT)
-
-# Get the Group Details (all data + first page each of Users who are Members and Roles Assigned)
-detailed_group = client.get_detailed_group(group.group_name)
-
-# Get pages of Group's User Memberships
-# First page
-memberships = client.get_group_members_page(group.group_name)
-# Subsequent pages (can use the users_page_info from details)
-memberships = client.get_group_members_page(group.group_name, page_info=memberships.page_info, direction=PageDirection.NEXT)
-
-# Get pages of Group's Roles Assignments
-# First page
-role_assignments = client.get_group_roles_page(group.group_name)
-# Subsequent pages (can use the role_page_info from details)
-role_assignments = client.get_group_roles_page(group.group_name, page_info=role_assignments.page_info, direction=PageDirection.NEXT)
-
-# Get the User Details (all data + first page of Groups that the User is a Member of)
-detailed_user = client.get_detailed_user(user.user_name)
-
-# Get pages of User's Group Memberships
-# First page
-group_memberships = client.get_user_groups_page(user.user_name)
-# Subsequent pages (can use the group_page_info from details)
-group_memberships = client.get_user_groups_page(user.user_name, page_info=group_memberships.page_info, direction=PageDirection.NEXT)
-
-# Get the Roles Details (all data + first page of Groups the Role is Assigned to)
-detailed_role = client.get_detailed_role(role.role_name)
-
-# Get pages of Role's Group Assignments
-group_assignments = client.get_role_groups_page(role.role_name)
-# Subsequent pages (can use the group_page_info from details)
-group_assignments = client.get_role_groups_page(role.role_name, page_info=group_assignments.page_info, direction=PageDirection.NEXT)
-
-# Filtering any Page type query, exemplified on Users Page, but works with all.
-user_page = client.get_users_page(filter="<SOME_NAME_OR_NAME_PARTIAL>")
+client = CompassClient(index_url=api_url, bearer_token=bearer_token)
+client.create_index(...)
 ```
 
-### Deleting RBAC
+In async, you simply do:
 
-```python
-from cohere_compass.clients.access_control import CompassRootClient
-from cohere_compass.models.access_control import Group, Role, User
-
-ROOT_BEARER_TOKEN = "<ROOT_BEARER_TOKEN>"
-API_URL = "<API_URL>"
-compass_root = CompassRootClient(API_URL, ROOT_BEARER_TOKEN)
-
-user = User(user_name="<USER_NAME>")
-group = Group(group_name="<GROUP_NAME>")
-role = Role(role_name="<ROLE_NAME>")
-
-# removing Roles from a Group
-removed_roles = client.remove_roles_from_group(group.group_name, [role.role_name])
-
-# removing Members from a Group
-removed_members = client.remove_members_from_group(group.group_name, [user.user_name])
-
-# deleting Roles
-deleted_roles = client.delete_roles([role.role_name])
-
-# deleting Groups
-deleted_groups = client.delete_groups([group.group_name])
-
-# deleting Users
-deleted_users = client.delete_users([user.user_name])
+```
+client = CompassAsyncClient(index_url=api_url, bearer_token=bearer_token)
+await client.create_index(...)
 ```
 
 ## Local Development
@@ -305,7 +125,7 @@ We use Poetry to manage our Python environment. To create the virtual environmen
 the following command:
 
 ```
-poetry install
+poetry sync
 ```
 
 ### Running Tests Locally
@@ -331,5 +151,5 @@ you need to do is install our `pre-commit` hook so the code gets formatted autom
 when you commit your changes locally:
 
 ```bash
-pip install pre-commit
+poetry run pre-commit install
 ```

@@ -1,3 +1,10 @@
+"""
+Data models for the Cohere Compass SDK.
+
+This package contains Pydantic models for documents, search, configuration, and other
+data structures used throughout the SDK.
+"""
+
 from typing import Any
 
 # import models into model package
@@ -33,8 +40,6 @@ class ValidatedModel(BaseModel):
 
 
 from cohere_compass.models.config import *  # noqa: E402, F403
-from cohere_compass.models.core import *  # noqa: E402, F403
 from cohere_compass.models.datasources import *  # noqa: E402, F403
 from cohere_compass.models.documents import *  # noqa: E402, F403
-from cohere_compass.models.rbac import *  # noqa: E402, F403
 from cohere_compass.models.search import *  # noqa: E402, F403
