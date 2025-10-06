@@ -1,7 +1,13 @@
+"""
+Cohere SDK for Compass.
+
+This package provides Python clients for interacting with the Cohere Compass API,
+including document parsing, indexing, searching, and access control.
+"""
+
 # Python imports
 from enum import Enum
 from importlib import metadata
-from typing import Optional
 
 # 3rd party imports
 from pydantic import BaseModel
@@ -13,19 +19,22 @@ from cohere_compass.models.documents import DocumentId
 __version__ = metadata.version("cohere-compass-sdk")
 
 
+# TODO Those models should be moved to a separate module.
+
+
 class ProcessFileParameters(ValidatedModel):
     """Model for use with the process_file parser API."""
 
     parser_config: ParserConfig
     metadata_config: MetadataConfig
-    doc_id: Optional[DocumentId] = None
-    content_type: Optional[str] = None
+    doc_id: DocumentId | None = None
+    content_type: str | None = None
 
 
 class ProcessFilesParameters(ValidatedModel):
     """Model for use with the process_files parser API."""
 
-    doc_ids: Optional[list[str]] = None
+    doc_ids: list[str] | None = None
     parser_config: ParserConfig
     metadata_config: MetadataConfig
 

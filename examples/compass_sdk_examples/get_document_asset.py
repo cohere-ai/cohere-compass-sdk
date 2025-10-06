@@ -1,7 +1,7 @@
 import argparse
 import json
 
-from compass_sdk_examples.utils import get_compass_api
+from compass_sdk_examples.utils import get_compass_client
 
 
 def parse_args():
@@ -38,7 +38,7 @@ def main():
     index_name = args.index_name
     query = args.query
 
-    client = get_compass_api()
+    client = get_compass_client()
     response = client.search_chunks(index_name=index_name, query=query)
     if not response.hits:
         print("No hits found.")

@@ -2,15 +2,9 @@
 name = "compass-sdk-examples"
 version = "0.1.0"
 description = "Various examples of how to use the Compass SDK"
-authors = [
-    {name = "Your Name",email = "you@example.com"}
-]
+authors = []
 readme = "README.md"
-requires-python = ">=3.9,<4.0"
-dependencies = [
-    "compass-sdk @ ../",
-    "pytest-dotenv (>=0.5.2,<0.6.0)"
-]
+requires-python = ">=3.11,<4.0"
 
 
 [build-system]
@@ -18,11 +12,12 @@ requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.dependencies]
-compass-sdk = {path = "../", develop = true}
+cohere-compass-sdk = {path = "..", develop = true}
+dotenv = "^0.9.9"
 
 [tool.poetry.group.dev.dependencies]
-pyright = "^1.1.396"
-ruff = "^0.9.9"
+pyright = "^1.1.405"
+ruff = "^0.13.1"
 
 [project.scripts]
 create_index = 'compass_sdk_examples.create_index:main'

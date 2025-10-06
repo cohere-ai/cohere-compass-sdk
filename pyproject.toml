@@ -1,28 +1,28 @@
 [tool.poetry]
 name = "cohere-compass-sdk"
-version = "1.9.0"
+version = "2.0.0"
 authors = []
 description = "Cohere Compass SDK"
 readme = "README.md"
 packages = [{ include = "cohere_compass" }]
 
 [tool.poetry.dependencies]
-fsspec = ">=2024.6.1"
-joblib = "1.4.2"
-pydantic = ">=2.6.3"
-python = ">=3.9,<4.0"
-requests = ">=2.25.0,<3.0.0"
-tenacity = "^8.2.3"
-Deprecated = "^1.2.18"
-typing-extensions = "^4.14.1"
+fsspec = "^2025.9.0"
+joblib = "^1.5.2"
+pydantic = "^2.11.9"
+python = ">=3.11,<4.0"
+tenacity = "^9.1.2"
+httpx = "^0.28.1"
 
 [tool.poetry.group.dev.dependencies]
-pyright = "^1.1.390"
-pytest = "^8.3.3"
-pytest-asyncio = "^0.24.0"
-pytest-mock = "^3.14.0"
-requests-mock = "^1.12.1"
-ruff = "^0.8.1"
+pyright = "^1.1.405"
+pytest = "^8.4.2"
+pytest-asyncio = "^1.2.0"
+pytest-mock = "^3.15.1"
+respx = "^0.22.0"
+ruff = "^0.13.1"
+pytest-cov = "^7.0.0"
+pre-commit = "^4.3.0"
 
 [tool.pyright]
 reportMissingImports = false
@@ -36,7 +36,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 extend-select = [
@@ -59,3 +59,38 @@ mccabe = { max-complexity = 15 }
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["D"]
+
+[tool.pytest.ini_options]
+addopts = """
+    --cov=cohere_compass
+    --cov-report=term-missing
+    --cov-report=html
+    --cov-report=xml
+    --cov-branch
+    """
+pythonpath = ["./"]
+testpaths = "tests"
+xfail_strict = true
+
+[tool.coverage.run]
+branch = true
+source = ["cohere_compass"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+fail_under = 80
+ignore_errors = true
+omit = [
+    "tests/*",
+    "setup.py",
+]
+
+[tool.coverage.html]
+directory = "coverage_html"
