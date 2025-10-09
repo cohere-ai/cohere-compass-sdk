@@ -46,7 +46,7 @@ files = [
 
 [[package]]
 name = "cohere-compass-sdk"
-version = "2.0.0"
+version = "2.0.1"
 description = "Cohere Compass SDK"
 optional = false
 python-versions = ">=3.11,<4.0"
