@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import threading
+import uuid
 from collections import deque
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -159,7 +160,7 @@ API_DEFINITIONS = {
     ),
     "upload_documents_status": (
         "GET",
-        "indexes/{index_name}/documents/upload/{upload_id}/status",
+        "indexes/{index_name}/documents/upload/{upload_id}",
     ),
     "download_parsed_document": (
         "GET",
@@ -656,7 +657,7 @@ class CompassClient:
         self,
         *,
         index_name: str,
-        upload_id: str,
+        upload_id: uuid.UUID,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -680,7 +681,7 @@ class CompassClient:
         result = self._send_request(
             api_name="upload_documents_status",
             index_name=index_name,
-            upload_id=upload_id,
+            upload_id=str(upload_id),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -692,7 +693,7 @@ class CompassClient:
         self,
         *,
         index_name: str,
-        upload_id: str,
+        upload_id: uuid.UUID,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -716,7 +717,7 @@ class CompassClient:
         result = self._send_request(
             api_name="download_parsed_document",
             index_name=index_name,
-            upload_id=upload_id,
+            upload_id=str(upload_id),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,

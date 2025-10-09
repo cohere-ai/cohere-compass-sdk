@@ -9,6 +9,7 @@ concurrent operations and comprehensive error handling.
 # Python imports
 import base64
 import os
+import uuid
 from collections import deque
 from collections.abc import AsyncIterable, Iterable
 from datetime import timedelta
@@ -62,6 +63,7 @@ from cohere_compass.models import (
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.datasources import PaginatedList
 from cohere_compass.models.documents import (
+    ContentTypeEnum,
     DocumentAttributes,
     ParseableDocumentConfig,
     ParsedDocumentResponse,
@@ -460,7 +462,7 @@ class CompassAsyncClient:
         index_name: str,
         filename: str,
         filebytes: bytes,
-        content_type: str,
+        content_type: ContentTypeEnum,
         document_id: str,
         attributes: DocumentAttributes = DocumentAttributes(),
         config: ParseableDocumentConfig = ParseableDocumentConfig(),
@@ -515,7 +517,7 @@ class CompassAsyncClient:
         self,
         *,
         index_name: str,
-        upload_id: str,
+        upload_id: uuid.UUID,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -541,7 +543,7 @@ class CompassAsyncClient:
         result = await self._send_request(
             api_name="upload_documents_status",
             index_name=index_name,
-            upload_id=upload_id,
+            upload_id=str(upload_id),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -553,7 +555,7 @@ class CompassAsyncClient:
         self,
         *,
         index_name: str,
-        upload_id: str,
+        upload_id: uuid.UUID,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -578,7 +580,7 @@ class CompassAsyncClient:
         result = await self._send_request(
             api_name="download_parsed_document",
             index_name=index_name,
-            upload_id=upload_id,
+            upload_id=str(upload_id),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,

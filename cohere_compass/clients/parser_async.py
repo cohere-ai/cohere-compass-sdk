@@ -245,6 +245,7 @@ class CompassParserAsyncClient:
         wait=wait_fixed(DEFAULT_RETRY_WAIT),
         # todo find alternative to InvalidSchema
         retry=retry_if_not_exception_type((CompassClientError,)),
+        reraise=True,
     )
     async def process_file(
         self,
@@ -301,6 +302,7 @@ class CompassParserAsyncClient:
         wait=wait_fixed(DEFAULT_RETRY_WAIT),
         # todo find alternative to InvalidSchema
         retry=retry_if_not_exception_type((CompassClientError,)),
+        reraise=True,
     )
     async def process_file_bytes(
         self,
