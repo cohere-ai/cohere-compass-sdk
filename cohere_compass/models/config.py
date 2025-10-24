@@ -202,6 +202,7 @@ class ParserConfig(BaseModel):
     )
 
     enable_assets_returned_as_base64: bool = True
+    vlm_timeout: int | None = None
 
 
 class MetadataStrategy(str, Enum):
