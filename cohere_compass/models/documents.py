@@ -53,7 +53,7 @@ class CompassDocumentChunkAsset(BaseModel):
 
     asset_type: AssetType
     content_type: str
-    asset_data: str
+    asset_data: str | None = None
     asset_id: str | None = None
 
 
@@ -244,7 +244,7 @@ class DocumentChunkAsset(BaseModel):
 
     asset_type: AssetType
     content_type: str
-    asset_data: str
+    asset_data: str | None = None
     asset_id: str | None = None
 
 
