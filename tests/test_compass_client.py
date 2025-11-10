@@ -1115,3 +1115,49 @@ def test_list_datasources_objects_states(client: CompassClient, respx_mock: Mock
     assert result.value[1].source_id == source_id
     assert result.value[1].created_at == created_at
     assert result.value[1].updated_at == updated_at
+
+
+def test_get_asset_presigned_urls_success(
+    client: CompassClient, respx_mock: MockRouter
+):
+    from cohere_compass.models.documents import AssetPresignedUrlRequest
+
+    asset_a_uuid = uuid.UUID("12345678-1234-5678-1234-567812345678")
+    asset_b_uuid = uuid.UUID("87654321-4321-8765-4321-876543218765")
+    respx_mock.post(
+        "http://test.com/v1/indexes/test_index/assets/_presigned_urls"
+    ).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "asset_urls": [
+                    {
+                        "document_id": "doc_123",
+                        "asset_id": str(asset_a_uuid),
+                        "presigned_url": "https://example.com/asset_A?X-Amz-Signature=...",
+                    },
+                    {
+                        "document_id": "doc_456",
+                        "asset_id": str(asset_b_uuid),
+                        "presigned_url": "https://example.com/asset_B?X-Amz-Signature=...",
+                    },
+                ]
+            },
+        ),
+    )
+
+    result = client.get_asset_presigned_urls(
+        index_name="test_index",
+        assets=[
+            AssetPresignedUrlRequest(document_id="doc_123", asset_id=asset_a_uuid),
+            AssetPresignedUrlRequest(document_id="doc_456", asset_id=asset_b_uuid),
+        ],
+    )
+
+    assert len(result) == 2
+    assert result[0].document_id == "doc_123"
+    assert result[0].asset_id == asset_a_uuid
+    assert result[0].presigned_url == "https://example.com/asset_A?X-Amz-Signature=..."
+    assert result[1].document_id == "doc_456"
+    assert result[1].asset_id == asset_b_uuid
+    assert result[1].presigned_url == "https://example.com/asset_B?X-Amz-Signature=..."

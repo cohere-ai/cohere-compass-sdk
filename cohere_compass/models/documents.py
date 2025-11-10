@@ -384,6 +384,33 @@ class ParsedDocumentResponse(BaseModel):
         )
 
 
+class AssetPresignedUrlRequest(BaseModel):
+    """A single asset presigned URL request item."""
+
+    document_id: str
+    asset_id: uuid.UUID
+
+
+class GetAssetPresignedUrlsRequest(BaseModel):
+    """A model for the input of a call to get_asset_presigned_urls API."""
+
+    assets: list[AssetPresignedUrlRequest]
+
+
+class AssetPresignedUrlDetails(BaseModel):
+    """A single asset presigned URL response item."""
+
+    document_id: str
+    asset_id: uuid.UUID
+    presigned_url: str
+
+
+class GetAssetPresignedUrlsResponse(BaseModel):
+    """A model for the response of get_asset_presigned_urls API."""
+
+    asset_urls: list[AssetPresignedUrlDetails]
+
+
 class ContentTypeEnum(str, Enum):
     """Enum for content types used in upload API."""
 
