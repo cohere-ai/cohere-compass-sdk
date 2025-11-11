@@ -63,8 +63,12 @@ from cohere_compass.models import (
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.datasources import PaginatedList
 from cohere_compass.models.documents import (
+    AssetPresignedUrlDetails,
+    AssetPresignedUrlRequest,
     ContentTypeEnum,
     DocumentAttributes,
+    GetAssetPresignedUrlsRequest,
+    GetAssetPresignedUrlsResponse,
     ParseableDocumentConfig,
     ParsedDocumentResponse,
     PutDocumentsResponse,
@@ -1070,6 +1074,56 @@ class CompassAsyncClient:
         )
 
         return result.result, result.content_type  # type: ignore
+
+    async def get_asset_presigned_urls(
+        self,
+        *,
+        index_name: str,
+        assets: list[AssetPresignedUrlRequest],
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> list[AssetPresignedUrlDetails]:
+        """
+        Get presigned URLs for assets in documents.
+
+        Retrieves presigned URLs for the specified assets. Each URL has a 1-hour TTL.
+        This operation is all-or-nothing: if any requested asset pair is invalid or
+        generation fails, the entire request fails.
+
+        :param index_name: the name of the index
+        :param assets: list of AssetPresignedUrlRequest objects containing document_id
+            and asset_id pairs.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            A list of AssetPresignedUrlDetails objects in the same order as the input
+            assets.
+
+        Raises:
+            CompassError: if any asset cannot be found or the user doesn't have READ
+                permission on the target documents.
+            CompassClientError: if the request body is malformed.
+
+        """
+        request_data = GetAssetPresignedUrlsRequest(assets=assets)
+
+        result = await self._send_request(
+            api_name="get_asset_presigned_urls",
+            index_name=index_name,
+            data=request_data,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+        response = GetAssetPresignedUrlsResponse.model_validate(result.result)
+        return response.asset_urls
 
     async def update_group_authorization(
         self,
