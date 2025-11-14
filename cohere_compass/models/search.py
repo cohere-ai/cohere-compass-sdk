@@ -25,6 +25,7 @@ class RetrievedChunk(BaseModel):
     chunk_id: str
     sort_id: int
     parent_document_id: str
+    path: str
     content: dict[str, Any]
     origin: dict[str, Any] | None = None
     assets_info: list[AssetInfo] | None = None
@@ -59,7 +60,6 @@ class RetrievedChunkExtended(RetrievedScoredChunk):
     """Additional information about a chunk retrieved from search."""
 
     document_id: str
-    path: str
     index_fields: list[str] | None = None
 
 

@@ -235,6 +235,7 @@ def test_list_indices_is_valid(client: CompassClient):
                     "chunk_id": "test-chunk-id",
                     "sort_id": 1,
                     "parent_document_id": "test-parent-document-id",
+                    "path": "test-path",
                     "content": {
                         "field-1": "value-1",
                         "field-2": "value-2",
