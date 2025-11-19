@@ -104,6 +104,7 @@ class PresentationParsingStrategy(str, Enum):
 
     Unstructured = "Unstructured"
     ImageToMarkdown = "ImageToMarkdown"
+    ConvertToPDF = "ConvertToPDF"
 
     @classmethod
     def _missing_(cls, value: Any):
@@ -195,9 +196,7 @@ class ParserConfig(BaseModel):
 
     pdf_parsing_config: PDFParsingConfig = PDFParsingConfig()
 
-    presentation_parsing_strategy: PresentationParsingStrategy = (
-        PresentationParsingStrategy.Unstructured
-    )
+    presentation_parsing_strategy: PresentationParsingStrategy | None = None
 
     enable_assets_returned_as_base64: bool = True
 
