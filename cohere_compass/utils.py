@@ -260,7 +260,7 @@ def generate_doc_id_from_bytes(filebytes: bytes) -> uuid.UUID:
 
 
 def partition_documents(
-    docs: Iterable[CompassDocument],
+    docs: Iterable[CompassDocument | tuple[str, Exception]],
     max_chunks_per_request: int,
 ):
     """
@@ -275,6 +275,11 @@ def partition_documents(
     errors: list[dict[str, str]] = []
     num_chunks = 0
     for doc in docs:
+        if isinstance(doc, tuple):
+            # If the doc is a tuple, it means there was an error during parsing
+            filename, error = doc
+            logger.error(f"Skipping, error processing document {filename}: {error}")
+            continue
         if doc.status != CompassDocumentStatus.Success:
             logger.error(
                 f"Document {doc.metadata.document_id} has errors: {doc.errors}"
@@ -309,7 +314,7 @@ def partition_documents(
 
 
 async def partition_documents_async(
-    docs: AsyncIterable[CompassDocument],
+    docs: AsyncIterable[CompassDocument | tuple[str, Exception]],
     max_chunks_per_request: int,
 ):
     """
@@ -324,6 +329,11 @@ async def partition_documents_async(
     errors: list[dict[str, str]] = []
     num_chunks = 0
     async for doc in docs:
+        if isinstance(doc, tuple):
+            # If the doc is a tuple, it means there was an error during parsing
+            filename, error = doc
+            logger.error(f"Error processing document {filename}: {error}")
+            continue
         if doc.status != CompassDocumentStatus.Success:
             logger.error(
                 f"Document {doc.metadata.document_id} has errors: {doc.errors}"

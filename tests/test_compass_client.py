@@ -194,6 +194,19 @@ def test_put_document_payload_with_invalid_document_id(
         assert "String should match pattern" in str(exc_info)
 
 
+@respx.mock(assert_all_mocked=True)
+def test_insert_doc_with_tuple_does_not_throw_attribute_error(
+    client: CompassClient, respx_mock: MockRouter
+):
+    try:
+        client.insert_docs(
+            index_name="test_index",
+            docs=[("filename", Exception("error in processing"))],
+        )
+    except AttributeError as e:
+        pytest.fail(f"Unexpected exception: {e}")
+
+
 @mock_endpoint(
     "GET",
     "http://test.com/v1/indexes",

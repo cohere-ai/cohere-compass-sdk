@@ -599,7 +599,8 @@ class CompassAsyncClient:
         self,
         *,
         index_name: str,
-        docs: Iterable[CompassDocument] | AsyncIterable[CompassDocument],
+        docs: Iterable[CompassDocument | tuple[str, Exception]]
+        | AsyncIterable[CompassDocument | tuple[str, Exception]],
         max_chunks_per_request: int = DEFAULT_MAX_CHUNKS_PER_REQUEST,
         max_error_rate: float = DEFAULT_MAX_ERROR_RATE,
         errors_sliding_window_size: int | None = 10,
