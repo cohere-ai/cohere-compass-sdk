@@ -592,6 +592,31 @@ def test_upload_document(client: CompassClient, respx_mock: MockRouter):
 
 
 @respx.mock
+def test_upload_document_id_which_does_not_match_pattern_throw_exception(
+    client: CompassClient, respx_mock: MockRouter
+):
+    upload_id = uuid.uuid4()
+    # this have forward-slash which is not allowed pattern
+    document_id = "folder/test_document_id"
+
+    respx_mock.post("http://test.com/v1/indexes/test_index/documents/upload").mock(
+        return_value=httpx.Response(
+            200, json={"upload_id": str(upload_id), "document_ids": [document_id]}
+        )
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        client.upload_document(
+            index_name="test_index",
+            filename="test.pdf",
+            filebytes=b"test content",
+            content_type=ContentTypeEnum.ApplicationPdf,
+            document_id=document_id,
+        )
+        assert "String should match pattern" in str(exc_info)
+
+
+@respx.mock
 def test_upload_document_status(client: CompassClient, respx_mock: MockRouter):
     upload_id = uuid.uuid4()
 

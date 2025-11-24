@@ -296,7 +296,7 @@ class ParseableDocumentConfig(BaseModel):
 class ParseableDocument(BaseModel):
     """A document to be sent to Compass for parsing."""
 
-    id: str
+    id: DocumentId
     filename: Annotated[
         str, StringConstraints(min_length=1)
     ]  # Ensures the filename is a non-empty string
