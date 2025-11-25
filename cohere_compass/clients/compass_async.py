@@ -480,7 +480,8 @@ class CompassAsyncClient:
         :param index_name: the name of the index
         :param filename: the filename of the document
         :param filebytes: the bytes of the document
-        :param content_type: optional content type of the document
+        :param content_type: optional content type of the document.
+            Recommended to pass it otherwise auto-detected.
         :param document_id: the id of the document (optional)
         :param attributes: Additional attributes to add to the document.
         :param config: Configuration for the document parsing.

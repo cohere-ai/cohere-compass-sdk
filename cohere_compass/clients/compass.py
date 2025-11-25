@@ -624,7 +624,8 @@ class CompassClient:
         :param index_name: The name of the index.
         :param filename: The filename of the document.
         :param filebytes: The raw bytes of the document.
-        :param content_type: optional content type of the document
+        :param content_type: optional content type of the document.
+            Recommended to pass it otherwise auto-detected.
         :param document_id: The ID to assign to the document.
         :param attributes: Additional attributes to add to the document.
         :param config: Configuration for the document parsing.
