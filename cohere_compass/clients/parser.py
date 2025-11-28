@@ -41,7 +41,8 @@ from cohere_compass.models import (
     MetadataConfig,
     ParserConfig,
 )
-from cohere_compass.utils import imap_parallel, open_document, scan_folder
+from cohere_compass.utils.fs import open_document, scan_folder
+from cohere_compass.utils.iter import imap_parallel
 
 Fn_or_Dict = dict[str, Any] | Callable[[CompassDocument], dict[str, Any]]
 

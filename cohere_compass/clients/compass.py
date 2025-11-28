@@ -82,7 +82,7 @@ from cohere_compass.models.search import (
     RetrievedDocument,
     SortBy,
 )
-from cohere_compass.utils import partition_documents
+from cohere_compass.utils.documents import partition_documents
 
 
 @dataclass

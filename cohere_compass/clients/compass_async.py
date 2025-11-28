@@ -77,9 +77,8 @@ from cohere_compass.models.documents import (
 )
 from cohere_compass.models.indexes import IndexDetails, ListIndexesResponse
 from cohere_compass.models.search import GetDocumentResponse, RetrievedDocument, SortBy
-from cohere_compass.utils import (
-    async_apply,
-    async_enumerate,
+from cohere_compass.utils.asyn import async_apply, async_enumerate
+from cohere_compass.utils.documents import (
     partition_documents_async,
 )
 

@@ -37,7 +37,8 @@ from cohere_compass.models import (
     MetadataConfig,
     ParserConfig,
 )
-from cohere_compass.utils import async_map, open_document, scan_folder
+from cohere_compass.utils.asyn import async_map
+from cohere_compass.utils.fs import open_document, scan_folder
 
 Fn_or_Dict = dict[str, Any] | Callable[[CompassDocument], dict[str, Any]]
 
