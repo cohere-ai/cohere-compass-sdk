@@ -11,6 +11,7 @@ import logging
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from types import TracebackType
 from typing import Any
 
 # 3rd party imports
@@ -39,9 +40,7 @@ from cohere_compass.models import (
 )
 from cohere_compass.utils.asyn import async_map
 from cohere_compass.utils.fs import open_document, scan_folder
-from cohere_compass.utils.retry import (
-    is_retryable_compass_exception,
-)
+from cohere_compass.utils.retry import is_retryable_compass_exception
 
 Fn_or_Dict = dict[str, Any] | Callable[[CompassDocument], dict[str, Any]]
 
@@ -123,11 +122,34 @@ class CompassParserAsyncClient:
         self.httpx = httpx_client or httpx.AsyncClient(
             timeout=self.timeout.total_seconds()
         )
+        self._own_httpx_client = httpx_client is None
+        self._closed = False
 
         self.metadata_config = metadata_config
         logger.info(
             f"CompassParserClient initialized with parser_url: {self.parser_url}"
         )
+
+    async def aclose(self):
+        """Close the httpx client if it was created by the CompassParserAsyncClient."""
+        if self._own_httpx_client and not self._closed:
+            await self.httpx.aclose()
+            self._closed = True
+
+    close = aclose  # Alias for consistency with sync client
+
+    async def __aenter__(self):
+        """For use by "async with" statements."""
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """For use by "async with" statements."""
+        await self.aclose()
 
     def process_folder(
         self,

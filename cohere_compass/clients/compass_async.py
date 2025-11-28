@@ -14,6 +14,7 @@ from collections import deque
 from collections.abc import AsyncIterable, Iterable
 from datetime import timedelta
 from statistics import mean
+from types import TracebackType
 from typing import Any, Literal
 
 # 3rd party imports
@@ -133,9 +134,11 @@ class CompassAsyncClient:
             if httpx_client.timeout.read
             else DEFAULT_COMPASS_CLIENT_TIMEOUT
         )
-        self.httpx_client = httpx_client or httpx.AsyncClient(
+        self.httpx = httpx_client or httpx.AsyncClient(
             timeout=self.timeout.total_seconds()
         )
+        self._own_httpx_client = httpx_client is None
+        self._closed = False
 
         self.bearer_token = bearer_token
 
@@ -149,8 +152,25 @@ class CompassAsyncClient:
         self.retry_wait = retry_wait
 
     async def aclose(self):
-        """Close the HTTP client."""
-        await self.httpx_client.aclose()
+        """Close the httpx client if it was created by the CompassAsyncClient."""
+        if self._own_httpx_client and not self._closed:
+            await self.httpx.aclose()
+            self._closed = True
+
+    close = aclose  # Alias for consistency with sync client
+
+    async def __aenter__(self):
+        """For use by "async with" statements."""
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """For use by "async with" statements."""
+        await self.aclose()
 
     async def get_models(
         self,
@@ -1265,27 +1285,27 @@ class CompassAsyncClient:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
         if http_method == "GET":
-            response = await self.httpx_client.get(
+            response = await self.httpx.get(
                 target_path,
                 headers=headers,
                 timeout=timeout.total_seconds(),
             )
         elif http_method == "POST":
-            response = await self.httpx_client.post(
+            response = await self.httpx.post(
                 target_path,
                 json=data_dict,
                 headers=headers,
                 timeout=timeout.total_seconds(),
             )
         elif http_method == "PUT":
-            response = await self.httpx_client.put(
+            response = await self.httpx.put(
                 target_path,
                 json=data_dict,
                 headers=headers,
                 timeout=timeout.total_seconds(),
             )
         elif http_method == "DELETE":
-            response = await self.httpx_client.delete(
+            response = await self.httpx.delete(
                 target_path,
                 headers=headers,
                 timeout=timeout.total_seconds(),
