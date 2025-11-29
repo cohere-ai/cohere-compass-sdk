@@ -1,8 +1,8 @@
 import glob
 import os
 
-import fsspec
-from fsspec import AbstractFileSystem
+import fsspec  # type: ignore
+from fsspec import AbstractFileSystem  # type: ignore
 
 from cohere_compass.models import (
     CompassDocument,
