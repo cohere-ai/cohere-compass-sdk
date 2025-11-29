@@ -15,15 +15,13 @@ from cohere_compass.models import (
     CompassSdkStage,
 )
 from cohere_compass.models.documents import Chunk, Document
-from cohere_compass.utils import (
-    async_apply,
-    async_map,
+from cohere_compass.utils.asyn import async_apply, async_map
+from cohere_compass.utils.documents import (
     generate_doc_id_from_bytes,
-    imap_parallel,
-    open_document,
     partition_documents,
-    scan_folder,
 )
+from cohere_compass.utils.fs import open_document, scan_folder
+from cohere_compass.utils.iter import imap_parallel
 from tests.utils import create_test_doc
 
 
@@ -169,7 +167,7 @@ async def test_async_apply_empty_iterable():
     assert results == []
 
 
-@patch("cohere_compass.utils.get_fs")
+@patch("cohere_compass.utils.fs.get_fs")
 def test_open_document_successful_open(mock_get_fs: Any):
     mock_fs = MagicMock()
     mock_file = MagicMock()
@@ -185,7 +183,7 @@ def test_open_document_successful_open(mock_get_fs: Any):
     assert result.errors == []
 
 
-@patch("cohere_compass.utils.get_fs")
+@patch("cohere_compass.utils.fs.get_fs")
 def test_open_document_with_error(mock_get_fs: Any):
     mock_get_fs.side_effect = Exception("File not found")
 
@@ -198,7 +196,7 @@ def test_open_document_with_error(mock_get_fs: Any):
     assert CompassSdkStage.Parsing in result.errors[0]
 
 
-@patch("cohere_compass.utils.get_fs")
+@patch("cohere_compass.utils.fs.get_fs")
 def test_open_document_non_bytes_content(mock_get_fs: Any):
     mock_fs = MagicMock()
     mock_file = MagicMock()
@@ -246,7 +244,7 @@ def test_scan_folder_local_folder():
         assert len(files) >= 3  # At least our 3 files in root
 
 
-@patch("cohere_compass.utils.get_fs")
+@patch("cohere_compass.utils.fs.get_fs")
 def test_scan_folder_remote_folder(mock_get_fs: Any):
     mock_fs = MagicMock()
     mock_fs.glob.return_value = [
@@ -262,7 +260,7 @@ def test_scan_folder_remote_folder(mock_get_fs: Any):
     assert all(f.startswith("s3://") for f in files)
 
 
-@patch("cohere_compass.utils.get_fs")
+@patch("cohere_compass.utils.fs.get_fs")
 def test_scan_folder_with_extension_normalization(mock_get_fs: Any):
     mock_fs = MagicMock()
     mock_fs.glob.return_value = ["file1.txt", "file2.txt"]

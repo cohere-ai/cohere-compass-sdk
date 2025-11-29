@@ -12,7 +12,12 @@ from respx import MockRouter
 
 from cohere_compass import GroupAuthorizationActions, GroupAuthorizationInput
 from cohere_compass.clients import CompassClient
-from cohere_compass.exceptions import CompassError
+from cohere_compass.exceptions import (
+    CompassAuthError,
+    CompassClientError,
+    CompassError,
+    CompassTimeoutError,
+)
 from cohere_compass.models import (
     CompassDocument,
     CreateDataSource,
@@ -130,7 +135,9 @@ def test_create_index_400s_propagated_to_caller(
     respx_mock.put("http://test.com/v1/indexes/test-index").mock(
         return_value=httpx.Response(400, json={"error": "invalid request"})
     )
-    with pytest.raises(CompassError, match="Failed to send request"):
+    with pytest.raises(
+        CompassError, match=r'Client error 400: {"error":"invalid request"}'
+    ):
         client.create_index(index_name="test-index")
 
 
@@ -971,7 +978,9 @@ def test_authentication_error_401(client: CompassClient, respx_mock: MockRouter)
         return_value=httpx.Response(401, json={"error": "Unauthorized"})
     )
 
-    with pytest.raises(CompassError, match="Failed to send request"):
+    with pytest.raises(
+        CompassAuthError, match=r"Unauthorized. Please check your bearer token."
+    ):
         client.list_indexes()
 
 
@@ -981,7 +990,9 @@ def test_client_error_404(client: CompassClient, respx_mock: MockRouter):
         return_value=httpx.Response(404, json={"error": "Index not found"})
     )
 
-    with pytest.raises(CompassError, match="Failed to send request"):
+    with pytest.raises(
+        CompassClientError, match=r'Client error 404: {"error":"Index not found"}'
+    ):
         client.get_index_details(index_name="nonexistent")
 
 
@@ -991,7 +1002,9 @@ def test_server_error_500(client: CompassClient, respx_mock: MockRouter):
         return_value=httpx.Response(500, json={"error": "Internal server error"})
     )
 
-    with pytest.raises(CompassError, match="Failed to send request"):
+    with pytest.raises(
+        CompassError, match=r'Server error 500: {"error":"Internal server error"}'
+    ):
         client.list_indexes()
 
 
@@ -1002,7 +1015,7 @@ def test_timeout_handling(client: CompassClient, respx_mock: MockRouter):
         side_effect=httpx.TimeoutException("Request timeout")
     )
 
-    with pytest.raises(CompassError, match="Failed to send request"):
+    with pytest.raises(CompassTimeoutError, match="Timeout error: Request timeout"):
         client.list_indexes()
 
 

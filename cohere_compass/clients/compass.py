@@ -24,7 +24,12 @@ from typing import Any, Literal
 import httpx
 from joblib import Parallel, delayed  # type: ignore
 from pydantic import BaseModel
-from tenacity import retry, retry_if_not_exception_type, stop_after_attempt, wait_fixed
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_fixed,
+)
 
 # Local imports
 from cohere_compass import GroupAuthorizationInput
@@ -37,11 +42,10 @@ from cohere_compass.constants import (
     URL_SAFE_STRING_PATTERN,
 )
 from cohere_compass.exceptions import (
-    CompassAuthError,
-    CompassClientError,
     CompassError,
     CompassInsertionError,
     CompassMaxErrorRateExceeded,
+    handle_httpx_exceptions,
 )
 from cohere_compass.models import (
     CompassDocument,
@@ -82,7 +86,8 @@ from cohere_compass.models.search import (
     RetrievedDocument,
     SortBy,
 )
-from cohere_compass.utils import partition_documents
+from cohere_compass.utils.documents import partition_documents
+from cohere_compass.utils.retry import is_retryable_httpx_exception
 
 
 @dataclass
@@ -1474,42 +1479,16 @@ class CompassClient:
         @retry(
             stop=stop_after_attempt(max_retries),
             wait=wait_fixed(retry_wait),
-            reraise=True,  # re-raise last exception instead of wrapping in RetryError
-            # todo find alternative to InvalidSchema
-            retry=retry_if_not_exception_type((CompassClientError,)),
+            reraise=True,
+            retry=retry_if_exception(is_retryable_httpx_exception),
         )
         def _send_request_with_retry() -> _SendRequestResult:
-            try:
-                return self._send_http_request(
-                    http_method=http_method,
-                    target_path=target_path,
-                    data=data,
-                    timeout=timeout,
-                )
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code == 401:
-                    error = "Unauthorized. Please check your bearer token."
-                    raise CompassAuthError(message=str(e))
-                elif 400 <= e.response.status_code < 500:
-                    error = f"Client error occurred: {e.response.text}"
-                    raise CompassClientError(message=error, code=e.response.status_code)
-                else:
-                    error = str(e) + " " + e.response.text
-                    logger.warning(
-                        f"Failed to send request to {api_name} {target_path}: "
-                        f"{type(e)} {error}. Going to sleep for "
-                        f"{retry_wait} seconds and retrying."
-                    )
-                    raise e
-            except Exception as e:
-                error = str(e)
-                logger.warning(
-                    f"Failed to send request to {api_name} {target_path}: {type(e)} "
-                    f"{error}. Sleeping {retry_wait} seconds and retrying..."
-                )
-                raise e
+            return self._send_http_request(
+                http_method=http_method,
+                target_path=target_path,
+                data=data,
+                timeout=timeout,
+            )
 
-        try:
+        with handle_httpx_exceptions():
             return _send_request_with_retry()
-        except Exception as e:
-            raise CompassError(f"Failed to send request for {api_name} API") from e
