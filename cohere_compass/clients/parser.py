@@ -18,10 +18,9 @@ from typing import Any
 import httpx
 
 # 3rd party imports
-from pydantic import ValidationError
 from tenacity import (
     retry,
-    retry_if_not_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_fixed,
 )
@@ -35,13 +34,17 @@ from cohere_compass.constants import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_WAIT,
 )
-from cohere_compass.exceptions import CompassClientError, CompassError
+from cohere_compass.exceptions import handle_httpx_exceptions
 from cohere_compass.models import (
     CompassDocument,
     MetadataConfig,
     ParserConfig,
 )
-from cohere_compass.utils import imap_parallel, open_document, scan_folder
+from cohere_compass.utils.fs import open_document, scan_folder
+from cohere_compass.utils.iter import imap_parallel
+from cohere_compass.utils.retry import (
+    is_retryable_compass_exception,
+)
 
 Fn_or_Dict = dict[str, Any] | Callable[[CompassDocument], dict[str, Any]]
 
@@ -244,12 +247,6 @@ class CompassParserClient:
         else:
             return custom_context
 
-    @retry(
-        stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
-        wait=wait_fixed(DEFAULT_RETRY_WAIT),
-        retry=retry_if_not_exception_type((CompassClientError, ValidationError)),
-        reraise=True,
-    )
     def process_file(
         self,
         *,
@@ -304,12 +301,6 @@ class CompassParserClient:
             timeout=timeout,
         )
 
-    @retry(
-        stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
-        wait=wait_fixed(DEFAULT_RETRY_WAIT),
-        retry=retry_if_not_exception_type((CompassClientError, ValidationError)),
-        reraise=True,
-    )
     def process_file_bytes(
         self,
         *,
@@ -379,6 +370,12 @@ class CompassParserClient:
             content_type=content_type,
         )
 
+    @retry(
+        stop=stop_after_attempt(DEFAULT_MAX_RETRIES),
+        wait=wait_fixed(DEFAULT_RETRY_WAIT),
+        retry=retry_if_exception(is_retryable_compass_exception),
+        reraise=True,
+    )
     def _process_file_bytes(
         self,
         *,
@@ -392,23 +389,15 @@ class CompassParserClient:
         if self.bearer_token:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
-        res = self.httpx_client.post(
-            url=f"{self.parser_url}/v1/process_file",
-            data={"data": json.dumps(params.model_dump())},
-            files={"file": (filename, file_bytes)},
-            headers=headers,
-            timeout=(timeout or self.timeout).total_seconds(),
-        )
-
-        if res.is_error:
-            if res.status_code >= 400 and res.status_code < 500:
-                raise CompassClientError(
-                    f"Error processing file: {res.status_code} {res.text}"
-                )
-            else:
-                raise CompassError(
-                    f"Error processing file: {res.status_code} {res.text}"
-                )
+        with handle_httpx_exceptions():
+            res = self.httpx_client.post(
+                url=f"{self.parser_url}/v1/process_file",
+                data={"data": json.dumps(params.model_dump())},
+                files={"file": (filename, file_bytes)},
+                headers=headers,
+                timeout=(timeout or self.timeout).total_seconds(),
+            )
+            res.raise_for_status()
 
         docs: list[CompassDocument] = []
         for doc in res.json()["docs"]:
