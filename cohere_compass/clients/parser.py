@@ -12,6 +12,7 @@ import logging
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from types import TracebackType
 from typing import Any
 
 # 3rd party imports
@@ -42,9 +43,7 @@ from cohere_compass.models import (
 )
 from cohere_compass.utils.fs import open_document, scan_folder
 from cohere_compass.utils.iter import imap_parallel
-from cohere_compass.utils.retry import (
-    is_retryable_compass_exception,
-)
+from cohere_compass.utils.retry import is_retryable_compass_exception
 
 Fn_or_Dict = dict[str, Any] | Callable[[CompassDocument], dict[str, Any]]
 
@@ -123,14 +122,33 @@ class CompassParserClient:
             if httpx_client.timeout.read
             else DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT
         )
-        self.httpx_client = httpx_client or httpx.Client(
-            timeout=self.timeout.total_seconds()
-        )
+        self.httpx = httpx_client or httpx.Client(timeout=self.timeout.total_seconds())
+        self._own_httpx_client = httpx_client is None
+        self._closed = False
 
         self.metadata_config = metadata_config
         logger.info(
             f"CompassParserClient initialized with parser_url: {self.parser_url}"
         )
+
+    def close(self):
+        """Close the httpx client if it was created by this instance."""
+        if self._own_httpx_client and not self._closed:
+            self.httpx.close()
+            self._closed = True
+
+    def __enter__(self):
+        """For use by "with" statements."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """For use by "with" statements."""
+        self.close()
 
     def process_folder(
         self,
@@ -390,7 +408,7 @@ class CompassParserClient:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
         with handle_httpx_exceptions():
-            res = self.httpx_client.post(
+            res = self.httpx.post(
                 url=f"{self.parser_url}/v1/process_file",
                 data={"data": json.dumps(params.model_dump())},
                 files={"file": (filename, file_bytes)},

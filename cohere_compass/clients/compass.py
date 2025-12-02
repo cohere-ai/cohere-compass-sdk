@@ -18,6 +18,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import timedelta
 from statistics import mean
+from types import TracebackType
 from typing import Any, Literal
 
 # 3rd party imports
@@ -267,9 +268,9 @@ class CompassClient:
             if httpx_client.timeout.read
             else DEFAULT_COMPASS_CLIENT_TIMEOUT
         )
-        self.httpx_client = httpx_client or httpx.Client(
-            timeout=self.timeout.total_seconds()
-        )
+        self.httpx = httpx_client or httpx.Client(timeout=self.timeout.total_seconds())
+        self._own_httpx_client = httpx_client is None
+        self._closed = False
 
         self.bearer_token = bearer_token
 
@@ -281,8 +282,23 @@ class CompassClient:
         self.retry_wait = retry_wait
 
     def close(self):
-        """Close the HTTP client connection."""
-        self.httpx_client.close()
+        """Close the httpx client if it was created by this instance."""
+        if self._own_httpx_client and not self._closed:
+            self.httpx.close()
+            self._closed = True
+
+    def __enter__(self):
+        """For use by "with" statements."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """For use by "with" statements."""
+        self.close()
 
     def get_models(
         self,
@@ -1392,27 +1408,27 @@ class CompassClient:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
         if http_method == "GET":
-            response = self.httpx_client.get(
+            response = self.httpx.get(
                 target_path,
                 headers=headers,
                 timeout=timeout.total_seconds(),
             )
         elif http_method == "POST":
-            response = self.httpx_client.post(
+            response = self.httpx.post(
                 target_path,
                 json=data_dict,
                 headers=headers,
                 timeout=timeout.total_seconds(),
             )
         elif http_method == "PUT":
-            response = self.httpx_client.put(
+            response = self.httpx.put(
                 target_path,
                 json=data_dict,
                 headers=headers,
                 timeout=timeout.total_seconds(),
             )
         elif http_method == "DELETE":
-            response = self.httpx_client.delete(
+            response = self.httpx.delete(
                 target_path,
                 headers=headers,
                 timeout=timeout.total_seconds(),
