@@ -490,10 +490,10 @@ class CompassAsyncClient:
         index_name: str,
         filename: str,
         filebytes: bytes,
-        content_type: ContentTypeEnum,
         document_id: str,
         attributes: DocumentAttributes = DocumentAttributes(),
         config: ParseableDocumentConfig = ParseableDocumentConfig(),
+        content_type: ContentTypeEnum | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -504,7 +504,8 @@ class CompassAsyncClient:
         :param index_name: the name of the index
         :param filename: the filename of the document
         :param filebytes: the bytes of the document
-        :param content_type: the content type of the document
+        :param content_type: optional content type of the document.
+            Recommended to pass it otherwise auto-detected.
         :param document_id: the id of the document (optional)
         :param attributes: Additional attributes to add to the document.
         :param config: Configuration for the document parsing.
