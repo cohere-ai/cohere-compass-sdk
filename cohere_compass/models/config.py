@@ -113,6 +113,19 @@ class PresentationParsingStrategy(str, Enum):
         return cls.Unstructured
 
 
+class DocxParsingStrategy(str, Enum):
+    """Enum for specifying the parsing strategy for DOCX files."""
+
+    # Uses https://github.com/microsoft/markitdown
+    MarkItDown = "MarkItDown"
+    # Converts the DOCX to PDF and uses the PDF parsing strategy
+    ConvertToPDF = "ConvertToPDF"
+
+    @classmethod
+    def _missing_(cls, value: Any):
+        return cls.MarkItDown
+
+
 class ParsingStrategy(str, Enum):
     """Enum for specifying the parsing strategy to use."""
 
@@ -193,12 +206,12 @@ class ParserConfig(BaseModel):
     vertical_table_crop_margin: int = 100
     horizontal_table_crop_margin: int = 100
 
+    pdf_parsing_config: PDFParsingConfig = PDFParsingConfig()
     pdf_parsing_strategy: PDFParsingStrategy = PDFParsingStrategy.QuickText
     tabular_parsing_strategy: TabularParsingStrategy = TabularParsingStrategy.Granular
-
-    pdf_parsing_config: PDFParsingConfig = PDFParsingConfig()
-
     presentation_parsing_strategy: PresentationParsingStrategy | None = None
+    docx_parsing_strategy: DocxParsingStrategy | None = None
+
     enable_assets_returned_as_base64: bool = True
 
 
