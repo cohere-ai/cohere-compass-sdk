@@ -115,10 +115,11 @@ class PresentationParsingStrategy(str, Enum):
 
 class DocxParsingStrategy(str, Enum):
     """Enum for specifying the parsing strategy for DOCX files."""
+
     # Uses https://github.com/microsoft/markitdown
-    MarkItDown = "MarkItDown" 
+    MarkItDown = "MarkItDown"
     # Converts the DOCX to PDF and uses the PDF parsing strategy
-    ConvertToPDF = "ConvertToPDF" 
+    ConvertToPDF = "ConvertToPDF"
 
     @classmethod
     def _missing_(cls, value: Any):
