@@ -311,6 +311,8 @@ class UploadDocumentsInput(BaseModel):
     """A model for the input of a call to upload_documents API."""
 
     documents: list[ParseableDocument]
+    authorized_groups: list[str] | None = None
+    merge_groups_on_conflict: bool = False
 
 
 class UploadDocumentsResult(BaseModel):

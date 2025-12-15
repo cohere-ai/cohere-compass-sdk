@@ -612,6 +612,42 @@ def test_upload_document(client: CompassClient, respx_mock: MockRouter):
 
 
 @respx.mock
+def test_upload_document_with_authorized_groups(
+    client: CompassClient, respx_mock: MockRouter
+):
+    upload_id = uuid.uuid4()
+    document_id = "test_document_id"
+
+    route = respx_mock.post(
+        "http://test.com/v1/indexes/test_index/documents/upload"
+    ).mock(
+        return_value=httpx.Response(
+            200, json={"upload_id": str(upload_id), "document_ids": [document_id]}
+        )
+    )
+
+    result = client.upload_document(
+        index_name="test_index",
+        filename="test.pdf",
+        filebytes=b"test content",
+        content_type=ContentTypeEnum.ApplicationPdf,
+        document_id=document_id,
+        authorized_groups=["group1", "group2"],
+    )
+
+    assert route.called
+    assert result == UploadDocumentsResult(
+        upload_id=upload_id, document_ids=[document_id]
+    )
+
+    # Verify the request payload includes authorized_groups
+    request = route.calls.last.request
+    request_body = json.loads(request.content)
+    assert "authorized_groups" in request_body
+    assert request_body["authorized_groups"] == ["group1", "group2"]
+
+
+@respx.mock
 def test_upload_document_status(client: CompassClient, respx_mock: MockRouter):
     upload_id = uuid.uuid4()
 
