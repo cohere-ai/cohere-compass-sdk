@@ -514,8 +514,8 @@ class CompassAsyncClient:
         :param authorized_groups: The groups that are authorized to access the
             document. These groups should exist in RBAC. None passed will make the
             document public.
-        :param merge_groups_on_conflict: When Document-level Security is enabled,
-            allows upserting new groups to document permissions.
+        :param merge_groups_on_conflict: Allows combining authorized group field
+          when document already exists, and Document Level Security is enabled.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
