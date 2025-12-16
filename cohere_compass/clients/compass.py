@@ -635,6 +635,8 @@ class CompassClient:
         attributes: DocumentAttributes = DocumentAttributes(),
         config: ParseableDocumentConfig = ParseableDocumentConfig(),
         content_type: ContentTypeEnum | None = None,
+        authorized_groups: list[str] | None = None,
+        merge_groups_on_conflict: bool = False,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -650,6 +652,11 @@ class CompassClient:
         :param document_id: The ID to assign to the document.
         :param attributes: Additional attributes to add to the document.
         :param config: Configuration for the document parsing.
+        :param authorized_groups: When Document-level Security is enabled,
+            Set authorized user groups to access the document.
+            These groups should exist in RBAC. Default will make the document public.
+        :param merge_groups_on_conflict: When Document-level Security is enabled,
+            allows merging authorized groups if document already exists.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -674,7 +681,11 @@ class CompassClient:
 
         result = self._send_request(
             api_name="upload_documents",
-            data=UploadDocumentsInput(documents=[doc]),
+            data=UploadDocumentsInput(
+                documents=[doc],
+                authorized_groups=authorized_groups,
+                merge_groups_on_conflict=merge_groups_on_conflict,
+            ),
             index_name=index_name,
             max_retries=max_retries,
             retry_wait=retry_wait,
