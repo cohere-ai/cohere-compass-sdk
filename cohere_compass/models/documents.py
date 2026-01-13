@@ -420,11 +420,10 @@ class ContentTypeEnum(str, Enum):
     TextPlain = "text/plain"
     TextHtml = "text/html"
     TextCsv = "text/csv"
-    TextTsv = "text/tsv"
-    TextMarkdown = "text/x-markdown"
+    TextTsv = "text/tab-separated-values"
+    TextMarkdown = "text/markdown"
     TextOrg = "text/org"
-    TextRtf = "text/rtf"
-    TextRst = "text/x-rst"
+    TextRst = "text/prs.fallenstein.rst"
 
     # Application types
     ApplicationJson = "application/json"
@@ -446,9 +445,20 @@ class ContentTypeEnum(str, Enum):
     )
     ApplicationEpubZip = "application/epub+zip"
     ApplicationVndOasisOpenDocumentText = "application/vnd.oasis.opendocument.text"
+    ApplicationVndOasisOpenDocumentSpreadsheet = (
+        "application/vnd.oasis.opendocument.spreadsheet"
+    )
+    ApplicationVndOasisOpenDocumentPresentation = (
+        "application/vnd.oasis.opendocument.presentation"
+    )
+
     ApplicationMsOutlook = "application/vnd.ms-outlook"
     ApplicationOctetStream = "application/octet-stream"
-    Parquet = "application/vnd.apache.parquet"
+    ApplicationRtf = "application/rtf"
+    # HWP types
+    ApplicationXHwp = "application/x-hwp"
+    ApplicationXHwpx = "application/x-hwpx"
+
     # Image types
     ImageJpeg = "image/jpeg"
     ImagePng = "image/png"
@@ -461,7 +471,7 @@ class ContentTypeEnum(str, Enum):
 
     # Audio types
     AudioMpeg = "audio/mpeg"
-    AudioWav = "audio/x-wav"
+    AudioWav = "audio/wav"
 
     # Video types
     VideoMp4 = "video/mp4"
