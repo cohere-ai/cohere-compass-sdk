@@ -10,9 +10,7 @@ from cohere_compass.models import (
 from cohere_compass.models.documents import CompassDocumentChunk
 
 
-def create_test_doc(
-    doc_id: str, num_chunks: int = 1, has_errors: bool = False
-) -> CompassDocument:
+def create_test_doc(doc_id: str, num_chunks: int = 1, has_errors: bool = False) -> CompassDocument:
     doc = CompassDocument(
         metadata=CompassDocumentMetadata(
             document_id=doc_id,

@@ -72,16 +72,12 @@ def scan_folder(
     """
     fs = get_fs(folder_path)
     all_files: list[str] = []
-    path_prepend = (
-        f"{folder_path.split('://')[0]}://" if folder_path.find("://") >= 0 else ""
-    )
+    path_prepend = f"{folder_path.split('://')[0]}://" if folder_path.find("://") >= 0 else ""
 
     if allowed_extensions is None:
         allowed_extensions = [""]
     else:
-        allowed_extensions = [
-            f".{ext}" if not ext.startswith(".") else ext for ext in allowed_extensions
-        ]
+        allowed_extensions = [f".{ext}" if not ext.startswith(".") else ext for ext in allowed_extensions]
 
     for ext in allowed_extensions:
         rec_glob = "**/" if recursive else ""

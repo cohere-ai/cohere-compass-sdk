@@ -177,16 +177,12 @@ class TestCompassRootClient:
             params={"cursor": "cursor123"},
         ).mock(return_value=httpx.Response(200, json=mock_users_page))
 
-        result = root_client.get_users_page(
-            page_info=page_info, direction=PageDirection.NEXT
-        )
+        result = root_client.get_users_page(page_info=page_info, direction=PageDirection.NEXT)
 
         assert isinstance(result, UsersPage)
 
     @respx.mock
-    def test_create_users(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_create_users(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         users = [
             User(user_name="newuser1"),
             User(user_name="newuser2"),
@@ -219,9 +215,7 @@ class TestCompassRootClient:
         assert result[1].token == "token2"
 
     @respx.mock
-    def test_get_detailed_user(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_get_detailed_user(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         mock_response = {
             "user_name": "user1",
             "groups": [
@@ -265,9 +259,9 @@ class TestCompassRootClient:
         mock_groups_page: dict[str, Any],
         respx_mock: MockRouter,
     ) -> None:
-        respx_mock.get(
-            "http://test.com/security/admin/rbac/v2/users/user1/groups"
-        ).mock(return_value=httpx.Response(200, json=mock_groups_page))
+        respx_mock.get("http://test.com/security/admin/rbac/v2/users/user1/groups").mock(
+            return_value=httpx.Response(200, json=mock_groups_page)
+        )
 
         result = root_client.get_user_groups_page("user1")
 
@@ -275,9 +269,7 @@ class TestCompassRootClient:
         assert len(result.groups) == 2
 
     @respx.mock
-    def test_delete_users(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_delete_users(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         mock_response = [
             {
                 "user_name": "user1",
@@ -291,9 +283,9 @@ class TestCompassRootClient:
             },
         ]
 
-        respx_mock.delete(
-            "http://test.com/security/admin/rbac/v2/users/user1,user2"
-        ).mock(return_value=httpx.Response(200, json=mock_response))
+        respx_mock.delete("http://test.com/security/admin/rbac/v2/users/user1,user2").mock(
+            return_value=httpx.Response(200, json=mock_response)
+        )
 
         result = root_client.delete_users(["user1", "user2"])
 
@@ -319,9 +311,7 @@ class TestCompassRootClient:
         assert result.roles[0].role_name == "admin"
 
     @respx.mock
-    def test_create_roles(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_create_roles(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         roles = [
             Role(
                 role_name="editor",
@@ -357,9 +347,7 @@ class TestCompassRootClient:
         assert result[0].role_name == "editor"
 
     @respx.mock
-    def test_get_detailed_role(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_get_detailed_role(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         mock_response = {
             "role_name": "admin",
             "policies": [
@@ -402,9 +390,7 @@ class TestCompassRootClient:
         assert result.groups_page_info.page_size == 10
 
     @respx.mock
-    def test_update_role(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_update_role(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         role = Role(
             role_name="editor",
             policies=[
@@ -437,9 +423,7 @@ class TestCompassRootClient:
         assert result.policies[0].permission == Permission.READ
 
     @respx.mock
-    def test_delete_roles(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_delete_roles(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         mock_response: list[dict[str, Any]] = [
             {
                 "role_name": "role1",
@@ -451,9 +435,9 @@ class TestCompassRootClient:
             },
         ]
 
-        respx_mock.delete(
-            "http://test.com/security/admin/rbac/v2/roles/role1,role2"
-        ).mock(return_value=httpx.Response(200, json=mock_response))
+        respx_mock.delete("http://test.com/security/admin/rbac/v2/roles/role1,role2").mock(
+            return_value=httpx.Response(200, json=mock_response)
+        )
 
         result = root_client.delete_roles(["role1", "role2"])
 
@@ -478,9 +462,7 @@ class TestCompassRootClient:
         assert result.groups[0].group_name == "developers"
 
     @respx.mock
-    def test_create_groups(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_create_groups(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         groups = [
             Group(
                 group_name="testers",
@@ -505,9 +487,7 @@ class TestCompassRootClient:
         assert result[0].group_name == "testers"
 
     @respx.mock
-    def test_get_detailed_group(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_get_detailed_group(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         mock_response = {
             "group_name": "developers",
             "roles": [
@@ -578,9 +558,7 @@ class TestCompassRootClient:
         assert result.roles_page_info.page_size == 10
 
     @respx.mock
-    def test_delete_groups(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_delete_groups(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         mock_response = [
             {
                 "group_name": "group1",
@@ -592,9 +570,9 @@ class TestCompassRootClient:
             },
         ]
 
-        respx_mock.delete(
-            "http://test.com/security/admin/rbac/v2/groups/group1,group2"
-        ).mock(return_value=httpx.Response(200, json=mock_response))
+        respx_mock.delete("http://test.com/security/admin/rbac/v2/groups/group1,group2").mock(
+            return_value=httpx.Response(200, json=mock_response)
+        )
 
         result = root_client.delete_groups(["group1", "group2"])
 
@@ -602,9 +580,7 @@ class TestCompassRootClient:
         assert all(isinstance(g, Group) for g in result)
 
     @respx.mock
-    def test_add_members_to_group(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_add_members_to_group(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         mock_response = [
             {
                 "user_name": "user1",
@@ -616,9 +592,9 @@ class TestCompassRootClient:
             },
         ]
 
-        respx_mock.post(
-            "http://test.com/security/admin/rbac/v2/groups/developers/users"
-        ).mock(return_value=httpx.Response(200, json=mock_response))
+        respx_mock.post("http://test.com/security/admin/rbac/v2/groups/developers/users").mock(
+            return_value=httpx.Response(200, json=mock_response)
+        )
 
         result = root_client.add_members_to_group("developers", ["user1", "user2"])
 
@@ -628,9 +604,7 @@ class TestCompassRootClient:
         assert result[0].group_name == "developers"
 
     @respx.mock
-    def test_remove_members_from_group(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_remove_members_from_group(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         mock_response = [
             {
                 "user_name": "user1",
@@ -642,9 +616,9 @@ class TestCompassRootClient:
             },
         ]
 
-        respx_mock.delete(
-            "http://test.com/security/admin/rbac/v2/groups/developers/users/user1,user2"
-        ).mock(return_value=httpx.Response(200, json=mock_response))
+        respx_mock.delete("http://test.com/security/admin/rbac/v2/groups/developers/users/user1,user2").mock(
+            return_value=httpx.Response(200, json=mock_response)
+        )
 
         result = root_client.remove_members_from_group("developers", ["user1", "user2"])
 
@@ -658,9 +632,9 @@ class TestCompassRootClient:
         mock_users_page: dict[str, Any],
         respx_mock: MockRouter,
     ) -> None:
-        respx_mock.get(
-            "http://test.com/security/admin/rbac/v2/groups/developers/users"
-        ).mock(return_value=httpx.Response(200, json=mock_users_page))
+        respx_mock.get("http://test.com/security/admin/rbac/v2/groups/developers/users").mock(
+            return_value=httpx.Response(200, json=mock_users_page)
+        )
 
         result = root_client.get_group_members_page("developers")
 
@@ -668,9 +642,7 @@ class TestCompassRootClient:
         assert len(result.users) == 2
 
     @respx.mock
-    def test_add_roles_to_group(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_add_roles_to_group(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         mock_response = [
             {
                 "role_name": "admin",
@@ -682,9 +654,9 @@ class TestCompassRootClient:
             },
         ]
 
-        respx_mock.post(
-            "http://test.com/security/admin/rbac/v2/groups/developers/roles"
-        ).mock(return_value=httpx.Response(200, json=mock_response))
+        respx_mock.post("http://test.com/security/admin/rbac/v2/groups/developers/roles").mock(
+            return_value=httpx.Response(200, json=mock_response)
+        )
 
         result = root_client.add_roles_to_group("developers", ["admin", "editor"])
 
@@ -693,9 +665,7 @@ class TestCompassRootClient:
         assert result[0].role_name == "admin"
 
     @respx.mock
-    def test_remove_roles_from_group(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_remove_roles_from_group(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         mock_response = [
             {
                 "role_name": "admin",
@@ -707,9 +677,9 @@ class TestCompassRootClient:
             },
         ]
 
-        respx_mock.delete(
-            "http://test.com/security/admin/rbac/v2/groups/developers/roles/admin,editor"
-        ).mock(return_value=httpx.Response(200, json=mock_response))
+        respx_mock.delete("http://test.com/security/admin/rbac/v2/groups/developers/roles/admin,editor").mock(
+            return_value=httpx.Response(200, json=mock_response)
+        )
 
         result = root_client.remove_roles_from_group("developers", ["admin", "editor"])
 
@@ -723,9 +693,9 @@ class TestCompassRootClient:
         mock_roles_page: dict[str, Any],
         respx_mock: MockRouter,
     ) -> None:
-        respx_mock.get(
-            "http://test.com/security/admin/rbac/v2/groups/developers/roles"
-        ).mock(return_value=httpx.Response(200, json=mock_roles_page))
+        respx_mock.get("http://test.com/security/admin/rbac/v2/groups/developers/roles").mock(
+            return_value=httpx.Response(200, json=mock_roles_page)
+        )
 
         result = root_client.get_group_roles_page("developers")
 
@@ -739,9 +709,9 @@ class TestCompassRootClient:
         mock_groups_page: dict[str, Any],
         respx_mock: MockRouter,
     ) -> None:
-        respx_mock.get(
-            "http://test.com/security/admin/rbac/v2/roles/admin/groups"
-        ).mock(return_value=httpx.Response(200, json=mock_groups_page))
+        respx_mock.get("http://test.com/security/admin/rbac/v2/roles/admin/groups").mock(
+            return_value=httpx.Response(200, json=mock_groups_page)
+        )
 
         result = root_client.get_role_groups_page("admin")
 
@@ -749,9 +719,7 @@ class TestCompassRootClient:
         assert len(result.groups) == 2
 
     @respx.mock
-    def test_error_handling(
-        self, root_client: CompassRootClient, respx_mock: MockRouter
-    ) -> None:
+    def test_error_handling(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         respx_mock.get("http://test.com/security/admin/rbac/v2/users").mock(
             return_value=httpx.Response(404, json={"error": "Not found"})
         )
@@ -780,9 +748,7 @@ class TestCompassRootClient:
             params={"cursor": "prev_cursor"},
         ).mock(return_value=httpx.Response(200, json=mock_users_page))
 
-        result = root_client.get_users_page(
-            page_info=page_info, direction=PageDirection.PREVIOUS
-        )
+        result = root_client.get_users_page(page_info=page_info, direction=PageDirection.PREVIOUS)
 
         assert isinstance(result, UsersPage)
 
