@@ -10,9 +10,7 @@ U = TypeVar("U")
 R = TypeVar("R")
 
 
-def imap_parallel(
-    executor: Executor, f: Callable[[T], U], it: Iterable[T], max_parallelism: int
-):
+def imap_parallel(executor: Executor, f: Callable[[T], U], it: Iterable[T], max_parallelism: int):
     """
     Map a function over an iterable using parallel execution with parallelism limit.
 
@@ -36,9 +34,7 @@ def imap_parallel(
     for x in it:
         futures_set.add(executor.submit(f, x))
         while len(futures_set) > max_parallelism:
-            done, futures_set = futures.wait(
-                futures_set, return_when=futures.FIRST_COMPLETED
-            )
+            done, futures_set = futures.wait(futures_set, return_when=futures.FIRST_COMPLETED)
 
             for future in done:
                 try:

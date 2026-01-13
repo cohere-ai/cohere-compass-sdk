@@ -106,9 +106,7 @@ class CompassParserClient:
             If not provided, a new httpx client will be created with the timeout set
             when creating the client.
         """
-        self.parser_url = (
-            parser_url if not parser_url.endswith("/") else parser_url[:-1]
-        )
+        self.parser_url = parser_url if not parser_url.endswith("/") else parser_url[:-1]
         self.parser_config = parser_config
         self.bearer_token = bearer_token
         self.thread_pool = ThreadPoolExecutor(num_workers)
@@ -127,9 +125,7 @@ class CompassParserClient:
         self._closed = False
 
         self.metadata_config = metadata_config
-        logger.info(
-            f"CompassParserClient initialized with parser_url: {self.parser_url}"
-        )
+        logger.info(f"CompassParserClient initialized with parser_url: {self.parser_url}")
 
     def close(self):
         """Close the httpx client if it was created by this instance."""
@@ -255,9 +251,7 @@ class CompassParserClient:
                 yield results
 
     @staticmethod
-    def _get_metadata(
-        doc: CompassDocument, custom_context: Fn_or_Dict | None = None
-    ) -> dict[str, Any]:
+    def _get_metadata(doc: CompassDocument, custom_context: Fn_or_Dict | None = None) -> dict[str, Any]:
         if custom_context is None:
             return {}
         elif callable(custom_context):
@@ -423,9 +417,7 @@ class CompassParserClient:
                 logger.error(f"Error processing file {filename}: {doc['errors']}")
             else:
                 compass_doc = CompassDocument.adapt_doc_id_compass_doc(doc)
-                additional_metadata = CompassParserClient._get_metadata(
-                    doc=compass_doc, custom_context=custom_context
-                )
+                additional_metadata = CompassParserClient._get_metadata(doc=compass_doc, custom_context=custom_context)
                 compass_doc.content = {**compass_doc.content, **additional_metadata}
                 docs.append(compass_doc)
 

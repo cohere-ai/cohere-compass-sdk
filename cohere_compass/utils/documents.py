@@ -60,15 +60,11 @@ def partition_documents(
             logger.error(f"Skipping, error processing document {filename}: {error}")
             continue
         if doc.status != CompassDocumentStatus.Success:
-            logger.error(
-                f"Document {doc.metadata.document_id} has errors: {doc.errors}"
-            )
+            logger.error(f"Document {doc.metadata.document_id} has errors: {doc.errors}")
             for error in doc.errors:
                 errors.append({doc.metadata.document_id: next(iter(error.values()))})
         else:
-            num_chunks += (
-                len(doc.chunks) if doc.status == CompassDocumentStatus.Success else 0
-            )
+            num_chunks += len(doc.chunks) if doc.status == CompassDocumentStatus.Success else 0
             if num_chunks > max_chunks_per_request:
                 yield request_block, errors
                 request_block, errors = [], []
@@ -114,15 +110,11 @@ async def partition_documents_async(
             logger.error(f"Error processing document {filename}: {error}")
             continue
         if doc.status != CompassDocumentStatus.Success:
-            logger.error(
-                f"Document {doc.metadata.document_id} has errors: {doc.errors}"
-            )
+            logger.error(f"Document {doc.metadata.document_id} has errors: {doc.errors}")
             for error in doc.errors:
                 errors.append({doc.metadata.document_id: next(iter(error.values()))})
         else:
-            num_chunks += (
-                len(doc.chunks) if doc.status == CompassDocumentStatus.Success else 0
-            )
+            num_chunks += len(doc.chunks) if doc.status == CompassDocumentStatus.Success else 0
             if num_chunks > max_chunks_per_request:
                 yield request_block, errors
                 request_block, errors = [], []

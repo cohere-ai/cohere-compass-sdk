@@ -64,11 +64,7 @@ class CompassRootClient:
             params["filter"] = filter
 
         if page_info:
-            cursor_value = (
-                page_info.next
-                if direction == PageDirection.NEXT
-                else page_info.previous
-            )
+            cursor_value = page_info.next if direction == PageDirection.NEXT else page_info.previous
             if cursor_value is not None:
                 params["cursor"] = cursor_value
             if page_info.filter is not None:
@@ -79,26 +75,20 @@ class CompassRootClient:
         return entity_response.model_validate(response.json())
 
     @staticmethod
-    def _fetch_entity(
-        url: str, headers: Headers, entity_response: type[T], entity_name: str
-    ) -> T:
+    def _fetch_entity(url: str, headers: Headers, entity_response: type[T], entity_name: str) -> T:
         response = httpx.get(f"{url}/{entity_name}", headers=headers)
         response.raise_for_status()
         return entity_response.model_validate(response.json())
 
     @staticmethod
-    def _create_entities(
-        url: str, headers: Headers, entity_request: list[T], entity_response: type[U]
-    ) -> list[U]:
+    def _create_entities(url: str, headers: Headers, entity_request: list[T], entity_response: type[U]) -> list[U]:
         response = httpx.post(
             url,
             json=[json.loads(entity.model_dump_json()) for entity in entity_request],
             headers=headers,
         )
         response.raise_for_status()
-        return [
-            entity_response.model_validate(response) for response in response.json()
-        ]
+        return [entity_response.model_validate(response) for response in response.json()]
 
     @staticmethod
     def _update_entity(
@@ -117,9 +107,7 @@ class CompassRootClient:
         return entity_response.model_validate(response.json())
 
     @staticmethod
-    def _delete_entities(
-        url: str, headers: Headers, names: list[str], entity_response: type[U]
-    ) -> list[U]:
+    def _delete_entities(url: str, headers: Headers, names: list[str], entity_response: type[U]) -> list[U]:
         entities = ",".join(names)
         response = httpx.delete(f"{url}/{entities}", headers=headers)
         response.raise_for_status()
@@ -454,9 +442,7 @@ class CompassRootClient:
             entity_response=Group,
         )
 
-    def add_members_to_group(
-        self, group_name: str, user_names: list[str]
-    ) -> list[GroupMembership]:
+    def add_members_to_group(self, group_name: str, user_names: list[str]) -> list[GroupMembership]:
         """
         Add Users to a Group.
 
@@ -473,9 +459,7 @@ class CompassRootClient:
         response.raise_for_status()
         return [GroupMembership.model_validate(member) for member in response.json()]
 
-    def remove_members_from_group(
-        self, group_name: str, user_names: list[str]
-    ) -> list[GroupMembership]:
+    def remove_members_from_group(self, group_name: str, user_names: list[str]) -> list[GroupMembership]:
         """
         Remove Users from a Group.
 
@@ -527,9 +511,7 @@ class CompassRootClient:
             direction=direction,
         )
 
-    def add_roles_to_group(
-        self, group_name: str, role_names: list[str]
-    ) -> list[GroupRole]:
+    def add_roles_to_group(self, group_name: str, role_names: list[str]) -> list[GroupRole]:
         """
         Add Roles to a Group.
 
@@ -546,9 +528,7 @@ class CompassRootClient:
         response.raise_for_status()
         return [GroupRole.model_validate(member) for member in response.json()]
 
-    def remove_roles_from_group(
-        self, group_name: str, role_names: list[str]
-    ) -> list[GroupRole]:
+    def remove_roles_from_group(self, group_name: str, role_names: list[str]) -> list[GroupRole]:
         """
         Remove Roles from a Group.
 

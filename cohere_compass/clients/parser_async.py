@@ -103,9 +103,7 @@ class CompassParserAsyncClient:
             when creating the client. If an httpx client is provided, the timeout will
             be ignored.
         """
-        self.parser_url = (
-            parser_url if not parser_url.endswith("/") else parser_url[:-1]
-        )
+        self.parser_url = parser_url if not parser_url.endswith("/") else parser_url[:-1]
         self.parser_config = parser_config
         self.bearer_token = bearer_token
         self.thread_pool = ThreadPoolExecutor(num_workers)
@@ -119,16 +117,12 @@ class CompassParserAsyncClient:
             if httpx_client.timeout.read
             else DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT
         )
-        self.httpx = httpx_client or httpx.AsyncClient(
-            timeout=self.timeout.total_seconds()
-        )
+        self.httpx = httpx_client or httpx.AsyncClient(timeout=self.timeout.total_seconds())
         self._own_httpx_client = httpx_client is None
         self._closed = False
 
         self.metadata_config = metadata_config
-        logger.info(
-            f"CompassParserClient initialized with parser_url: {self.parser_url}"
-        )
+        logger.info(f"CompassParserClient initialized with parser_url: {self.parser_url}")
 
     async def aclose(self):
         """Close the httpx client if it was created by the CompassParserAsyncClient."""
@@ -256,9 +250,7 @@ class CompassParserAsyncClient:
                 yield results
 
     @staticmethod
-    def _get_metadata(
-        doc: CompassDocument, custom_context: Fn_or_Dict | None = None
-    ) -> dict[str, Any]:
+    def _get_metadata(doc: CompassDocument, custom_context: Fn_or_Dict | None = None) -> dict[str, Any]:
         if custom_context is None:
             return {}
         elif callable(custom_context):
@@ -420,9 +412,7 @@ class CompassParserAsyncClient:
             if compass_doc.errors:
                 doc_id = compass_doc.metadata.document_id
                 logger.warning(f"Document {doc_id} has errors: {compass_doc.errors}")
-            additional_metadata = CompassParserAsyncClient._get_metadata(
-                doc=compass_doc, custom_context=custom_context
-            )
+            additional_metadata = CompassParserAsyncClient._get_metadata(doc=compass_doc, custom_context=custom_context)
             compass_doc.content = {**compass_doc.content, **additional_metadata}
             compass_doc.errors = doc.get("errors", [])
             docs.append(compass_doc)

@@ -355,9 +355,7 @@ class CompassClient:
 
         """
         if not re.match(URL_SAFE_STRING_PATTERN, index_name):
-            raise ValueError(
-                f"Invalid index name '{index_name}', please avoid special characters."
-            )
+            raise ValueError(f"Invalid index name '{index_name}', please avoid special characters.")
         self._send_request(
             api_name="create_index",
             index_name=index_name,
@@ -821,9 +819,7 @@ class CompassClient:
         ) -> None:
             nonlocal num_succeeded, errors
             errors.extend(previous_errors)
-            compass_docs: list[CompassDocument] = [
-                compass_doc for compass_doc, _ in request_data
-            ]
+            compass_docs: list[CompassDocument] = [compass_doc for compass_doc, _ in request_data]
             put_docs_input = PutDocumentsInput(
                 documents=[input_doc for _, input_doc in request_data],
                 authorized_groups=authorized_groups,
@@ -851,9 +847,7 @@ class CompassClient:
                 error = str(e)
                 for doc in compass_docs:
                     filename = doc.metadata.filename
-                    doc.errors.append(
-                        {CompassSdkStage.Indexing: f"{filename}: {error}"}
-                    )
+                    doc.errors.append({CompassSdkStage.Indexing: f"{filename}: {error}"})
                     errors.append({doc.metadata.document_id: f"{filename}: {error}"})
 
                 # Keep track of the results of the last N API calls to calculate the
@@ -861,11 +855,7 @@ class CompassClient:
                 # insertion process
                 error_window.append(error)
 
-            error_rate = (
-                mean([1 if x else 0 for x in error_window])
-                if len(error_window) == error_window.maxlen
-                else 0
-            )
+            error_rate = mean([1 if x else 0 for x in error_window]) if len(error_window) == error_window.maxlen else 0
             if error_rate > max_error_rate:
                 raise CompassMaxErrorRateExceeded(
                     f"[Thread {threading.get_native_id()}] {error_rate * 100}% of "
@@ -1091,9 +1081,7 @@ class CompassClient:
         return self._send_request(
             api_name=api_name,
             index_name=index_name,
-            data=SearchInput(
-                query=query, top_k=top_k, filters=filters, rerank_model=rerank_model
-            ),
+            data=SearchInput(query=query, top_k=top_k, filters=filters, rerank_model=rerank_model),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1496,9 +1484,7 @@ class CompassClient:
         timeout = timeout or self.timeout
 
         if api_name not in API_DEFINITIONS:
-            raise CompassError(
-                f"API name '{api_name}' is not defined in the API definitions."
-            )
+            raise CompassError(f"API name '{api_name}' is not defined in the API definitions.")
         http_method, api_path = API_DEFINITIONS[api_name]
 
         target_path = f"{self.index_url}v1/{api_path}"

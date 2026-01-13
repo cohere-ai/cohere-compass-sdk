@@ -16,9 +16,7 @@ R = TypeVar("R")
 logger = logging.getLogger(__name__)
 
 
-async def async_enumerate(
-    iterable: AsyncIterable[T], start: int = 0
-) -> AsyncIterator[tuple[int, T]]:
+async def async_enumerate(iterable: AsyncIterable[T], start: int = 0) -> AsyncIterator[tuple[int, T]]:
     """
     Enumerate an async iterable, just like Python's `enumerate()` but for async.
 

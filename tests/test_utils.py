@@ -72,9 +72,7 @@ def test_imap_queued_max_queued_limit():
 def test_empty_iterable():
     executor = ThreadPoolExecutor(max_workers=2)
     empty_iterable: list[int] = []
-    results = list(
-        imap_parallel(executor, lambda x: x, empty_iterable, max_parallelism=2)
-    )
+    results = list(imap_parallel(executor, lambda x: x, empty_iterable, max_parallelism=2))
     executor.shutdown()
 
     assert results == []

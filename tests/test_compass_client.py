@@ -51,9 +51,7 @@ def mock_endpoint(
 ):
     def decorator(test_func: Callable[..., Any]) -> Callable[..., Any]:
         @respx.mock(assert_all_mocked=True)
-        def wrapper(
-            client: CompassClient, respx_mock: MockRouter, *args: Any, **kwargs: Any
-        ):
+        def wrapper(client: CompassClient, respx_mock: MockRouter, *args: Any, **kwargs: Any):
             route = getattr(respx_mock, method.lower())(url).mock(
                 return_value=httpx.Response(status_code, json=response_body)
             )
@@ -115,9 +113,7 @@ def test_create_index_formatted_with_index(client: CompassClient):
     {"number_of_shards": 5},
 )
 def test_create_index_with_index_config(client: CompassClient):
-    client.create_index(
-        index_name="test_index", index_config=IndexConfig(number_of_shards=5)
-    )
+    client.create_index(index_name="test_index", index_config=IndexConfig(number_of_shards=5))
 
 
 @respx.mock
@@ -129,15 +125,11 @@ def test_create_index_with_invalid_name(client: CompassClient, respx_mock: MockR
 
 
 @respx.mock
-def test_create_index_400s_propagated_to_caller(
-    client: CompassClient, respx_mock: MockRouter
-):
+def test_create_index_400s_propagated_to_caller(client: CompassClient, respx_mock: MockRouter):
     respx_mock.put("http://test.com/v1/indexes/test-index").mock(
         return_value=httpx.Response(400, json={"error": "invalid request"})
     )
-    with pytest.raises(
-        CompassError, match=r'Client error 400: {"error":"invalid request"}'
-    ):
+    with pytest.raises(CompassError, match=r'Client error 400: {"error":"invalid request"}'):
         client.create_index(index_name="test-index")
 
 
@@ -186,14 +178,10 @@ def test_put_document_payload_and_url_exist(client: CompassClient):
 
 
 @respx.mock(assert_all_mocked=True)
-def test_put_document_payload_with_invalid_document_id(
-    client: CompassClient, respx_mock: MockRouter
-):
+def test_put_document_payload_with_invalid_document_id(client: CompassClient, respx_mock: MockRouter):
     doc = CompassDocument(
         filebytes=b"",
-        metadata=CompassDocumentMetadata(
-            document_id="bypass-validation", filename="tests/docs/sample.doc"
-        ),
+        metadata=CompassDocumentMetadata(document_id="bypass-validation", filename="tests/docs/sample.doc"),
     )
     doc.metadata.document_id = "something/with/slashes"
     with pytest.raises(ValidationError) as exc_info:
@@ -202,9 +190,7 @@ def test_put_document_payload_with_invalid_document_id(
 
 
 @respx.mock(assert_all_mocked=True)
-def test_insert_doc_with_tuple_does_not_throw_attribute_error(
-    client: CompassClient, respx_mock: MockRouter
-):
+def test_insert_doc_with_tuple_does_not_throw_attribute_error(client: CompassClient, respx_mock: MockRouter):
     try:
         client.insert_docs(
             index_name="test_index",
@@ -230,9 +216,7 @@ def test_insert_doc_with_tuple_does_not_throw_attribute_error(
 )
 def test_list_indices_is_valid(client: CompassClient):
     response = client.list_indexes()
-    assert response.indexes == [
-        IndexInfo(name="test_index", count=1, parent_doc_count=1)
-    ]
+    assert response.indexes == [IndexInfo(name="test_index", count=1, parent_doc_count=1)]
 
 
 @mock_endpoint(
@@ -339,12 +323,8 @@ def test_add_attributes_is_valid(client: CompassClient):
     )
 
 
-def test_get_document_asset_with_json_asset(
-    client: CompassClient, respx_mock: MockRouter
-):
-    respx_mock.get(
-        "http://test.com/v1/indexes/test_index/documents/test_id/assets/test_asset_id"
-    ).mock(
+def test_get_document_asset_with_json_asset(client: CompassClient, respx_mock: MockRouter):
+    respx_mock.get("http://test.com/v1/indexes/test_index/documents/test_id/assets/test_asset_id").mock(
         return_value=httpx.Response(
             200,
             json={"test": "test"},
@@ -361,9 +341,7 @@ def test_get_document_asset_with_json_asset(
 
 
 def test_get_document_asset_markdown(respx_mock: MockRouter):
-    respx_mock.get(
-        "http://test.com/v1/indexes/test_index/documents/test_id/assets/test_asset_id"
-    ).mock(
+    respx_mock.get("http://test.com/v1/indexes/test_index/documents/test_id/assets/test_asset_id").mock(
         return_value=httpx.Response(
             200,
             text="# Test",
@@ -380,9 +358,7 @@ def test_get_document_asset_markdown(respx_mock: MockRouter):
 
 
 def test_get_document_asset_image(client: CompassClient, respx_mock: MockRouter):
-    respx_mock.get(
-        "http://test.com/v1/indexes/test_index/documents/test_id/assets/test_asset_id"
-    ).mock(
+    respx_mock.get("http://test.com/v1/indexes/test_index/documents/test_id/assets/test_asset_id").mock(
         return_value=httpx.Response(
             200,
             content=b"test",
@@ -398,9 +374,7 @@ def test_get_document_asset_image(client: CompassClient, respx_mock: MockRouter)
 
 
 def test_direct_search_is_valid(client: CompassClient, respx_mock: MockRouter):
-    route = respx_mock.post(
-        "http://test.com/v1/indexes/test_index/_direct_search"
-    ).mock(
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/_direct_search").mock(
         return_value=httpx.Response(
             200,
             json={"hits": [], "scroll_id": "test_scroll_id"},
@@ -446,21 +420,13 @@ def test_direct_search_scroll_is_valid(client: CompassClient, respx_mock: MockRo
 
 
 @respx.mock
-def test_direct_search_with_sort_by_single_field(
-    client: CompassClient, respx_mock: MockRouter
-):
-    route = respx_mock.post(
-        "http://test.com/v1/indexes/test_index/_direct_search"
-    ).mock(
-        return_value=httpx.Response(
-            200, json={"hits": [], "scroll_id": "test_scroll_id"}
-        )
+def test_direct_search_with_sort_by_single_field(client: CompassClient, respx_mock: MockRouter):
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/_direct_search").mock(
+        return_value=httpx.Response(200, json={"hits": [], "scroll_id": "test_scroll_id"})
     )
 
     sort_by = [SortBy(field="created_at", order="desc")]
-    client.direct_search(
-        index_name="test_index", query={"match_all": {}}, sort_by=sort_by
-    )
+    client.direct_search(index_name="test_index", query={"match_all": {}}, sort_by=sort_by)
 
     assert route.called
     payload = json.loads(route.calls.last.request.content)
@@ -469,24 +435,16 @@ def test_direct_search_with_sort_by_single_field(
 
 
 @respx.mock
-def test_direct_search_with_sort_by_multiple_fields(
-    client: CompassClient, respx_mock: MockRouter
-):
-    route = respx_mock.post(
-        "http://test.com/v1/indexes/test_index/_direct_search"
-    ).mock(
-        return_value=httpx.Response(
-            200, json={"hits": [], "scroll_id": "test_scroll_id"}
-        )
+def test_direct_search_with_sort_by_multiple_fields(client: CompassClient, respx_mock: MockRouter):
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/_direct_search").mock(
+        return_value=httpx.Response(200, json={"hits": [], "scroll_id": "test_scroll_id"})
     )
 
     sort_by = [
         SortBy(field="created_at", order="desc"),
         SortBy(field="score", order="asc"),
     ]
-    client.direct_search(
-        index_name="test_index", query={"match_all": {}}, sort_by=sort_by
-    )
+    client.direct_search(index_name="test_index", query={"match_all": {}}, sort_by=sort_by)
 
     assert route.called
     payload = json.loads(route.calls.last.request.content)
@@ -499,12 +457,8 @@ def test_direct_search_with_sort_by_multiple_fields(
 
 @respx.mock
 def test_direct_search_without_sort_by(client: CompassClient, respx_mock: MockRouter):
-    route = respx_mock.post(
-        "http://test.com/v1/indexes/test_index/_direct_search"
-    ).mock(
-        return_value=httpx.Response(
-            200, json={"hits": [], "scroll_id": "test_scroll_id"}
-        )
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/_direct_search").mock(
+        return_value=httpx.Response(200, json={"hits": [], "scroll_id": "test_scroll_id"})
     )
 
     client.direct_search(index_name="test_index", query={"match_all": {}})
@@ -589,12 +543,8 @@ def test_upload_document(client: CompassClient, respx_mock: MockRouter):
     upload_id = uuid.uuid4()
     document_id = "test_document_id"
 
-    route = respx_mock.post(
-        "http://test.com/v1/indexes/test_index/documents/upload"
-    ).mock(
-        return_value=httpx.Response(
-            200, json={"upload_id": str(upload_id), "document_ids": [document_id]}
-        )
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/upload").mock(
+        return_value=httpx.Response(200, json={"upload_id": str(upload_id), "document_ids": [document_id]})
     )
 
     result = client.upload_document(
@@ -606,24 +556,16 @@ def test_upload_document(client: CompassClient, respx_mock: MockRouter):
     )
 
     assert route.called
-    assert result == UploadDocumentsResult(
-        upload_id=upload_id, document_ids=[document_id]
-    )
+    assert result == UploadDocumentsResult(upload_id=upload_id, document_ids=[document_id])
 
 
 @respx.mock
-def test_upload_document_with_authorized_groups(
-    client: CompassClient, respx_mock: MockRouter
-):
+def test_upload_document_with_authorized_groups(client: CompassClient, respx_mock: MockRouter):
     upload_id = uuid.uuid4()
     document_id = "test_document_id"
 
-    route = respx_mock.post(
-        "http://test.com/v1/indexes/test_index/documents/upload"
-    ).mock(
-        return_value=httpx.Response(
-            200, json={"upload_id": str(upload_id), "document_ids": [document_id]}
-        )
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/upload").mock(
+        return_value=httpx.Response(200, json={"upload_id": str(upload_id), "document_ids": [document_id]})
     )
 
     result = client.upload_document(
@@ -636,9 +578,7 @@ def test_upload_document_with_authorized_groups(
     )
 
     assert route.called
-    assert result == UploadDocumentsResult(
-        upload_id=upload_id, document_ids=[document_id]
-    )
+    assert result == UploadDocumentsResult(upload_id=upload_id, document_ids=[document_id])
 
     # Verify the request payload includes authorized_groups
     request = route.calls.last.request
@@ -651,9 +591,7 @@ def test_upload_document_with_authorized_groups(
 def test_upload_document_status(client: CompassClient, respx_mock: MockRouter):
     upload_id = uuid.uuid4()
 
-    route = respx_mock.get(
-        f"http://test.com/v1/indexes/test_index/documents/upload/{upload_id}"
-    ).mock(
+    route = respx_mock.get(f"http://test.com/v1/indexes/test_index/documents/upload/{upload_id}").mock(
         return_value=httpx.Response(
             200,
             json=[
@@ -687,9 +625,7 @@ def test_upload_document_status(client: CompassClient, respx_mock: MockRouter):
 def test_download_parsed_document(client: CompassClient, respx_mock: MockRouter):
     upload_id = uuid.uuid4()
 
-    route = respx_mock.get(
-        f"http://test.com/v1/indexes/test_index/documents/upload/{upload_id}/_download"
-    ).mock(
+    route = respx_mock.get(f"http://test.com/v1/indexes/test_index/documents/upload/{upload_id}/_download").mock(
         return_value=httpx.Response(
             200,
             json=[
@@ -703,9 +639,7 @@ def test_download_parsed_document(client: CompassClient, respx_mock: MockRouter)
         )
     )
 
-    result = client.download_parsed_document(
-        index_name="test_index", upload_id=upload_id
-    )
+    result = client.download_parsed_document(index_name="test_index", upload_id=upload_id)
 
     assert route.called
     assert result[0].upload_id == upload_id
@@ -715,9 +649,7 @@ def test_download_parsed_document(client: CompassClient, respx_mock: MockRouter)
 
 @respx.mock
 def test_search_documents(client: CompassClient, respx_mock: MockRouter):
-    route = respx_mock.post(
-        "http://test.com/v1/indexes/test_index/documents/_search"
-    ).mock(
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/_search").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -743,9 +675,7 @@ def test_search_documents(client: CompassClient, respx_mock: MockRouter):
         )
     )
 
-    result = client.search_documents(
-        index_name="test_index", query="test query", top_k=10
-    )
+    result = client.search_documents(index_name="test_index", query="test query", top_k=10)
 
     assert route.called
     assert len(result.hits) == 2
@@ -754,9 +684,7 @@ def test_search_documents(client: CompassClient, respx_mock: MockRouter):
 
 @respx.mock
 def test_search_chunks(client: CompassClient, respx_mock: MockRouter):
-    route = respx_mock.post(
-        "http://test.com/v1/indexes/test_index/documents/_search_chunks"
-    ).mock(
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/_search_chunks").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -959,9 +887,7 @@ def test_delete_datasource(client: CompassClient, respx_mock: MockRouter):
 @respx.mock
 def test_sync_datasource(client: CompassClient, respx_mock: MockRouter):
     route = respx_mock.post("http://test.com/v1/datasources/ds123/_sync").mock(
-        return_value=httpx.Response(
-            200, json={"sync_id": "sync123", "status": "started"}
-        )
+        return_value=httpx.Response(200, json={"sync_id": "sync123", "status": "started"})
     )
 
     client.sync_datasource(datasource_id="ds123")
@@ -971,9 +897,7 @@ def test_sync_datasource(client: CompassClient, respx_mock: MockRouter):
 
 @respx.mock
 def test_update_group_authorization(client: CompassClient, respx_mock: MockRouter):
-    route = respx_mock.post(
-        "http://test.com/v1/indexes/test_index/group_authorization"
-    ).mock(
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/group_authorization").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -996,9 +920,7 @@ def test_update_group_authorization(client: CompassClient, respx_mock: MockRoute
         authorized_groups=["group1", "group2"],
         action=GroupAuthorizationActions.ADD,
     )
-    result = client.update_group_authorization(
-        index_name="test_index", group_auth_input=group_auth
-    )
+    result = client.update_group_authorization(index_name="test_index", group_auth_input=group_auth)
 
     assert route.called
     assert result.results[0].document_id == "doc1"
@@ -1010,13 +932,9 @@ def test_update_group_authorization(client: CompassClient, respx_mock: MockRoute
 # Error handling tests
 @respx.mock
 def test_authentication_error_401(client: CompassClient, respx_mock: MockRouter):
-    respx_mock.get("http://test.com/v1/indexes").mock(
-        return_value=httpx.Response(401, json={"error": "Unauthorized"})
-    )
+    respx_mock.get("http://test.com/v1/indexes").mock(return_value=httpx.Response(401, json={"error": "Unauthorized"}))
 
-    with pytest.raises(
-        CompassAuthError, match=r"Unauthorized. Please check your bearer token."
-    ):
+    with pytest.raises(CompassAuthError, match=r"Unauthorized. Please check your bearer token."):
         client.list_indexes()
 
 
@@ -1026,9 +944,7 @@ def test_client_error_404(client: CompassClient, respx_mock: MockRouter):
         return_value=httpx.Response(404, json={"error": "Index not found"})
     )
 
-    with pytest.raises(
-        CompassClientError, match=r'Client error 404: {"error":"Index not found"}'
-    ):
+    with pytest.raises(CompassClientError, match=r'Client error 404: {"error":"Index not found"}'):
         client.get_index_details(index_name="nonexistent")
 
 
@@ -1038,18 +954,14 @@ def test_server_error_500(client: CompassClient, respx_mock: MockRouter):
         return_value=httpx.Response(500, json={"error": "Internal server error"})
     )
 
-    with pytest.raises(
-        CompassError, match=r'Server error 500: {"error":"Internal server error"}'
-    ):
+    with pytest.raises(CompassError, match=r'Server error 500: {"error":"Internal server error"}'):
         client.list_indexes()
 
 
 # Test timeout and retry behavior
 @respx.mock
 def test_timeout_handling(client: CompassClient, respx_mock: MockRouter):
-    respx_mock.get("http://test.com/v1/indexes").mock(
-        side_effect=httpx.TimeoutException("Request timeout")
-    )
+    respx_mock.get("http://test.com/v1/indexes").mock(side_effect=httpx.TimeoutException("Request timeout"))
 
     with pytest.raises(CompassTimeoutError, match="Timeout error: Request timeout"):
         client.list_indexes()
@@ -1061,9 +973,7 @@ def test_compass_client_initialization():
     assert client.index_url == "http://test.com/"
 
     # TODO ----- add test for async client -----
-    client_with_auth = CompassClient(
-        index_url="http://test.com", bearer_token="test_token"
-    )
+    client_with_auth = CompassClient(index_url="http://test.com", bearer_token="test_token")
     assert client_with_auth.index_url == "http://test.com/"
     assert client_with_auth.bearer_token == "test_token"
 
@@ -1075,9 +985,7 @@ def test_compass_client_close(client: CompassClient):
 # Test search with filters
 @respx.mock
 def test_search_documents_with_filters(client: CompassClient, respx_mock: MockRouter):
-    route = respx_mock.post(
-        "http://test.com/v1/indexes/test_index/documents/_search"
-    ).mock(
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/_search").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -1095,12 +1003,8 @@ def test_search_documents_with_filters(client: CompassClient, respx_mock: MockRo
         )
     )
 
-    search_filter = SearchFilter(
-        field="department", type=SearchFilter.FilterType.EQ, value="engineering"
-    )
-    result = client.search_documents(
-        index_name="test_index", query="test query", top_k=10, filters=[search_filter]
-    )
+    search_filter = SearchFilter(field="department", type=SearchFilter.FilterType.EQ, value="engineering")
+    result = client.search_documents(index_name="test_index", query="test query", top_k=10, filters=[search_filter])
 
     assert route.called
     payload = json.loads(route.calls.last.request.content)
@@ -1111,9 +1015,9 @@ def test_search_documents_with_filters(client: CompassClient, respx_mock: MockRo
 # Test edge cases and validation
 @respx.mock
 def test_empty_query_search(client: CompassClient, respx_mock: MockRouter):
-    route = respx_mock.post(
-        "http://test.com/v1/indexes/test_index/documents/_search"
-    ).mock(return_value=httpx.Response(200, json={"hits": []}))
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/_search").mock(
+        return_value=httpx.Response(200, json={"hits": []})
+    )
 
     result = client.search_documents(index_name="test_index", query="", top_k=10)
 
@@ -1130,9 +1034,7 @@ def test_list_datasources_objects_states(client: CompassClient, respx_mock: Mock
     limit = 10
     created_at = datetime.now()
     updated_at = datetime.now()
-    route = respx_mock.get(
-        f"http://test.com/v1/datasources/{ds_id}/documents?skip={skip}&limit={limit}"
-    ).mock(
+    route = respx_mock.get(f"http://test.com/v1/datasources/{ds_id}/documents?skip={skip}&limit={limit}").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -1180,16 +1082,12 @@ def test_list_datasources_objects_states(client: CompassClient, respx_mock: Mock
     assert result.value[1].updated_at == updated_at
 
 
-def test_get_asset_presigned_urls_success(
-    client: CompassClient, respx_mock: MockRouter
-):
+def test_get_asset_presigned_urls_success(client: CompassClient, respx_mock: MockRouter):
     from cohere_compass.models.documents import AssetPresignedUrlRequest
 
     asset_a_uuid = uuid.UUID("12345678-1234-5678-1234-567812345678")
     asset_b_uuid = uuid.UUID("87654321-4321-8765-4321-876543218765")
-    respx_mock.post(
-        "http://test.com/v1/indexes/test_index/assets/_presigned_urls"
-    ).mock(
+    respx_mock.post("http://test.com/v1/indexes/test_index/assets/_presigned_urls").mock(
         return_value=httpx.Response(
             200,
             json={

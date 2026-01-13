@@ -134,9 +134,7 @@ class CompassAsyncClient:
             if httpx_client.timeout.read
             else DEFAULT_COMPASS_CLIENT_TIMEOUT
         )
-        self.httpx = httpx_client or httpx.AsyncClient(
-            timeout=self.timeout.total_seconds()
-        )
+        self.httpx = httpx_client or httpx.AsyncClient(timeout=self.timeout.total_seconds())
         self._own_httpx_client = httpx_client is None
         self._closed = False
 
@@ -145,9 +143,7 @@ class CompassAsyncClient:
         if max_retries < 0:
             raise ValueError("default_max_retries must be a non-negative integer.")
         if retry_wait.total_seconds() < 0:
-            raise ValueError(
-                "default_sleep_retry_seconds must be a non-negative integer."
-            )
+            raise ValueError("default_sleep_retry_seconds must be a non-negative integer.")
         self.max_retries = max_retries
         self.retry_wait = retry_wait
 
@@ -676,16 +672,12 @@ class CompassAsyncClient:
         """
 
         async def put_request(
-            data: tuple[
-                list[tuple[CompassDocument, Document]], list[dict[str, str]], int
-            ],
+            data: tuple[list[tuple[CompassDocument, Document]], list[dict[str, str]], int],
         ) -> None:
             nonlocal num_succeeded, errors
             request_data, previous_errors, _num_doc = data
             errors.extend(previous_errors)
-            compass_docs: list[CompassDocument] = [
-                compass_doc for compass_doc, _ in request_data
-            ]
+            compass_docs: list[CompassDocument] = [compass_doc for compass_doc, _ in request_data]
             put_docs_input = PutDocumentsInput(
                 documents=[input_doc for _, input_doc in request_data],
                 authorized_groups=authorized_groups,
@@ -713,9 +705,7 @@ class CompassAsyncClient:
                 error = str(e)
                 for doc in compass_docs:
                     filename = doc.metadata.filename
-                    doc.errors.append(
-                        {CompassSdkStage.Indexing: f"{filename}: {error}"}
-                    )
+                    doc.errors.append({CompassSdkStage.Indexing: f"{filename}: {error}"})
                     errors.append({doc.metadata.document_id: f"{filename}: {error}"})
 
                 # Keep track of the results of the last N API calls to calculate the
@@ -723,11 +713,7 @@ class CompassAsyncClient:
                 # insertion process
                 error_window.append(error)
 
-            error_rate = (
-                mean([1 if x else 0 for x in error_window])
-                if len(error_window) == error_window.maxlen
-                else 0
-            )
+            error_rate = mean([1 if x else 0 for x in error_window]) if len(error_window) == error_window.maxlen else 0
             if error_rate > max_error_rate:
                 raise CompassMaxErrorRateExceeded(
                     f"{error_rate * 100}% of insertions failed in the last "
@@ -748,9 +734,7 @@ class CompassAsyncClient:
                 for doc in docs:
                     yield doc
 
-        requests_iter = partition_documents_async(
-            docs_async_iter(), max_chunks_per_request
-        )
+        requests_iter = partition_documents_async(docs_async_iter(), max_chunks_per_request)
 
         try:
             num_jobs = num_jobs or os.cpu_count()
@@ -760,9 +744,7 @@ class CompassAsyncClient:
                     previous_errors,
                     i,
                 )
-                async for i, (request_block, previous_errors) in async_enumerate(
-                    requests_iter, 1
-                )
+                async for i, (request_block, previous_errors) in async_enumerate(requests_iter, 1)
                 if i > skip_first_n_docs
             )
             await async_apply(put_request, args, num_jobs)
@@ -966,9 +948,7 @@ class CompassAsyncClient:
         return await self._send_request(
             api_name=api_name,
             index_name=index_name,
-            data=SearchInput(
-                query=query, top_k=top_k, filters=filters, rerank_model=rerank_model
-            ),
+            data=SearchInput(query=query, top_k=top_k, filters=filters, rerank_model=rerank_model),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1374,9 +1354,7 @@ class CompassAsyncClient:
         timeout = timeout or self.timeout
 
         if api_name not in API_DEFINITIONS:
-            raise CompassError(
-                f"API name '{api_name}' is not defined in the API definitions."
-            )
+            raise CompassError(f"API name '{api_name}' is not defined in the API definitions.")
         http_method, api_path = API_DEFINITIONS[api_name]
 
         target_path = f"{self.index_url}v1/{api_path}"
