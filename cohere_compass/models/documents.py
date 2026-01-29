@@ -68,6 +68,7 @@ class CompassDocumentChunk(ValidatedModel):
     origin: dict[str, Any] | None = None
     assets: list[CompassDocumentChunkAsset] | None = None
     path: str | None = ""
+    enrichments: dict[str, Any] | None = None
 
     def parent_doc_is_split(self):
         """
@@ -116,9 +117,13 @@ class CompassDocument(ValidatedModel):
     content: dict[str, str] = field(default_factory=dict[str, str])
     content_type: str | None = None
     elements: list[Any] = field(default_factory=list[Any])
-    chunks: list[CompassDocumentChunk] = field(default_factory=list[CompassDocumentChunk])
+    chunks: list[CompassDocumentChunk] = field(
+        default_factory=list[CompassDocumentChunk]
+    )
     index_fields: list[str] = field(default_factory=list[str])
-    errors: list[dict[CompassSdkStage, str]] = field(default_factory=list[dict[CompassSdkStage, str]])
+    errors: list[dict[CompassSdkStage, str]] = field(
+        default_factory=list[dict[CompassSdkStage, str]]
+    )
     ignore_metadata_errors: bool = True
     markdown: str | None = None
 
@@ -140,15 +145,27 @@ class CompassDocument(ValidatedModel):
 
     def has_parsing_errors(self) -> bool:
         """Check if the document has parsing errors."""
-        return any(stage == CompassSdkStage.Parsing for error in self.errors for stage, _ in error.items())
+        return any(
+            stage == CompassSdkStage.Parsing
+            for error in self.errors
+            for stage, _ in error.items()
+        )
 
     def has_metadata_errors(self) -> bool:
         """Check if the document has metadata errors."""
-        return any(stage == CompassSdkStage.Metadata for error in self.errors for stage, _ in error.items())
+        return any(
+            stage == CompassSdkStage.Metadata
+            for error in self.errors
+            for stage, _ in error.items()
+        )
 
     def has_indexing_errors(self) -> bool:
         """Check if the document has indexing errors."""
-        return any(stage == CompassSdkStage.Indexing for error in self.errors for stage, _ in error.items())
+        return any(
+            stage == CompassSdkStage.Indexing
+            for error in self.errors
+            for stage, _ in error.items()
+        )
 
     @property
     def status(self) -> CompassDocumentStatus:
@@ -168,11 +185,17 @@ class CompassDocument(ValidatedModel):
     def validate_index_fields_exists(self):
         """Validate that index_fields exist in chunks.content."""
         chunk_without_index_fields = next(
-            (chunk for chunk in self.chunks if not set(self.index_fields).issubset(chunk.content.keys())),
+            (
+                chunk
+                for chunk in self.chunks
+                if not set(self.index_fields).issubset(chunk.content.keys())
+            ),
             None,
         )
         if chunk_without_index_fields:
-            missing_fields = set(self.index_fields) - set(chunk_without_index_fields.content.keys())
+            missing_fields = set(self.index_fields) - set(
+                chunk_without_index_fields.content.keys()
+            )
             raise ValueError(
                 f"All index_fields must exist as keys in chunk content. "
                 f"Missing in chunk {chunk_without_index_fields.chunk_id}: "
@@ -233,6 +256,7 @@ class Chunk(BaseModel):
     sort_id: int
     parent_document_id: str
     path: str = ""
+    enrichments: dict[str, Any] | None = None
     content: dict[str, Any]
     origin: dict[str, Any] | None = None
     assets: list[DocumentChunkAsset] | None = None
@@ -275,7 +299,9 @@ class ParseableDocument(BaseModel):
     """A document to be sent to Compass for parsing."""
 
     id: str
-    filename: Annotated[str, StringConstraints(min_length=1)]  # Ensures the filename is a non-empty string
+    filename: Annotated[
+        str, StringConstraints(min_length=1)
+    ]  # Ensures the filename is a non-empty string
     content_type: str | None = None
     content_length_bytes: PositiveInt  # File size must be a non-negative integer
     content_encoded_bytes: str  # Base64-encoded file contents
@@ -354,7 +380,10 @@ class ParsedDocumentResponse(BaseModel):
         return ParsedDocumentResponse(
             upload_id=uuid.UUID(data.get("upload_id", "")),
             document_id=data.get("document_id", ""),
-            documents=[CompassDocument.adapt_doc_id_compass_doc(doc) for doc in data.get("documents", [])],
+            documents=[
+                CompassDocument.adapt_doc_id_compass_doc(doc)
+                for doc in data.get("documents", [])
+            ],
             state=data.get("state", ""),
         )
 
@@ -405,15 +434,25 @@ class ContentTypeEnum(str, Enum):
     ApplicationPdf = "application/pdf"
     ApplicationXml = "application/xml"
     ApplicationMsword = "application/msword"
-    ApplicationVndOpenXMLDocument = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ApplicationVndOpenXMLDocument = (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
     ApplicationVndMsExcel = "application/vnd.ms-excel"
-    ApplicationVndOpenXMLSpreadsheet = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ApplicationVndOpenXMLSpreadsheet = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
     ApplicationVndMsPowerpoint = "application/vnd.ms-powerpoint"
-    ApplicationVndOpenXMLPresentation = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    ApplicationVndOpenXMLPresentation = (
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    )
     ApplicationEpubZip = "application/epub+zip"
     ApplicationVndOasisOpenDocumentText = "application/vnd.oasis.opendocument.text"
-    ApplicationVndOasisOpenDocumentSpreadsheet = "application/vnd.oasis.opendocument.spreadsheet"
-    ApplicationVndOasisOpenDocumentPresentation = "application/vnd.oasis.opendocument.presentation"
+    ApplicationVndOasisOpenDocumentSpreadsheet = (
+        "application/vnd.oasis.opendocument.spreadsheet"
+    )
+    ApplicationVndOasisOpenDocumentPresentation = (
+        "application/vnd.oasis.opendocument.presentation"
+    )
 
     ApplicationMsOutlook = "application/vnd.ms-outlook"
     ApplicationOctetStream = "application/octet-stream"

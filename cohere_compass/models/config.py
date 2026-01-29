@@ -293,3 +293,13 @@ class IndexConfig(BaseModel):
     analyzer: str | None = None
     dense_model: str | None = None
     sparse_model: str | None = None
+
+
+class EnrichmentConfig(BaseModel):
+    pass
+
+
+class WebhookEnricherConfig(EnricherConfig):
+    type: str = pydantic.Field(default="webhook", frozen=True)
+    webhook_url: str
+    timeout: float = 30
