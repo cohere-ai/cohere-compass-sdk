@@ -35,12 +35,6 @@ DEFAULT_COMMANDR_PROMPT = """
         If you cannot find the information, write "" for the corresponding field.
         Answer:
         """
-METADATA_HEURISTICS_ATTRIBUTES = [
-    "title",
-    "name",
-    "date",
-    "authors",
-]
 
 UUID_NAMESPACE = "00000000-0000-0000-0000-000000000000"
 

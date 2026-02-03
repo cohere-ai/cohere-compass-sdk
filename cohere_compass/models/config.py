@@ -4,10 +4,10 @@
 import math
 from enum import Enum
 from os import getenv
-from typing import Any
+from typing import Annotated, Any, Literal
 
 # 3rd party imports
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 # Local imports
 from cohere_compass.constants import (
@@ -19,7 +19,6 @@ from cohere_compass.constants import (
     DEFAULT_MIN_NUM_TOKENS_CHUNK,
     DEFAULT_NUM_TOKENS_CHUNK_OVERLAP,
     DEFAULT_NUM_TOKENS_PER_CHUNK,
-    METADATA_HEURISTICS_ATTRIBUTES,
     SKIP_INFER_TABLE_TYPES,
 )
 from cohere_compass.models import ValidatedModel
@@ -215,15 +214,33 @@ class ParserConfig(BaseModel):
     enable_assets_returned_as_base64: bool = True
 
 
+class WebhookEnricherConfig(BaseModel):
+    """
+    Config for webhook enrichers.
+
+    See cohere_compass.models.enrichments for the request/response contract.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    type: Literal["webhook"] = "webhook"
+    webhook_url: str
+    timeout: float | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+# Discriminated union for enricher configs. Add new types here.
+EnricherConfigTypes = Annotated[
+    WebhookEnricherConfig,
+    Field(discriminator="type"),
+]
+
+
 class MetadataStrategy(str, Enum):
     """Enum for specifying the strategy for metadata detection."""
 
     No_Metadata = "no_metadata"
-    Naive_Title = "naive_title"
-    KeywordSearch = "keyword_search"
-    Bart = "bart"
     Command_R = "command_r"
-    Custom = "custom"
 
     @classmethod
     def _missing_(cls, value: Any):
@@ -236,26 +253,20 @@ class MetadataConfig(ValidatedModel):
 
     :param metadata_strategy: the metadata detection strategy to use. One of:
         - No_Metadata: no metadata is inferred
-        - Heuristics: metadata is inferred using heuristics
-        - Bart: metadata is inferred using the BART summarization model
         - Command_R: metadata is inferred using the Command-R summarization model
     :param cohere_api_key: the Cohere API key to use for metadata detection
     :param cohere_api_url: the Cohere API URL to use for metadata detection.
         If not set, uses the default Cohere API URL passed in env variable
     :param commandr_model_name: the name of the Command-R model to use for metadata
-    detection
+        detection
     :param commandr_prompt: the prompt to use for the Command-R model
     :param commandr_extractable_attributes: the extractable attributes for the Command-R
         model
     :param commandr_max_tokens: the maximum number of tokens to use for the Command-R
         model
-    :param keyword_search_attributes: the attributes to search for in the document when
-        using keyword search
-    :param keyword_search_separator: the separator to use for nested attributes when
-        using keyword search
     :param ignore_errors: if set to True, metadata detection errors will not be raised
         or stop the parsing process
-
+    :param enricher_configs: enricher configurations to apply to parsed documents
     """
 
     metadata_strategy: MetadataStrategy = MetadataStrategy.No_Metadata
@@ -265,9 +276,8 @@ class MetadataConfig(ValidatedModel):
     commandr_prompt: str = DEFAULT_COMMANDR_PROMPT
     commandr_max_tokens: int = 500
     commandr_extractable_attributes: list[str] = DEFAULT_COMMANDR_EXTRACTABLE_ATTRIBUTES
-    keyword_search_attributes: list[str] = METADATA_HEURISTICS_ATTRIBUTES
-    keyword_search_separator: str = "."
     ignore_errors: bool = True
+    enricher_configs: list[EnricherConfigTypes] | None = None
 
 
 class IndexConfig(BaseModel):

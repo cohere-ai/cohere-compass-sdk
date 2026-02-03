@@ -68,6 +68,7 @@ class CompassDocumentChunk(ValidatedModel):
     origin: dict[str, Any] | None = None
     assets: list[CompassDocumentChunkAsset] | None = None
     path: str | None = ""
+    enrichments: dict[str, Any] | None = None
 
     def parent_doc_is_split(self):
         """
@@ -233,6 +234,7 @@ class Chunk(BaseModel):
     sort_id: int
     parent_document_id: str
     path: str = ""
+    enrichments: dict[str, Any] | None = None
     content: dict[str, Any]
     origin: dict[str, Any] | None = None
     assets: list[DocumentChunkAsset] | None = None
