@@ -34,4 +34,3 @@ class WebhookEnrichmentResponse(BaseModel):
     """Response expected from webhook enrichers."""
 
     enrichments: list[WebhookEnrichmentItem] = []
-

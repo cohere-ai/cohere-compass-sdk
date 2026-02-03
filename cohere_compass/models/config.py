@@ -4,7 +4,7 @@
 import math
 from enum import Enum
 from os import getenv
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
 # 3rd party imports
 from pydantic import BaseModel, ConfigDict, Field
@@ -215,7 +215,8 @@ class ParserConfig(BaseModel):
 
 
 class WebhookEnricherConfig(BaseModel):
-    """Config for webhook enrichers.
+    """
+    Config for webhook enrichers.
 
     See cohere_compass.models.enrichments for the request/response contract.
     """
@@ -230,7 +231,7 @@ class WebhookEnricherConfig(BaseModel):
 
 # Discriminated union for enricher configs. Add new types here.
 EnricherConfigTypes = Annotated[
-    Union[WebhookEnricherConfig],
+    WebhookEnricherConfig,
     Field(discriminator="type"),
 ]
 
