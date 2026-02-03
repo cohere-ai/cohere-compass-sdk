@@ -1,7 +1,5 @@
 """Models for config functionality in the Cohere Compass SDK."""
 
-from __future__ import annotations
-
 # Python imports
 import math
 from enum import Enum
@@ -226,7 +224,7 @@ class WebhookEnricherConfig(BaseModel):
 
     type: Literal["webhook"] = "webhook"
     webhook_url: str
-    timeout: float = 30.0
+    timeout: float | None = None
     params: dict[str, Any] = Field(default_factory=dict)
 
 
