@@ -215,9 +215,9 @@ class ParserConfig(BaseModel):
 
 
 class WebhookEnricherConfig(BaseModel):
-    """
-    Config for webhook enrichers. See cohere_compass.models.enrichments for the
-    request/response contract.
+    """Config for webhook enrichers.
+
+    See cohere_compass.models.enrichments for the request/response contract.
     """
 
     model_config = ConfigDict(frozen=True)

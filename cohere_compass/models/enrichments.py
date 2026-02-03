@@ -33,8 +33,5 @@ class WebhookEnrichmentItem(BaseModel):
 class WebhookEnrichmentResponse(BaseModel):
     """Response expected from webhook enrichers."""
 
-    enrichments: list[WebhookEnrichmentItem] = Field(
-        default_factory=list,
-        description="List of enrichments to apply to the document.",
-    )
+    enrichments: list[WebhookEnrichmentItem] = []
 
