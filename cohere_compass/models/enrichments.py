@@ -1,3 +1,5 @@
+"""Models for webhook enrichment request/response contracts."""
+
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -5,31 +7,34 @@ from pydantic import BaseModel, Field
 
 class WebhookEnrichmentRequest(BaseModel):
     """
-    Request parameters sent to webhook enrichers.
+    Request payload sent to webhook enrichers.
 
-    The file downloaded from parsed_doc_url will be a JSON CompassDocument.
+    The parsed document (JSON CompassDocument) can be fetched from parsed_doc_url.
     """
 
-    parsed_doc_url: str = Field(
-        description="URL where the parsed document can be accessed. "
+    parsed_doc_url: str = Field(description="URL to fetch the parsed CompassDocument JSON.")
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Arbitrary parameters passed through from WebhookEnricherConfig.",
     )
 
 
 class WebhookEnrichmentItem(BaseModel):
+    """A single enrichment to apply to document chunks."""
 
-    field: str = Field(
-        description="The enrichment field name (e.g., 'sentiment_v1_score')."
-    )
-    value: Any = Field(
-        description="The enrichment value. Can be any JSON-serializable value."
-    )
+    field: str = Field(description="Enrichment field name (e.g., 'sentiment_score').")
+    value: Any = Field(description="JSON-serializable enrichment value.")
     chunk_ids: list[str] | None = Field(
         default=None,
-        description="Optional list of specific chunk IDs to apply this enrichment to. "
-        "If omitted, the enrichment will be applied to all chunks in the document.",
+        description="Chunk IDs to enrich. If None, applies to all chunks.",
     )
 
 
-# Your webhook must return a WebhookEnrichmentResponse in JSON
-WebhookEnrichmentResponse = list[WebhookEnrichmentItem]
+class WebhookEnrichmentResponse(BaseModel):
+    """Response expected from webhook enrichers."""
+
+    enrichments: list[WebhookEnrichmentItem] = Field(
+        default_factory=list,
+        description="List of enrichments to apply to the document.",
+    )
 
