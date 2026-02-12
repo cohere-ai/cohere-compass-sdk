@@ -7,7 +7,7 @@ readme = "README.md"
 packages = [{ include = "cohere_compass" }]
 
 [tool.poetry.dependencies]
-fsspec = ">=2024.12,<2025.10"
+fsspec = "^2025.5.0"
 joblib = "^1.5.2"
 pydantic = "^2.11.9"
 python = ">=3.11,<4.0"
