@@ -1,7 +1,6 @@
 import json
 import uuid
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any, Literal, cast
 
 import httpx
@@ -20,12 +19,9 @@ from cohere_compass.exceptions import (
 )
 from cohere_compass.models import (
     CompassDocument,
-    CreateDataSource,
-    DataSource,
     SearchFilter,
 )
 from cohere_compass.models.config import IndexConfig
-from cohere_compass.models.datasources import AzureBlobStorageConfig
 from cohere_compass.models.documents import (
     AssetType,
     CompassDocumentMetadata,
@@ -722,180 +718,6 @@ def test_search_chunks(client: CompassClient, respx_mock: MockRouter):
 
 
 @respx.mock
-def test_create_datasource(client: CompassClient, respx_mock: MockRouter):
-    datasource_id = uuid.uuid4()
-    created_at = datetime.now()
-    updated_at = datetime.now()
-    route = respx_mock.post("http://test.com/v1/datasources").mock(
-        return_value=httpx.Response(
-            200,
-            json={
-                "id": str(datasource_id),
-                "name": "Test Datasource",
-                "description": "Test Datasource",
-                "config": {
-                    "type": "msft_azure_blob_storage",
-                    "connection_string": "test_connection_string",
-                    "container_name": "test_container_name",
-                    "name_starts_with": "test_name_starts_with",
-                },
-                "destinations": [],
-                "enabled": True,
-                "created_at": created_at.isoformat(),
-                "updated_at": updated_at.isoformat(),
-            },
-        )
-    )
-
-    datasource_obj = DataSource(
-        id=datasource_id,
-        name="Test Datasource",
-        description="Test Datasource",
-        config=AzureBlobStorageConfig(
-            type="msft_azure_blob_storage",
-            connection_string="test_connection_string",
-            container_name="test_container_name",
-            name_starts_with="test_name_starts_with",
-        ),
-        destinations=[],
-        enabled=True,
-        created_at=created_at,
-        updated_at=updated_at,
-    )
-    create_datasource = CreateDataSource(datasource=datasource_obj)
-    result = client.create_datasource(datasource=create_datasource)
-
-    assert route.called
-    assert result.id == datasource_id
-    assert result.name == "Test Datasource"
-    assert result.description == "Test Datasource"
-    assert result.config == AzureBlobStorageConfig(
-        type="msft_azure_blob_storage",
-        connection_string="test_connection_string",
-        container_name="test_container_name",
-        name_starts_with="test_name_starts_with",
-    )
-    assert result.destinations == []
-    assert result.enabled is True
-    assert result.created_at == created_at
-    assert result.updated_at == updated_at
-
-
-@respx.mock
-def test_list_datasources(client: CompassClient, respx_mock: MockRouter):
-    ds1_id = uuid.uuid4()
-    ds2_id = uuid.uuid4()
-    route = respx_mock.get("http://test.com/v1/datasources").mock(
-        return_value=httpx.Response(
-            200,
-            json={
-                "value": [
-                    {
-                        "id": str(ds1_id),
-                        "name": "Datasource 1",
-                        "description": "Datasource 1",
-                        "type": "msft_azure_blob_storage",
-                        "config": {
-                            "type": "msft_azure_blob_storage",
-                            "connection_string": "test_connection_string",
-                            "container_name": "test_container_name",
-                            "name_starts_with": "test_name_starts_with",
-                        },
-                        "destinations": [],
-                    },
-                    {
-                        "id": str(ds2_id),
-                        "name": "Datasource 2",
-                        "description": "Datasource 2",
-                        "type": "msft_azure_blob_storage",
-                        "config": {
-                            "type": "msft_azure_blob_storage",
-                            "connection_string": "test_connection_string",
-                            "container_name": "test_container_name",
-                            "name_starts_with": "test_name_starts_with",
-                        },
-                        "destinations": [],
-                    },
-                ],
-                "skip": 0,
-                "limit": 10,
-            },
-        )
-    )
-
-    result = client.list_datasources()
-
-    assert route.called
-    assert len(result.value) == 2
-
-
-@respx.mock
-def test_get_datasource(client: CompassClient, respx_mock: MockRouter):
-    ds_id = uuid.uuid4()
-    created_at = datetime.now()
-    updated_at = datetime.now()
-    route = respx_mock.get(f"http://test.com/v1/datasources/{ds_id}").mock(
-        return_value=httpx.Response(
-            200,
-            json={
-                "id": str(ds_id),
-                "name": "Test Datasource",
-                "description": "Test Datasource",
-                "type": "msft_azure_blob_storage",
-                "config": {
-                    "type": "msft_azure_blob_storage",
-                    "connection_string": "test_connection_string",
-                    "container_name": "test_container_name",
-                    "name_starts_with": "test_name_starts_with",
-                },
-                "destinations": [],
-                "enabled": True,
-                "created_at": created_at.isoformat(),
-                "updated_at": updated_at.isoformat(),
-            },
-        )
-    )
-
-    result = client.get_datasource(datasource_id=str(ds_id))
-
-    assert route.called
-    assert result.name == "Test Datasource"
-    assert result.description == "Test Datasource"
-    assert result.config == AzureBlobStorageConfig(
-        type="msft_azure_blob_storage",
-        connection_string="test_connection_string",
-        container_name="test_container_name",
-        name_starts_with="test_name_starts_with",
-    )
-    assert result.destinations == []
-    assert result.enabled is True
-    assert result.created_at == created_at
-    assert result.updated_at == updated_at
-
-
-@respx.mock
-def test_delete_datasource(client: CompassClient, respx_mock: MockRouter):
-    route = respx_mock.delete("http://test.com/v1/datasources/ds123").mock(
-        return_value=httpx.Response(200, json={"status": "deleted"})
-    )
-
-    client.delete_datasource(datasource_id="ds123")
-
-    assert route.called
-
-
-@respx.mock
-def test_sync_datasource(client: CompassClient, respx_mock: MockRouter):
-    route = respx_mock.post("http://test.com/v1/datasources/ds123/_sync").mock(
-        return_value=httpx.Response(200, json={"sync_id": "sync123", "status": "started"})
-    )
-
-    client.sync_datasource(datasource_id="ds123")
-
-    assert route.called
-
-
-@respx.mock
 def test_update_group_authorization(client: CompassClient, respx_mock: MockRouter):
     route = respx_mock.post("http://test.com/v1/indexes/test_index/group_authorization").mock(
         return_value=httpx.Response(
@@ -1023,63 +845,6 @@ def test_empty_query_search(client: CompassClient, respx_mock: MockRouter):
 
     assert route.called
     assert len(result.hits) == 0
-
-
-# Test list_datasources_objects_states if it exists
-@respx.mock
-def test_list_datasources_objects_states(client: CompassClient, respx_mock: MockRouter):
-    source_id = "test-source-id"
-    ds_id = uuid.uuid4()
-    skip = 0
-    limit = 10
-    created_at = datetime.now()
-    updated_at = datetime.now()
-    route = respx_mock.get(f"http://test.com/v1/datasources/{ds_id}/documents?skip={skip}&limit={limit}").mock(
-        return_value=httpx.Response(
-            200,
-            json={
-                "value": [
-                    {
-                        "document_id": "doc1",
-                        "source_id": source_id,
-                        "state": "processed",
-                        "destinations": ["destination1", "destination2"],
-                        "created_at": created_at.isoformat(),
-                        "updated_at": updated_at.isoformat(),
-                    },
-                    {
-                        "document_id": "doc2",
-                        "state": "pending",
-                        "destinations": ["destination3", "destination4"],
-                        "source_id": source_id,
-                        "created_at": created_at.isoformat(),
-                        "updated_at": updated_at.isoformat(),
-                    },
-                ],
-                "skip": skip,
-                "limit": limit,
-            },
-        )
-    )
-
-    result = client.list_datasources_objects_states(
-        datasource_id=str(ds_id),
-        skip=skip,
-        limit=limit,
-    )
-
-    assert route.called
-    assert len(result.value) == 2
-    assert result.value[0].document_id == "doc1"
-    assert result.value[0].state == "processed"
-    assert result.value[0].source_id == source_id
-    assert result.value[0].created_at == created_at
-    assert result.value[0].updated_at == updated_at
-    assert result.value[1].document_id == "doc2"
-    assert result.value[1].state == "pending"
-    assert result.value[1].source_id == source_id
-    assert result.value[1].created_at == created_at
-    assert result.value[1].updated_at == updated_at
 
 
 def test_get_asset_presigned_urls_success(client: CompassClient, respx_mock: MockRouter):
