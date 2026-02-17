@@ -70,6 +70,8 @@ from cohere_compass.models.datasources import PaginatedList
 from cohere_compass.models.documents import (
     AssetPresignedUrlDetails,
     AssetPresignedUrlRequest,
+    BulkUploadDocumentsStatus,
+    BulkUploadStatusRequest,
     ContentTypeEnum,
     DocumentAttributes,
     GetAssetPresignedUrlsRequest,
@@ -586,6 +588,44 @@ class CompassAsyncClient:
         )
 
         return [UploadDocumentsStatus(**r) for r in result.result]  # type: ignore
+
+    async def bulk_upload_document_status(
+        self,
+        *,
+        index_name: str,
+        upload_ids: list[uuid.UUID],
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> list[BulkUploadDocumentsStatus]:
+        """
+        Get status of multiple document uploads in a single request.
+
+        :param index_name: the name of the index
+        :param upload_ids: list of upload IDs to fetch statuses for
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            List of BulkUploadDocumentsStatus objects, one per upload ID, preserving
+            the order of the input upload_ids. Upload IDs with no matching files return
+            an empty statuses list.
+
+        """
+        result = await self._send_request(
+            api_name="bulk_upload_documents_status",
+            data=BulkUploadStatusRequest(upload_ids=upload_ids),
+            index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+        return [BulkUploadDocumentsStatus(**r) for r in result.result]  # type: ignore
 
     async def download_parsed_document(
         self,
