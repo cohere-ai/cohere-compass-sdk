@@ -20,7 +20,7 @@ from pydantic import (
 # Local imports
 from cohere_compass.constants import URL_SAFE_STRING_PATTERN
 from cohere_compass.models import ValidatedModel
-from cohere_compass.models.config import ParserConfig
+from cohere_compass.models.config import EnrichmentConfig, ParserConfig
 
 DocumentId: TypeAlias = Annotated[str, Field(pattern=URL_SAFE_STRING_PATTERN)]
 
@@ -270,6 +270,7 @@ class ParseableDocumentConfig(BaseModel):
     """Configuration for a parseable document."""
 
     parser_config: ParserConfig = ParserConfig()
+    enrichment_config: EnrichmentConfig | None = None
     only_parse_doc: bool = False
 
 
