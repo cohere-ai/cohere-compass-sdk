@@ -337,6 +337,19 @@ class UploadDocumentsStatus(BaseModel):
     parsed_presigned_url: str | None
 
 
+class BulkUploadStatusRequest(BaseModel):
+    """A model for the request body of the bulk upload status API."""
+
+    upload_ids: list[UUID4]
+
+
+class BulkUploadDocumentsStatus(BaseModel):
+    """A model for a single entry in the bulk upload status response."""
+
+    upload_id: UUID4
+    statuses: list[UploadDocumentsStatus]
+
+
 class ParsedDocumentResponse(BaseModel):
     """A model response for downloading saved document during the async API call."""
 

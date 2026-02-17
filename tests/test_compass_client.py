@@ -622,6 +622,63 @@ def test_upload_document_status(client: CompassClient, respx_mock: MockRouter):
 
 
 @respx.mock
+def test_bulk_upload_document_status(client: CompassClient, respx_mock: MockRouter):
+    upload_id_1 = uuid.uuid4()
+    upload_id_2 = uuid.uuid4()
+
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/uploads").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "upload_id": str(upload_id_1),
+                    "statuses": [
+                        {
+                            "upload_id": str(upload_id_1),
+                            "document_id": "doc-abc",
+                            "destinations": ["test_index"],
+                            "file_name": "report.pdf",
+                            "state": "COMPLETED",
+                            "last_error": None,
+                            "parsed_presigned_url": "https://presigned-url",
+                        }
+                    ],
+                },
+                {
+                    "upload_id": str(upload_id_2),
+                    "statuses": [],
+                },
+            ],
+        )
+    )
+
+    result = client.bulk_upload_document_status(
+        index_name="test_index",
+        upload_ids=[upload_id_1, upload_id_2],
+    )
+
+    assert route.called
+
+    request_body = json.loads(route.calls.last.request.content)
+    assert request_body == {"upload_ids": [str(upload_id_1), str(upload_id_2)]}
+
+    assert len(result) == 2
+
+    assert result[0].upload_id == upload_id_1
+    assert len(result[0].statuses) == 1
+    assert result[0].statuses[0].upload_id == upload_id_1
+    assert result[0].statuses[0].document_id == "doc-abc"
+    assert result[0].statuses[0].destinations == ["test_index"]
+    assert result[0].statuses[0].file_name == "report.pdf"
+    assert result[0].statuses[0].state == "COMPLETED"
+    assert result[0].statuses[0].last_error is None
+    assert result[0].statuses[0].parsed_presigned_url == "https://presigned-url"
+
+    assert result[1].upload_id == upload_id_2
+    assert result[1].statuses == []
+
+
+@respx.mock
 def test_download_parsed_document(client: CompassClient, respx_mock: MockRouter):
     upload_id = uuid.uuid4()
 
