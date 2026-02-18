@@ -52,3 +52,4 @@ class GroupAuthorizationInput(BaseModel):
     document_ids: list[str]
     authorized_groups: list[str]
     action: GroupAuthorizationActions
+    wait_for_completion: bool = False
