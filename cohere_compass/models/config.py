@@ -230,7 +230,7 @@ class EnrichmentConfig(BaseModel):
     :param enricher_configs: enricher configurations to apply to parsed documents
     """
 
-    enrichers: list[EnricherConfigTypes] = Field(default_factory=list)
+    enrichers: list[EnricherConfigTypes] = Field(default_factory=list)  # type: ignore[reportUnknownVariableType]
     timeout_seconds: float | None = None
 
 
