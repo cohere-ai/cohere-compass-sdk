@@ -3,7 +3,6 @@
 # Python imports
 import math
 from enum import Enum
-from os import getenv
 from typing import Annotated, Any, Literal
 
 # 3rd party imports
@@ -11,9 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # Local imports
 from cohere_compass.constants import (
-    COHERE_API_ENV_VAR,
-    DEFAULT_COMMANDR_EXTRACTABLE_ATTRIBUTES,
-    DEFAULT_COMMANDR_PROMPT,
     DEFAULT_MIN_CHARS_PER_ELEMENT,
     DEFAULT_MIN_NUM_CHUNKS_IN_TITLE,
     DEFAULT_MIN_NUM_TOKENS_CHUNK,
@@ -21,7 +17,6 @@ from cohere_compass.constants import (
     DEFAULT_NUM_TOKENS_PER_CHUNK,
     SKIP_INFER_TABLE_TYPES,
 )
-from cohere_compass.models import ValidatedModel
 
 
 class DocumentFormat(str, Enum):
@@ -180,8 +175,6 @@ class ParserConfig(BaseModel):
     )
 
     # CompassParser configuration
-    parse_tables: bool = True
-    parse_images: bool = True
     parsed_images_output_dir: str | None = None
     allowed_image_types: list[str] | None = None
     min_chars_per_element: int = DEFAULT_MIN_CHARS_PER_ELEMENT
@@ -195,23 +188,17 @@ class ParserConfig(BaseModel):
     min_chunk_tokens: int = DEFAULT_MIN_NUM_TOKENS_CHUNK
     num_chunks_in_title: int = DEFAULT_MIN_NUM_CHUNKS_IN_TITLE
     max_tokens_metadata: int = math.floor(num_tokens_per_chunk * 0.1)
-    include_tables: bool = True
 
     # Formatting configuration
     output_format: DocumentFormat = DocumentFormat.Markdown
 
     # Visual elements extraction configuration
-    extract_visual_elements: bool = False
-    vertical_table_crop_margin: int = 100
-    horizontal_table_crop_margin: int = 100
 
     pdf_parsing_config: PDFParsingConfig = PDFParsingConfig()
     pdf_parsing_strategy: PDFParsingStrategy = PDFParsingStrategy.QuickText
     tabular_parsing_strategy: TabularParsingStrategy = TabularParsingStrategy.Granular
     presentation_parsing_strategy: PresentationParsingStrategy | None = None
     docx_parsing_strategy: DocxParsingStrategy | None = None
-
-    enable_assets_returned_as_base64: bool = True
 
 
 class WebhookEnricherConfig(BaseModel):
@@ -236,48 +223,15 @@ EnricherConfigTypes = Annotated[
 ]
 
 
-class MetadataStrategy(str, Enum):
-    """Enum for specifying the strategy for metadata detection."""
-
-    No_Metadata = "no_metadata"
-    Command_R = "command_r"
-
-    @classmethod
-    def _missing_(cls, value: Any):
-        return cls.No_Metadata
-
-
-class MetadataConfig(ValidatedModel):
+class EnrichmentConfig(BaseModel):
     """
-    A model class for specifying configuration related to document metadata detection.
+    A model class for specifying configuration related to document enrichment.
 
-    :param metadata_strategy: the metadata detection strategy to use. One of:
-        - No_Metadata: no metadata is inferred
-        - Command_R: metadata is inferred using the Command-R summarization model
-    :param cohere_api_key: the Cohere API key to use for metadata detection
-    :param cohere_api_url: the Cohere API URL to use for metadata detection.
-        If not set, uses the default Cohere API URL passed in env variable
-    :param commandr_model_name: the name of the Command-R model to use for metadata
-        detection
-    :param commandr_prompt: the prompt to use for the Command-R model
-    :param commandr_extractable_attributes: the extractable attributes for the Command-R
-        model
-    :param commandr_max_tokens: the maximum number of tokens to use for the Command-R
-        model
-    :param ignore_errors: if set to True, metadata detection errors will not be raised
-        or stop the parsing process
     :param enricher_configs: enricher configurations to apply to parsed documents
     """
 
-    metadata_strategy: MetadataStrategy = MetadataStrategy.No_Metadata
-    cohere_api_key: str | None = getenv(COHERE_API_ENV_VAR, None)
-    cohere_api_url: str | None = None
-    commandr_model_name: str = "command-r"
-    commandr_prompt: str = DEFAULT_COMMANDR_PROMPT
-    commandr_max_tokens: int = 500
-    commandr_extractable_attributes: list[str] = DEFAULT_COMMANDR_EXTRACTABLE_ATTRIBUTES
-    ignore_errors: bool = True
-    enricher_configs: list[EnricherConfigTypes] | None = None
+    enrichers: list[EnricherConfigTypes] = Field(default_factory=list)  # type: ignore[reportUnknownVariableType]
+    timeout_seconds: float | None = None
 
 
 class IndexConfig(BaseModel):

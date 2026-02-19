@@ -16,28 +16,17 @@ from typing import Any
 
 # 3rd party imports
 import httpx
-from tenacity import (
-    retry,
-    retry_if_exception,
-    stop_after_attempt,
-    wait_fixed,
-)
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_fixed
 
 # Local imports
-from cohere_compass import (
-    ProcessFileParameters,
-)
+from cohere_compass import ProcessFileParameters
 from cohere_compass.constants import (
     DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT,
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_WAIT,
 )
 from cohere_compass.exceptions import handle_httpx_exceptions
-from cohere_compass.models import (
-    CompassDocument,
-    MetadataConfig,
-    ParserConfig,
-)
+from cohere_compass.models import CompassDocument, ParserConfig
 from cohere_compass.utils.asyn import async_map
 from cohere_compass.utils.fs import open_document, scan_folder
 from cohere_compass.utils.retry import is_retryable_compass_exception
@@ -63,7 +52,6 @@ class CompassParserAsyncClient:
 
     :param parser_url: URL of the CompassParser API
     :param parser_config: Default parser configuration to use when processing files
-    :param metadata_config: Default metadata configuration to use when processing files
     """
 
     def __init__(
@@ -71,7 +59,6 @@ class CompassParserAsyncClient:
         *,
         parser_url: str,
         parser_config: ParserConfig = ParserConfig(),
-        metadata_config: MetadataConfig = MetadataConfig(),
         bearer_token: str | None = None,
         num_workers: int = 1,
         timeout: timedelta | None = None,
@@ -80,19 +67,15 @@ class CompassParserAsyncClient:
         """
         Initialize the CompassParserClient.
 
-        The parser_config and metadata_config are optional, and if not provided, the
-        default configurations will be used. If the parser/metadata configs are
-        provided, they will be used for all subsequent files processed by the client
-        unless specific configs are passed when calling the process_file or
-        process_files methods.
+        The parser_config is optional, and if not provided, the default configuration
+        will be used. If provided, it will be used for all subsequent files processed
+        by the client unless specific configs are passed when calling the process_file
+        or process_files methods.
 
         :param parser_url: the URL of the CompassParser API
         :param parser_config: the parser configuration to use when processing files if
             no parser configuration is specified in the method calls (process_file or
             process_files)
-        :param metadata_config: the metadata configuration to use when processing files
-            if no metadata configuration is specified in the method calls (process_file
-            or process_files)
         :param bearer_token (optional): The bearer token for authentication.
         :param num_workers (optional): The number of workers to use for processing
             files.
@@ -111,17 +94,20 @@ class CompassParserAsyncClient:
         self.timeout = (
             timeout
             if timeout is not None
-            else DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT
-            if httpx_client is None
-            else timedelta(seconds=httpx_client.timeout.read)
-            if httpx_client.timeout.read
-            else DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT
+            else (
+                DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT
+                if httpx_client is None
+                else (
+                    timedelta(seconds=httpx_client.timeout.read)
+                    if httpx_client.timeout.read
+                    else DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT
+                )
+            )
         )
         self.httpx = httpx_client or httpx.AsyncClient(timeout=self.timeout.total_seconds())
         self._own_httpx_client = httpx_client is None
         self._closed = False
 
-        self.metadata_config = metadata_config
         logger.info(f"CompassParserClient initialized with parser_url: {self.parser_url}")
 
     async def aclose(self):
@@ -152,16 +138,15 @@ class CompassParserAsyncClient:
         allowed_extensions: list[str] | None = None,
         recursive: bool = False,
         parser_config: ParserConfig | None = None,
-        metadata_config: MetadataConfig | None = None,
         custom_context: Fn_or_Dict | None = None,
     ):
         """
         Process all the files in the specified folder.
 
-        The files are processed using the default parser and metadata configurations
-        passed when creating the client. The method iterates over all the files in the
-        folder and processes them using the process_file method. The resulting documents
-        are returned as a list of CompassDocument objects.
+        The files are processed using the default parser configuration passed when
+        creating the client. The method iterates over all the files in the folder and
+        processes them using the process_file method. The resulting documents are
+        returned as a list of CompassDocument objects.
 
         :param folder_path: the folder to process
         :param allowed_extensions: the list of allowed extensions to process
@@ -169,9 +154,6 @@ class CompassParserAsyncClient:
         :param parser_config: the parser configuration to use when processing files if
             no parser configuration is specified in the method calls (process_file or
             process_files)
-        :param metadata_config: the metadata configuration to use when processing files
-            if no metadata configuration is specified in the method calls (process_file
-            or process_files)
         :param custom_context: Additional data to add to compass document. Fields will
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
@@ -186,8 +168,6 @@ class CompassParserAsyncClient:
         return self.process_files(
             filenames=filenames,
             parser_config=parser_config,
-            metadata_config=metadata_config,
-            custom_context=custom_context if custom_context else None,
         )
 
     async def process_files(
@@ -196,28 +176,24 @@ class CompassParserAsyncClient:
         filenames: list[str],
         file_ids: list[str] | None = None,
         parser_config: ParserConfig | None = None,
-        metadata_config: MetadataConfig | None = None,
         custom_context: Fn_or_Dict | None = None,
     ):
         """
         Process a list of files.
 
-        If the parser/metadata configs are not provided, then the default configs passed
-        by parameter when creating the client will be used. This makes the
-        CompassParserClient stateful. That is, we can set the parser/metadata configs
-        only once when creating the parser client, and process all subsequent files
-        without having to pass the config every time.
+        If the parser config is not provided, then the default config passed by parameter
+        when creating the client will be used. This makes the CompassParserClient
+        stateful. That is, we can set the parser config only once when creating the
+        parser client, and process all subsequent files without having to pass the
+        config every time.
 
         All the documents passed as filenames and opened to obtain their bytes. Then,
         they are packed into a ProcessFilesParameters object that contains a list of
-        ProcessFileParameters, each contain a file, its id, and the parser/metadata
-        config.
+        ProcessFileParameters, each contain a file, its id, and the parser config.
 
         :param filenames: List of filenames to process
         :param file_ids: List of ids for the files
         :param parser_config: ParserConfig object (applies the same config to all docs)
-        :param metadata_config: MetadataConfig object (applies the same config to all
-            docs)
         :param custom_context: Additional data to add to compass document. Fields will
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
@@ -232,7 +208,6 @@ class CompassParserAsyncClient:
                     filename=filename,
                     file_id=file_ids[i] if file_ids else None,
                     parser_config=parser_config,
-                    metadata_config=metadata_config,
                     custom_context=custom_context,
                 )
             except Exception as e:
@@ -265,26 +240,22 @@ class CompassParserAsyncClient:
         file_id: str | None = None,
         content_type: str | None = None,
         parser_config: ParserConfig | None = None,
-        metadata_config: MetadataConfig | None = None,
         custom_context: Fn_or_Dict | None = None,
     ) -> list[CompassDocument]:
         """
         Process a file.
 
-        The method takes in a file, its id, and the parser/metadata config. If the
-        config is None, then it uses the default configs passed by parameter when
-        creating the client.  This makes the CompassParserClient stateful for
-        convenience, that is, one can pass in the parser/metadata config only once when
-        creating the CompassParserClient, and process files without having to pass the
-        config every time.
+        The method takes in a file, its id, and the parser config. If the config is None,
+        then it uses the default config passed by parameter when creating the client.
+        This makes the CompassParserClient stateful for convenience, that is, one can
+        pass in the parser config only once when creating the CompassParserClient, and
+        process files without having to pass the config every time.
 
         :param filename: Filename to process.
         :param file_id: Id for the file.
         :param content_type: Content type of the file.
         :param parser_config: ParserConfig object with the config to use for parsing the
             file.
-        :param metadata_config: MetadataConfig object with the config to use for
-            extracting metadata for each document.
         :param custom_context: Additional data to add to compass document. Fields will
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
@@ -299,7 +270,6 @@ class CompassParserAsyncClient:
         return await self._process_file_bytes(
             params=self._get_file_params(
                 parser_config=parser_config,
-                metadata_config=metadata_config,
                 file_id=file_id,
                 content_type=content_type,
             ),
@@ -316,20 +286,18 @@ class CompassParserAsyncClient:
         file_id: str | None = None,
         content_type: str | None = None,
         parser_config: ParserConfig | None = None,
-        metadata_config: MetadataConfig | None = None,
         custom_context: Fn_or_Dict | None = None,
         timeout: timedelta | None = None,
     ) -> list[CompassDocument]:
         """
         Process a file.
 
-        The method takes in a file, its id, its byte array,
-        and the parser/metadata config.
-        If the config is None, then it uses the default configs passed by parameter when
+        The method takes in a file, its id, its byte array, and the parser config.
+        If the config is None, then it uses the default config passed by parameter when
         creating the client.  This makes the CompassParserClient stateful for
-        convenience, that is, one can pass in the parser/metadata config only once when
-        creating the CompassParserClient, and process files without having to pass the
-        config every time.
+        convenience, that is, one can pass in the parser config only once when creating
+        the CompassParserClient, and process files without having to pass the config
+        every time.
 
         :param filename: filename to process.
         :param file_bytes: byte content of the file
@@ -337,8 +305,6 @@ class CompassParserAsyncClient:
         :param content_type: Content type of the file.
         :param parser_config: ParserConfig object with the config to use for parsing the
             file.
-        :param metadata_config: MetadataConfig object with the config to use for
-            extracting metadata for each document.
         :param custom_context: Additional data to add to compass document. Fields will
             be filterable but not semantically searchable.  Can either be a dictionary
             or a callable that takes a CompassDocument and returns a dictionary.
@@ -350,7 +316,6 @@ class CompassParserAsyncClient:
         return await self._process_file_bytes(
             params=self._get_file_params(
                 parser_config=parser_config,
-                metadata_config=metadata_config,
                 file_id=file_id,
                 content_type=content_type,
             ),
@@ -364,15 +329,12 @@ class CompassParserAsyncClient:
         self,
         *,
         parser_config: ParserConfig | None = None,
-        metadata_config: MetadataConfig | None = None,
         file_id: str | None = None,
         content_type: str | None = None,
     ):
         parser_config = parser_config or self.parser_config
-        metadata_config = metadata_config or self.metadata_config
         return ProcessFileParameters(
             parser_config=parser_config,
-            metadata_config=metadata_config,
             doc_id=file_id,
             content_type=content_type,
         )

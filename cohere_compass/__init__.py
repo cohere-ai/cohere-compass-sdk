@@ -9,11 +9,10 @@ including document parsing, indexing, searching, and access control.
 from enum import Enum
 from importlib import metadata
 
-# 3rd party imports
 from pydantic import BaseModel
 
 # Local imports
-from cohere_compass.models import MetadataConfig, ParserConfig, ValidatedModel
+from cohere_compass.models import ParserConfig, ValidatedModel
 from cohere_compass.models.documents import DocumentId
 
 __version__ = metadata.version("cohere-compass-sdk")
@@ -26,7 +25,6 @@ class ProcessFileParameters(ValidatedModel):
     """Model for use with the process_file parser API."""
 
     parser_config: ParserConfig
-    metadata_config: MetadataConfig
     doc_id: DocumentId | None = None
     content_type: str | None = None
 
@@ -36,7 +34,6 @@ class ProcessFilesParameters(ValidatedModel):
 
     doc_ids: list[str] | None = None
     parser_config: ParserConfig
-    metadata_config: MetadataConfig
 
 
 class GroupAuthorizationActions(str, Enum):
