@@ -51,13 +51,10 @@ from cohere_compass.exceptions import (
 from cohere_compass.models import (
     CompassDocument,
     CompassSdkStage,
-    CreateDataSource,
-    DataSource,
     DirectSearchInput,
     DirectSearchResponse,
     DirectSearchScrollInput,
     Document,
-    DocumentStatus,
     ParseableDocument,
     PutDocumentsInput,
     SearchChunksResponse,
@@ -68,7 +65,6 @@ from cohere_compass.models import (
     UploadDocumentsResult,
 )
 from cohere_compass.models.config import IndexConfig
-from cohere_compass.models.datasources import PaginatedList
 from cohere_compass.models.documents import (
     AssetPresignedUrlDetails,
     AssetPresignedUrlRequest,
@@ -202,31 +198,6 @@ API_DEFINITIONS = {
     "direct_search_scroll": (
         "POST",
         "indexes/{index_name}/_direct_search/scroll",
-    ),
-    # Data Sources APIs
-    "create_datasource": (
-        "POST",
-        "datasources",
-    ),
-    "list_datasources": (
-        "GET",
-        "datasources",
-    ),
-    "delete_datasources": (
-        "DELETE",
-        "datasources/{datasource_id}",
-    ),
-    "get_datasource": (
-        "GET",
-        "datasources/{datasource_id}",
-    ),
-    "sync_datasource": (
-        "POST",
-        "datasources/{datasource_id}/_sync",
-    ),
-    "list_datasources_objects_states": (
-        "GET",
-        "datasources/{datasource_id}/documents?skip={skip}&limit={limit}",
     ),
 }
 
@@ -930,184 +901,6 @@ class CompassClient:
 
         if errors:
             raise CompassInsertionError(errors=errors)
-
-    def create_datasource(
-        self,
-        *,
-        datasource: CreateDataSource,
-        max_retries: int | None = None,
-        retry_wait: timedelta | None = None,
-        timeout: timedelta | None = None,
-    ) -> DataSource:
-        """
-        Create a new datasource in Compass.
-
-        :param datasource: the datasource to create
-        :param max_retries: Maximum number of retries for failed requests. If not
-            provided, the default from the client will be used.
-        :param retry_wait: Time to wait between retries. If not provided, the default
-            from the client will be used.
-        :param timeout: Request timeout duration. If not provided, the default from the
-            client will be used.
-
-        """
-        result = self._send_request(
-            api_name="create_datasource",
-            data=datasource,
-            max_retries=max_retries,
-            retry_wait=retry_wait,
-            timeout=timeout,
-        )
-
-        return DataSource.model_validate(result.result)
-
-    def list_datasources(
-        self,
-        max_retries: int | None = None,
-        retry_wait: timedelta | None = None,
-        timeout: timedelta | None = None,
-    ) -> PaginatedList[DataSource]:
-        """
-        List all datasources in Compass.
-
-        :param max_retries: Maximum number of retries for failed requests. If not
-            provided, the default from the client will be used.
-        :param retry_wait: Time to wait between retries. If not provided, the default
-            from the client will be used.
-        :param timeout: Request timeout duration. If not provided, the default from the
-            client will be used.
-
-        """
-        result = self._send_request(
-            api_name="list_datasources",
-            max_retries=max_retries,
-            retry_wait=retry_wait,
-            timeout=timeout,
-        )
-
-        return PaginatedList[DataSource].model_validate(result.result)
-
-    def get_datasource(
-        self,
-        *,
-        datasource_id: str,
-        max_retries: int | None = None,
-        retry_wait: timedelta | None = None,
-        timeout: timedelta | None = None,
-    ):
-        """
-        Get a datasource in Compass.
-
-        :param datasource_id: the id of the datasource
-        :param max_retries: Maximum number of retries for failed requests. If not
-            provided, the default from the client will be used.
-        :param retry_wait: Time to wait between retries. If not provided, the default
-            from the client will be used.
-        :param timeout: Request timeout duration. If not provided, the default from the
-            client will be used.
-
-        """
-        result = self._send_request(
-            api_name="get_datasource",
-            datasource_id=datasource_id,
-            max_retries=max_retries,
-            retry_wait=retry_wait,
-            timeout=timeout,
-        )
-
-        return DataSource.model_validate(result.result)
-
-    def delete_datasource(
-        self,
-        *,
-        datasource_id: str,
-        max_retries: int | None = None,
-        retry_wait: timedelta | None = None,
-        timeout: timedelta | None = None,
-    ):
-        """
-        Delete a datasource in Compass.
-
-        :param datasource_id: the id of the datasource
-        :param max_retries: Maximum number of retries for failed requests. If not
-            provided, the default from the client will be used.
-        :param retry_wait: Time to wait between retries. If not provided, the default
-            from the client will be used.
-        :param timeout: Request timeout duration. If not provided, the default from the
-            client will be used.
-
-        """
-        self._send_request(
-            api_name="delete_datasources",
-            datasource_id=datasource_id,
-            max_retries=max_retries,
-            retry_wait=retry_wait,
-            timeout=timeout,
-        )
-
-    def sync_datasource(
-        self,
-        *,
-        datasource_id: str,
-        max_retries: int | None = None,
-        retry_wait: timedelta | None = None,
-        timeout: timedelta | None = None,
-    ):
-        """
-        Sync a datasource in Compass.
-
-        :param datasource_id: the id of the datasource
-        :param max_retries: Maximum number of retries for failed requests. If not
-            provided, the default from the client will be used.
-        :param retry_wait: Time to wait between retries. If not provided, the default
-            from the client will be used.
-        :param timeout: Request timeout duration. If not provided, the default from the
-            client will be used.
-
-        """
-        self._send_request(
-            api_name="sync_datasource",
-            datasource_id=datasource_id,
-            max_retries=max_retries,
-            retry_wait=retry_wait,
-            timeout=timeout,
-        )
-
-    def list_datasources_objects_states(
-        self,
-        *,
-        datasource_id: str,
-        skip: int = 0,
-        limit: int = 100,
-        max_retries: int | None = None,
-        retry_wait: timedelta | None = None,
-        timeout: timedelta | None = None,
-    ) -> PaginatedList[DocumentStatus]:
-        """
-        List all objects states in a datasource in Compass.
-
-        :param datasource_id: the id of the datasource
-        :param skip: the number of objects to skip
-        :param limit: the number of objects to return
-        :param max_retries: Maximum number of retries for failed requests. If not
-            provided, the default from the client will be used.
-        :param retry_wait: Time to wait between retries. If not provided, the default
-            from the client will be used.
-        :param timeout: Request timeout duration. If not provided, the default from the
-            client will be used.
-
-        """
-        result = self._send_request(
-            api_name="list_datasources_objects_states",
-            datasource_id=datasource_id,
-            skip=str(skip),
-            limit=str(limit),
-            max_retries=max_retries,
-            retry_wait=retry_wait,
-            timeout=timeout,
-        )
-
-        return PaginatedList[DocumentStatus].model_validate(result.result)
 
     def _search(
         self,
