@@ -1,5 +1,7 @@
 """Models for indexes functionality in the Cohere Compass SDK."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -24,6 +26,26 @@ class IndexDetails(IndexInfo):
     )
     analyzer: str = Field(
         description="The name of the analyzer used for the index.",
+    )
+    store_size_bytes: int | None = Field(
+        default=None,
+        description="Total index size on disk in bytes, including replica shards.",
+    )
+    primary_store_size_bytes: int | None = Field(
+        default=None,
+        description="Primary shard size on disk in bytes, excluding replicas.",
+    )
+    primary_shard_count: int | None = Field(
+        default=None,
+        description="Number of primary shards.",
+    )
+    replica_count: int | None = Field(
+        default=None,
+        description="Number of replicas configured (not total replica shards).",
+    )
+    health: Literal["green", "yellow", "red"] | None = Field(
+        default=None,
+        description='Index health status: "green", "yellow", or "red".',
     )
 
 
