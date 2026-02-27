@@ -517,6 +517,11 @@ def test_get_index_details(client: CompassClient, respx_mock: MockRouter):
                 "dense_model": "embed-english-v3.0",
                 "sparse_model": "sparse-v1.0",
                 "analyzer": "english",
+                "store_size_bytes": 1048576,
+                "primary_store_size_bytes": 524288,
+                "primary_shard_count": 5,
+                "replica_count": 1,
+                "health": "green",
             },
         )
     )
@@ -531,6 +536,11 @@ def test_get_index_details(client: CompassClient, respx_mock: MockRouter):
         dense_model="embed-english-v3.0",
         sparse_model="sparse-v1.0",
         analyzer="english",
+        store_size_bytes=1048576,
+        primary_store_size_bytes=524288,
+        primary_shard_count=5,
+        replica_count=1,
+        health="green",
     )
 
 
