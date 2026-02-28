@@ -6,11 +6,14 @@ permissions in the Compass RBAC system.
 """
 
 import json
+from datetime import timedelta
 from typing import TypeVar
 
 import httpx
 from pydantic import BaseModel
 
+from cohere_compass.constants import DEFAULT_ROOT_CLIENT_TIMEOUT
+from cohere_compass.exceptions import handle_httpx_exceptions
 from cohere_compass.models.access_control import (
     DetailedGroup,
     DetailedRole,
@@ -32,18 +35,26 @@ from cohere_compass.models.access_control import (
 class CompassRootClient:
     """Client for interacting with Compass RBAC API V2 as a root user."""
 
-    def __init__(self, compass_url: str, root_user_token: str):
+    def __init__(
+        self,
+        compass_url: str,
+        root_user_token: str,
+        timeout: timedelta | None = None,
+    ):
         """
         Initialize a new CompassRootClient.
 
         :param compass_url: URL of the Compass instance.
         :param root_user_token: Root user token for Compass instance.
+        :param timeout: Request timeout duration. Defaults to
+            DEFAULT_ROOT_CLIENT_TIMEOUT (5 seconds).
         """
         self.base_url = compass_url + "/security/admin/rbac"
         self.headers = {
             "Authorization": f"Bearer {root_user_token}",
             "Content-Type": "application/json",
         }
+        self.timeout = timeout or DEFAULT_ROOT_CLIENT_TIMEOUT
 
     T = TypeVar("T", bound=BaseModel)
     U = TypeVar("U", bound=BaseModel)
@@ -58,6 +69,7 @@ class CompassRootClient:
         filter: str | None = None,
         page_info: PageInfo | None = None,
         direction: PageDirection | None = PageDirection.NEXT,
+        timeout: float,
     ) -> T:
         params: dict[str, str] = {}
         if filter is not None:
@@ -70,24 +82,30 @@ class CompassRootClient:
             if page_info.filter is not None:
                 params["filter"] = page_info.filter
 
-        response = httpx.get(url, headers=headers, params=params)
-        response.raise_for_status()
+        with handle_httpx_exceptions():
+            response = httpx.get(url, headers=headers, params=params, timeout=timeout)
+            response.raise_for_status()
         return entity_response.model_validate(response.json())
 
     @staticmethod
-    def _fetch_entity(url: str, headers: Headers, entity_response: type[T], entity_name: str) -> T:
-        response = httpx.get(f"{url}/{entity_name}", headers=headers)
-        response.raise_for_status()
+    def _fetch_entity(url: str, headers: Headers, entity_response: type[T], entity_name: str, timeout: float) -> T:
+        with handle_httpx_exceptions():
+            response = httpx.get(f"{url}/{entity_name}", headers=headers, timeout=timeout)
+            response.raise_for_status()
         return entity_response.model_validate(response.json())
 
     @staticmethod
-    def _create_entities(url: str, headers: Headers, entity_request: list[T], entity_response: type[U]) -> list[U]:
-        response = httpx.post(
-            url,
-            json=[json.loads(entity.model_dump_json()) for entity in entity_request],
-            headers=headers,
-        )
-        response.raise_for_status()
+    def _create_entities(
+        url: str, headers: Headers, entity_request: list[T], entity_response: type[U], timeout: float
+    ) -> list[U]:
+        with handle_httpx_exceptions():
+            response = httpx.post(
+                url,
+                json=[json.loads(entity.model_dump_json()) for entity in entity_request],
+                headers=headers,
+                timeout=timeout,
+            )
+            response.raise_for_status()
         return [entity_response.model_validate(response) for response in response.json()]
 
     @staticmethod
@@ -97,20 +115,26 @@ class CompassRootClient:
         entity_name: str,
         entity: BaseModel,
         entity_response: type[U],
+        timeout: float,
     ) -> U:
-        response = httpx.put(
-            f"{url}/{entity_name}",
-            json=json.loads(entity.model_dump_json()),
-            headers=headers,
-        )
-        response.raise_for_status()
+        with handle_httpx_exceptions():
+            response = httpx.put(
+                f"{url}/{entity_name}",
+                json=json.loads(entity.model_dump_json()),
+                headers=headers,
+                timeout=timeout,
+            )
+            response.raise_for_status()
         return entity_response.model_validate(response.json())
 
     @staticmethod
-    def _delete_entities(url: str, headers: Headers, names: list[str], entity_response: type[U]) -> list[U]:
+    def _delete_entities(
+        url: str, headers: Headers, names: list[str], entity_response: type[U], timeout: float
+    ) -> list[U]:
         entities = ",".join(names)
-        response = httpx.delete(f"{url}/{entities}", headers=headers)
-        response.raise_for_status()
+        with handle_httpx_exceptions():
+            response = httpx.delete(f"{url}/{entities}", headers=headers, timeout=timeout)
+            response.raise_for_status()
         return [entity_response.model_validate(entity) for entity in response.json()]
 
     def get_users_page(
@@ -145,6 +169,7 @@ class CompassRootClient:
             filter=filter,
             page_info=page_info,
             direction=direction,
+            timeout=self.timeout.total_seconds(),
         )
 
     def create_users(self, users: list[User]) -> list[UserWithToken]:
@@ -160,6 +185,7 @@ class CompassRootClient:
             headers=self.headers,
             entity_request=users,
             entity_response=UserWithToken,
+            timeout=self.timeout.total_seconds(),
         )
 
     def get_detailed_user(self, user_name: str) -> DetailedUser:
@@ -175,6 +201,7 @@ class CompassRootClient:
             headers=self.headers,
             entity_response=DetailedUser,
             entity_name=user_name,
+            timeout=self.timeout.total_seconds(),
         )
 
     def get_user_groups_page(
@@ -213,6 +240,7 @@ class CompassRootClient:
             filter=filter,
             page_info=page_info,
             direction=direction,
+            timeout=self.timeout.total_seconds(),
         )
 
     def delete_users(self, user_names: list[str]) -> list[User]:
@@ -228,6 +256,7 @@ class CompassRootClient:
             headers=self.headers,
             names=user_names,
             entity_response=User,
+            timeout=self.timeout.total_seconds(),
         )
 
     def get_roles_page(
@@ -262,6 +291,7 @@ class CompassRootClient:
             filter=filter,
             page_info=page_info,
             direction=direction,
+            timeout=self.timeout.total_seconds(),
         )
 
     def create_roles(self, roles: list[Role]) -> list[Role]:
@@ -277,6 +307,7 @@ class CompassRootClient:
             headers=self.headers,
             entity_request=roles,
             entity_response=Role,
+            timeout=self.timeout.total_seconds(),
         )
 
     def get_detailed_role(self, role_name: str) -> DetailedRole:
@@ -292,6 +323,7 @@ class CompassRootClient:
             headers=self.headers,
             entity_response=DetailedRole,
             entity_name=role_name,
+            timeout=self.timeout.total_seconds(),
         )
 
     def get_role_groups_page(
@@ -328,6 +360,7 @@ class CompassRootClient:
             filter=filter,
             page_info=page_info,
             direction=direction,
+            timeout=self.timeout.total_seconds(),
         )
 
     def update_role(self, role: Role) -> Role:
@@ -338,12 +371,14 @@ class CompassRootClient:
 
         :return: Updated Role.
         """
-        response = httpx.put(
-            f"{self.base_url}/v2/roles/{role.role_name}",
-            json=[json.loads(entity.model_dump_json()) for entity in role.policies],
-            headers=self.headers,
-        )
-        response.raise_for_status()
+        with handle_httpx_exceptions():
+            response = httpx.put(
+                f"{self.base_url}/v2/roles/{role.role_name}",
+                json=[json.loads(entity.model_dump_json()) for entity in role.policies],
+                headers=self.headers,
+                timeout=self.timeout.total_seconds(),
+            )
+            response.raise_for_status()
         return Role.model_validate(response.json())
 
     def delete_roles(self, role_names: list[str]) -> list[Role]:
@@ -359,6 +394,7 @@ class CompassRootClient:
             headers=self.headers,
             names=role_names,
             entity_response=Role,
+            timeout=self.timeout.total_seconds(),
         )
 
     def get_groups_page(
@@ -393,6 +429,7 @@ class CompassRootClient:
             filter=filter,
             page_info=page_info,
             direction=direction,
+            timeout=self.timeout.total_seconds(),
         )
 
     def create_groups(self, groups: list[Group]) -> list[Group]:
@@ -408,6 +445,7 @@ class CompassRootClient:
             headers=self.headers,
             entity_request=groups,
             entity_response=Group,
+            timeout=self.timeout.total_seconds(),
         )
 
     def get_detailed_group(self, group_name: str) -> DetailedGroup:
@@ -425,6 +463,7 @@ class CompassRootClient:
             headers=self.headers,
             entity_response=DetailedGroup,
             entity_name=group_name,
+            timeout=self.timeout.total_seconds(),
         )
 
     def delete_groups(self, group_names: list[str]) -> list[Group]:
@@ -440,6 +479,7 @@ class CompassRootClient:
             headers=self.headers,
             names=group_names,
             entity_response=Group,
+            timeout=self.timeout.total_seconds(),
         )
 
     def add_members_to_group(self, group_name: str, user_names: list[str]) -> list[GroupMembership]:
@@ -451,12 +491,14 @@ class CompassRootClient:
 
         :return: List of added GroupMemberships.
         """
-        response = httpx.post(
-            f"{self.base_url}/v2/groups/{group_name}/users",
-            json=[{"user_name": user_name} for user_name in user_names],
-            headers=self.headers,
-        )
-        response.raise_for_status()
+        with handle_httpx_exceptions():
+            response = httpx.post(
+                f"{self.base_url}/v2/groups/{group_name}/users",
+                json=[{"user_name": user_name} for user_name in user_names],
+                headers=self.headers,
+                timeout=self.timeout.total_seconds(),
+            )
+            response.raise_for_status()
         return [GroupMembership.model_validate(member) for member in response.json()]
 
     def remove_members_from_group(self, group_name: str, user_names: list[str]) -> list[GroupMembership]:
@@ -473,6 +515,7 @@ class CompassRootClient:
             headers=self.headers,
             names=user_names,
             entity_response=GroupMembership,
+            timeout=self.timeout.total_seconds(),
         )
 
     def get_group_members_page(
@@ -509,6 +552,7 @@ class CompassRootClient:
             filter=filter,
             page_info=page_info,
             direction=direction,
+            timeout=self.timeout.total_seconds(),
         )
 
     def add_roles_to_group(self, group_name: str, role_names: list[str]) -> list[GroupRole]:
@@ -520,12 +564,14 @@ class CompassRootClient:
 
         :return: List of added GroupRoles.
         """
-        response = httpx.post(
-            f"{self.base_url}/v2/groups/{group_name}/roles",
-            json=[{"role_name": role_name} for role_name in role_names],
-            headers=self.headers,
-        )
-        response.raise_for_status()
+        with handle_httpx_exceptions():
+            response = httpx.post(
+                f"{self.base_url}/v2/groups/{group_name}/roles",
+                json=[{"role_name": role_name} for role_name in role_names],
+                headers=self.headers,
+                timeout=self.timeout.total_seconds(),
+            )
+            response.raise_for_status()
         return [GroupRole.model_validate(member) for member in response.json()]
 
     def remove_roles_from_group(self, group_name: str, role_names: list[str]) -> list[GroupRole]:
@@ -542,6 +588,7 @@ class CompassRootClient:
             headers=self.headers,
             names=role_names,
             entity_response=GroupRole,
+            timeout=self.timeout.total_seconds(),
         )
 
     def get_group_roles_page(
@@ -578,4 +625,5 @@ class CompassRootClient:
             filter=filter,
             page_info=page_info,
             direction=direction,
+            timeout=self.timeout.total_seconds(),
         )

@@ -1,4 +1,6 @@
+from datetime import timedelta
 from typing import Any
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -6,6 +8,8 @@ import respx
 from respx import MockRouter
 
 from cohere_compass.clients.access_control import CompassRootClient
+from cohere_compass.constants import DEFAULT_ROOT_CLIENT_TIMEOUT
+from cohere_compass.exceptions import CompassClientError, CompassTimeoutError
 from cohere_compass.models.access_control import (
     DetailedGroup,
     DetailedRole,
@@ -724,7 +728,7 @@ class TestCompassRootClient:
             return_value=httpx.Response(404, json={"error": "Not found"})
         )
 
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(CompassClientError):
             root_client.get_users_page()
 
     @respx.mock
@@ -760,3 +764,47 @@ class TestCompassRootClient:
         assert client.headers["Authorization"] == "Bearer my_token"
         assert client.headers["Content-Type"] == "application/json"
         assert client.base_url == "http://test.com/security/admin/rbac"
+
+    def test_default_timeout(self) -> None:
+        client = CompassRootClient(
+            compass_url="http://test.com",
+            root_user_token="my_token",
+        )
+        assert client.timeout == DEFAULT_ROOT_CLIENT_TIMEOUT
+        assert client.timeout == timedelta(seconds=5)
+
+    def test_custom_timeout(self) -> None:
+        custom_timeout = timedelta(seconds=30)
+        client = CompassRootClient(
+            compass_url="http://test.com",
+            root_user_token="my_token",
+            timeout=custom_timeout,
+        )
+        assert client.timeout == custom_timeout
+
+    @respx.mock
+    def test_timeout_error_raises_compass_timeout(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
+        respx_mock.get("http://test.com/security/admin/rbac/v2/users").mock(
+            side_effect=httpx.ReadTimeout("read timed out")
+        )
+
+        with pytest.raises(CompassTimeoutError):
+            root_client.get_users_page()
+
+    def test_custom_timeout_passed_to_httpx(self, mock_users_page: dict[str, Any]) -> None:
+        custom_timeout = timedelta(seconds=42)
+        client = CompassRootClient(
+            compass_url="http://test.com",
+            root_user_token="test_token",
+            timeout=custom_timeout,
+        )
+
+        mock_response = httpx.Response(
+            200,
+            json=mock_users_page,
+            request=httpx.Request("GET", "http://test.com/security/admin/rbac/v2/users"),
+        )
+        with patch("httpx.get", return_value=mock_response) as mock_get:
+            client.get_users_page()
+            mock_get.assert_called_once()
+            assert mock_get.call_args.kwargs["timeout"] == 42.0
