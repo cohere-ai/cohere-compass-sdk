@@ -10,6 +10,16 @@ from pydantic import BaseModel
 from cohere_compass.models.documents import AssetType
 
 
+class VisualElement(BaseModel):
+    """Visual element of an asset."""
+
+    id: int
+    x0: int
+    y0: int
+    x1: int
+    y1: int
+
+
 class AssetInfo(BaseModel):
     """Information about an asset."""
 
@@ -17,6 +27,7 @@ class AssetInfo(BaseModel):
     asset_type: AssetType
     content_type: str
     presigned_url: str
+    visual_elements: list[VisualElement] | None = None
 
 
 class RetrievedChunk(BaseModel):
