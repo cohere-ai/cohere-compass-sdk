@@ -199,6 +199,11 @@ API_DEFINITIONS = {
         "POST",
         "indexes/{index_name}/_direct_search/scroll",
     ),
+    # Get visual element from asset
+    "get_visual_element": (
+        "GET",
+        "indexes/{index_name}/documents/{document_id}/assets/{asset_id}/visual_element",
+    ),
 }
 
 
@@ -1229,12 +1234,65 @@ class CompassClient:
 
         return DirectSearchResponse.model_validate(result.result)
 
+    def get_visual_element(
+        self,
+        *,
+        index_name: str,
+        document_id: str,
+        asset_id: str,
+        x0: int,
+        y0: int,
+        x1: int,
+        y1: int,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> tuple[str | bytes | dict[str, Any], str]:
+        """
+        Get a visual element from an asset in Compass by its bounding box coordinates.
+
+        :param index_name: the name of the index
+        :param document_id: the id of the document
+        :param asset_id: the id of the asset
+        :param x0: the x coordinate of the top left corner of the bounding box
+        :param y0: the y coordinate of the top left corner of the bounding box
+        :param x1: the x coordinate of the bottom right corner of the bounding box
+        :param y1: the y coordinate of the bottom right corner of the bounding box
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            tuple[bytes | str ]: bytes of image and content_type as string
+
+        Raises:
+            CompassError: if the visual element cannot be retrieved, either because it
+                doesn't exist or the user doesn't have permission to access it.
+
+        """
+        result = self._send_request(
+            api_name="get_visual_element",
+            index_name=index_name,
+            document_id=document_id,
+            asset_id=asset_id,
+            query_params={"x0": x0, "y0": y0, "x1": x1, "y1": y1},
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+        return result.result, result.content_type  # type: ignore
+
     def _send_http_request(
         self,
         http_method: str,
         target_path: str,
         data: BaseModel | None = None,
         timeout: timedelta | None = None,
+        query_params: dict[str, Any] | None = None,
     ):
         timeout = timeout or self.timeout
 
@@ -1248,6 +1306,7 @@ class CompassClient:
             response = self.httpx.get(
                 target_path,
                 headers=headers,
+                params=query_params,
                 timeout=timeout.total_seconds(),
             )
         elif http_method == "POST":
@@ -1299,6 +1358,7 @@ class CompassClient:
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
+        query_params: dict[str, Any] | None = None,
         **url_params: str,
     ) -> _SendRequestResult:
         """
@@ -1313,6 +1373,7 @@ class CompassClient:
             from the client will be used.
         :param timeout: Request timeout duration. If not provided, the default from the
             client will be used.
+        :param query_params: Optional dictionary of query parameters to append to the URL.
 
         :return: An error message if the request failed, otherwise None.
         """
@@ -1339,6 +1400,7 @@ class CompassClient:
                 target_path=target_path,
                 data=data,
                 timeout=timeout,
+                query_params=query_params,
             )
 
         with handle_httpx_exceptions():
