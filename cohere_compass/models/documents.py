@@ -318,6 +318,7 @@ class PutDocumentResult(BaseModel):
 
     document_id: str
     error: str | None
+    task_ids: list[str] | None = None
 
 
 class PutDocumentsResponse(BaseModel):
