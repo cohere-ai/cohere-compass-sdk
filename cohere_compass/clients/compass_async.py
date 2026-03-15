@@ -1119,6 +1119,41 @@ class CompassAsyncClient:
 
         return DirectSearchResponse.model_validate(result.result)
 
+    async def get_task(
+        self,
+        *,
+        task_id: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get a task by its ID.
+
+        :param task_id: The ID of the task to retrieve.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            Dictionary containing the task details.
+
+        """
+        result = await self._send_request(
+            api_name="get_task",
+            task_id=task_id,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        if not isinstance(result.result, dict):
+            raise ValueError("Invalid response from Compass API")
+
+        return result.result
+
     async def _send_http_request(
         self,
         http_method: str,
