@@ -914,6 +914,34 @@ def test_empty_query_search(client: CompassClient, respx_mock: MockRouter):
     assert len(result.hits) == 0
 
 
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/tasks/test_task_id",
+    200,
+    response_body={
+        "task_id": "test_task_id",
+        "status": "completed",
+        "result": {"key": "value"},
+    },
+)
+def test_get_task_is_valid(client: CompassClient):
+    result = client.get_task(task_id="test_task_id")
+
+    assert result["task_id"] == "test_task_id"
+    assert result["status"] == "completed"
+    assert result["result"] == {"key": "value"}
+
+
+@respx.mock
+def test_get_task_not_found(client: CompassClient, respx_mock: MockRouter):
+    respx_mock.get("http://test.com/v1/tasks/nonexistent").mock(
+        return_value=httpx.Response(404, json={"error": "Task not found"})
+    )
+
+    with pytest.raises(CompassClientError):
+        client.get_task(task_id="nonexistent")
+
+
 def test_get_asset_presigned_urls_success(client: CompassClient, respx_mock: MockRouter):
     from cohere_compass.models.documents import AssetPresignedUrlRequest
 
