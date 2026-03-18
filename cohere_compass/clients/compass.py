@@ -1148,6 +1148,41 @@ class CompassClient:
         )
         return PutDocumentsResponse.model_validate(result.result)
 
+    def update_group_authorization_fetch_task_ids(
+        self,
+        *,
+        index_name: str,
+        group_auth_input: GroupAuthorizationInput,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> set[str]:
+        """
+        Update group authorization for an index and return unique task IDs.
+
+        :param index_name: the name of the index
+        :param group_auth_input: the group authorization input
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+
+        :return: a list of unique task IDs
+        """
+        doc_responses = self.update_group_authorization(
+            index_name=index_name,
+            group_auth_input=group_auth_input,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        if group_auth_input.wait_for_completion:
+            # If we want to wait for completion, we don't need to return the task IDs
+            return set()
+        return set(
+            task_id for doc in doc_responses.results for task_id in (doc.task_ids if doc.task_ids is not None else [])
+        )
+
     def direct_search(
         self,
         *,
