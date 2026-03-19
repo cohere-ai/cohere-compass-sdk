@@ -36,7 +36,7 @@ Retention policies automatically soft-delete and purge documents after a defined
         type=str,
         choices=["fixed", "sliding"],
         required=True,
-        help="Retention type: 'fixed' (based on creation time) or 'sliding' (based on last access).",
+        help="Retention type: 'fixed' (creation time) or 'sliding' (last access).",
     )
     set_parser.add_argument(
         "--ttl-days",
@@ -72,7 +72,9 @@ def main():
     client = get_compass_client()
 
     if args.action == "set":
-        retention_type = RetentionType.Fixed if args.type == "fixed" else RetentionType.Sliding
+        retention_type = (
+            RetentionType.Fixed if args.type == "fixed" else RetentionType.Sliding
+        )
 
         policy = RetentionPolicy(
             retention_type=retention_type,
