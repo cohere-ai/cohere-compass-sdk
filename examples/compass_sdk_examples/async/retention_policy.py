@@ -37,7 +37,7 @@ Retention policies automatically soft-delete and purge documents after a defined
         type=str,
         choices=["fixed", "sliding"],
         required=True,
-        help="Retention type: 'fixed' (based on creation time) or 'sliding' (based on last access).",
+        help="Retention type: 'fixed' (creation time) or 'sliding' (last access).",
     )
     set_parser.add_argument(
         "--ttl-days",
@@ -74,7 +74,9 @@ async def main():
 
     try:
         if args.action == "set":
-            retention_type = RetentionType.Fixed if args.type == "fixed" else RetentionType.Sliding
+            retention_type = (
+                RetentionType.Fixed if args.type == "fixed" else RetentionType.Sliding
+            )
 
             policy = RetentionPolicy(
                 retention_type=retention_type,
@@ -89,7 +91,9 @@ async def main():
             print(f"  Grace period: {policy.grace_period_days} days")
             print(f"  Enabled: {policy.enabled}")
 
-            await client.set_retention_policy(index_name=index_name, retention_policy=policy)
+            await client.set_retention_policy(
+                index_name=index_name, retention_policy=policy
+            )
             print("\nRetention policy set successfully.")
 
         elif args.action == "get":

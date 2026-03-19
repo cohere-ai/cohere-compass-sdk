@@ -39,5 +39,10 @@ class ValidatedModel(BaseModel):
 
 from cohere_compass.models.config import *  # noqa: E402, F403
 from cohere_compass.models.documents import *  # noqa: E402, F403
-from cohere_compass.models.indexes import RetentionPolicy, RetentionType  # noqa: E402
+from cohere_compass.models.indexes import (  # noqa: E402
+    RetentionPolicy as RetentionPolicy,
+)
+from cohere_compass.models.indexes import (  # noqa: E402
+    RetentionType as RetentionType,
+)
 from cohere_compass.models.search import *  # noqa: E402, F403
