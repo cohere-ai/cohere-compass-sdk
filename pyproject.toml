@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "cohere-compass-sdk"
-version = "2.8.0"
+version = "2.8.1"
 authors = []
 description = "Cohere Compass SDK"
 readme = "README.md"
 packages = [{ include = "cohere_compass" }]
 
 [tool.poetry.dependencies]
-fsspec = "^2025.9.0"
+fsspec = "^2026.1.0"
 joblib = "^1.5.2"
 pydantic = "^2.11.9"
 python = ">=3.11,<4.0"
