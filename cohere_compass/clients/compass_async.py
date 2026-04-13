@@ -78,7 +78,7 @@ from cohere_compass.models.documents import (
     UploadDocumentsResult,
     UploadDocumentsStatus,
 )
-from cohere_compass.models.indexes import IndexDetails, ListIndexesResponse
+from cohere_compass.models.indexes import IndexDetails, ListIndexesResponse, RetentionPolicy
 from cohere_compass.models.search import GetDocumentResponse, RetrievedDocument, SortBy
 from cohere_compass.utils.asyn import async_apply, async_enumerate
 from cohere_compass.utils.documents import (
@@ -308,6 +308,111 @@ class CompassAsyncClient:
         """
         await self._send_request(
             api_name="delete_index",
+            index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+    async def set_retention_policy(
+        self,
+        *,
+        index_name: str,
+        retention_policy: RetentionPolicy,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ):
+        """
+        Set a retention policy for an index.
+
+        Retention policies automatically soft-delete and purge documents after a
+        defined period. There are two types of retention policies:
+
+        - **Fixed**: Documents expire based on `created_at + ttl_days`
+        - **Sliding**: Documents expire based on `accessed_at + ttl_days` (documents
+          that keep getting accessed are never deleted)
+
+        :param index_name: The name of the index to configure.
+        :param retention_policy: The retention policy to set.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        """
+        await self._send_request(
+            api_name="set_retention_policy",
+            index_name=index_name,
+            data=retention_policy,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+    async def get_retention_policy(
+        self,
+        *,
+        index_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> RetentionPolicy | None:
+        """
+        Get the retention policy for an index.
+
+        :param index_name: The name of the index to query.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            RetentionPolicy object if a policy is configured, None otherwise.
+
+        """
+        result = await self._send_request(
+            api_name="get_retention_policy",
+            index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+        if result.result is None:
+            return None
+
+        return RetentionPolicy.model_validate(result.result)
+
+    async def delete_retention_policy(
+        self,
+        *,
+        index_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ):
+        """
+        Remove the retention policy from an index.
+
+        After removal, documents in the index will no longer be automatically
+        soft-deleted or purged based on retention rules.
+
+        :param index_name: The name of the index.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        """
+        await self._send_request(
+            api_name="delete_retention_policy",
             index_name=index_name,
             max_retries=max_retries,
             retry_wait=retry_wait,
