@@ -1493,7 +1493,7 @@ class CompassClient:
         response.raise_for_status()
 
         content_type = response.headers.get("content-type")
-        if content_type in ("image/jpeg", "image/png"):
+        if content_type in ("image/jpeg", "image/png", "image/webp"):
             # To handle response from get_document_asset() when the asset
             # is an image.
             result = response.content
