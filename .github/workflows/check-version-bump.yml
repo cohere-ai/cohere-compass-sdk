@@ -1,0 +1,37 @@
+name: Require Version Bump
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-version-bump:
+    name: Check version bump
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: Get PR version
+        id: pr_version
+        run: |
+          VERSION=$(grep '^version =' pyproject.toml | awk -F' = ' '{print $2}' | tr -d '"')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Get base branch version
+        id: base_version
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          VERSION=$(git show "origin/${{ github.base_ref }}:pyproject.toml" | grep '^version =' | awk -F' = ' '{print $2}' | tr -d '"')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Compare versions
+        run: |
+          echo "Base version: ${{ steps.base_version.outputs.version }}"
+          echo "PR version:   ${{ steps.pr_version.outputs.version }}"
+          if [ "${{ steps.pr_version.outputs.version }}" = "${{ steps.base_version.outputs.version }}" ]; then
+            echo "::error::Version in pyproject.toml has not been bumped. Please update the version before merging."
+            exit 1
+          fi
+          echo "Version bump detected."
