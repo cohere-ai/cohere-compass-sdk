@@ -4,11 +4,15 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - "cohere_compass/**"
+      - "pyproject.toml"
 
 jobs:
   check-version-bump:
     name: Check version bump
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-version-check') }}
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
