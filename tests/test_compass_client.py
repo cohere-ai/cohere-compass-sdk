@@ -1,7 +1,7 @@
 import json
 import uuid
 from collections.abc import Callable
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import httpx
 import pytest
@@ -33,7 +33,6 @@ from cohere_compass.models.indexes import IndexDetails, IndexInfo
 from cohere_compass.models.search import (
     SortBy,
 )
-from tests.utils import SyncifiedCompassAsyncClient
 
 HTTPMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
 
@@ -69,19 +68,8 @@ def mock_endpoint(
 
 
 @pytest.fixture
-def sync_client():
+def client():
     return CompassClient(index_url="http://test.com")
-
-
-@pytest.fixture
-def async_client() -> CompassClient:
-    return cast(CompassClient, SyncifiedCompassAsyncClient(index_url="http://test.com"))
-
-
-# A single "client" fixture that selects which one to use
-@pytest.fixture(params=["sync_client", "async_client"])
-def client(request: pytest.FixtureRequest):
-    return request.getfixturevalue(request.param)
 
 
 @mock_endpoint(

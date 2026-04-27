@@ -7,6 +7,7 @@ reporting.
 
 from contextlib import contextmanager
 
+import aiohttp
 import httpx
 
 
@@ -205,3 +206,31 @@ def handle_httpx_exceptions():
 
         # Shouldn't reach here; fallback
         raise CompassError(f"Unexpected error: {exc}") from exc
+
+
+@contextmanager
+def handle_aiohttp_exceptions():
+    """Context manager that converts aiohttp exceptions into Compass exceptions."""
+    try:
+        yield
+    except CompassError:
+        raise
+    except TimeoutError as exc:
+        # aiohttp.ServerTimeoutError is a subclass of TimeoutError so this also covers
+        # aiohttp's connection/read timeouts.
+        raise CompassTimeoutError(f"Timeout error: {exc}") from exc
+    except aiohttp.ClientResponseError as exc:
+        status = exc.status
+        body_text = exc.message or ""
+
+        if status in (401, 403):
+            raise CompassAuthError("Unauthorized. Please check your bearer token.", status) from exc
+        if 400 <= status < 500:
+            raise CompassClientError(message=f"Client error {status}: {body_text}", code=status) from exc
+        if 500 <= status < 600:
+            raise CompassServerError(message=f"Server error {status}: {body_text}", code=status) from exc
+        raise CompassError(f"Unexpected HTTP status {status}: {body_text}") from exc
+    except aiohttp.ClientConnectionError as exc:
+        raise CompassNetworkError(f"Network error: {exc}") from exc
+    except aiohttp.ClientError as exc:
+        raise CompassNetworkError(f"Request error: {exc}") from exc

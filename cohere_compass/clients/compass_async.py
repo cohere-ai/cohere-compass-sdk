@@ -8,6 +8,7 @@ concurrent operations and comprehensive error handling.
 
 # Python imports
 import base64
+import json
 import os
 import uuid
 from collections import deque
@@ -18,7 +19,7 @@ from types import TracebackType
 from typing import Any, Literal
 
 # 3rd party imports
-import httpx
+import aiohttp
 from pydantic import BaseModel
 from tenacity import (
     retry,
@@ -45,7 +46,7 @@ from cohere_compass.exceptions import (
     CompassError,
     CompassInsertionError,
     CompassMaxErrorRateExceeded,
-    handle_httpx_exceptions,
+    handle_aiohttp_exceptions,
 )
 from cohere_compass.models import (
     CompassDocument,
@@ -84,7 +85,7 @@ from cohere_compass.utils.asyn import async_apply, async_enumerate
 from cohere_compass.utils.documents import (
     partition_documents_async,
 )
-from cohere_compass.utils.retry import is_retryable_httpx_exception
+from cohere_compass.utils.retry import is_retryable_aiohttp_exception
 
 
 class CompassAsyncClient:
@@ -103,7 +104,7 @@ class CompassAsyncClient:
         max_retries: int = DEFAULT_MAX_RETRIES,
         retry_wait: timedelta = DEFAULT_RETRY_WAIT,
         timeout: timedelta | None = None,
-        httpx_client: httpx.AsyncClient | None = None,
+        session: aiohttp.ClientSession | None = None,
     ):
         """
         Initialize the async Compass client.
@@ -114,9 +115,9 @@ class CompassAsyncClient:
         :param retry_wait: Time to wait between retries.
         :param timeout: Request timeout duration. If not specified, it defaults to
             DEFAULT_COMPASS_CLIENT_TIMEOUT.
-        :param httpx_client: The httpx client to use for making requests. If not
-            provided, a new httpx client will be created with the timeout set when
-            creating the client.
+        :param session: The aiohttp client session to use for making requests. If not
+            provided, a new session will be created with the timeout set when creating
+            the client.
 
         Raises:
             ValueError: If max_retries is negative or retry_wait is negative.
@@ -127,13 +128,15 @@ class CompassAsyncClient:
             timeout
             if timeout is not None
             else DEFAULT_COMPASS_CLIENT_TIMEOUT
-            if httpx_client is None
-            else timedelta(seconds=httpx_client.timeout.read)
-            if httpx_client.timeout.read
+            if session is None
+            else timedelta(seconds=session.timeout.total)
+            if session.timeout.total
             else DEFAULT_COMPASS_CLIENT_TIMEOUT
         )
-        self.httpx = httpx_client or httpx.AsyncClient(timeout=self.timeout.total_seconds())
-        self._own_httpx_client = httpx_client is None
+        self.session = session or aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=self.timeout.total_seconds()),
+        )
+        self._own_session = session is None
         self._closed = False
 
         self.bearer_token = bearer_token
@@ -146,9 +149,9 @@ class CompassAsyncClient:
         self.retry_wait = retry_wait
 
     async def aclose(self):
-        """Close the httpx client if it was created by the CompassAsyncClient."""
-        if self._own_httpx_client and not self._closed:
-            await self.httpx.aclose()
+        """Close the aiohttp session if it was created by the CompassAsyncClient."""
+        if self._own_session and not self._closed:
+            await self.session.close()
             self._closed = True
 
     close = aclose  # Alias for consistency with sync client
@@ -1218,54 +1221,50 @@ class CompassAsyncClient:
 
         data_dict = data.model_dump(mode="json", exclude_none=True) if data else None
 
-        headers = None
+        headers: dict[str, str] | None = None
         if self.bearer_token:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
+        client_timeout = aiohttp.ClientTimeout(total=timeout.total_seconds())
+
+        request_kwargs: dict[str, Any] = {
+            "headers": headers,
+            "timeout": client_timeout,
+        }
         if http_method == "GET":
-            response = await self.httpx.get(
-                target_path,
-                headers=headers,
-                params=query_params,
-                timeout=timeout.total_seconds(),
-            )
-        elif http_method == "POST":
-            response = await self.httpx.post(
-                target_path,
-                json=data_dict,
-                headers=headers,
-                timeout=timeout.total_seconds(),
-            )
-        elif http_method == "PUT":
-            response = await self.httpx.put(
-                target_path,
-                json=data_dict,
-                headers=headers,
-                timeout=timeout.total_seconds(),
-            )
-        elif http_method == "DELETE":
-            response = await self.httpx.delete(
-                target_path,
-                headers=headers,
-                timeout=timeout.total_seconds(),
-            )
-        else:
+            request_kwargs["params"] = query_params
+        elif http_method in ("POST", "PUT"):
+            request_kwargs["json"] = data_dict
+        elif http_method != "DELETE":
             raise RuntimeError(f"Unsupported HTTP method: {http_method}")
 
-        response.raise_for_status()
+        async with self.session.request(http_method, target_path, **request_kwargs) as response:
+            content_type = response.headers.get("content-type")
+            body_bytes = await response.read()
 
-        content_type = response.headers.get("content-type")
-        if content_type in ("image/jpeg", "image/png"):
-            # To handle response from get_document_asset() when the asset
-            # is an image.
-            result = response.content
-        elif content_type == "text/markdown":
-            # To handle response from get_document_asset() when the asset
-            # is a markdown.
-            result = response.text
-        else:
-            # To handle response from other APIs.
-            result = response.json() if response.text else None
+            if response.status >= 400:
+                # Mirror the body in the error message so callers (and our exception
+                # handler) get the same string format as with the sync httpx client.
+                body_text = body_bytes.decode("utf-8", errors="replace")
+                raise aiohttp.ClientResponseError(
+                    response.request_info,
+                    response.history,
+                    status=response.status,
+                    message=body_text,
+                    headers=response.headers,
+                )
+
+            if content_type in ("image/jpeg", "image/png", "image/webp"):
+                # To handle response from get_document_asset() when the asset
+                # is an image.
+                result: Any = body_bytes
+            elif content_type == "text/markdown":
+                # To handle response from get_document_asset() when the asset
+                # is a markdown.
+                result = body_bytes.decode("utf-8")
+            else:
+                # To handle response from other APIs.
+                result = json.loads(body_bytes) if body_bytes else None
         return _SendRequestResult(
             result=result,
             content_type=content_type,
@@ -1313,15 +1312,16 @@ class CompassAsyncClient:
             stop=stop_after_attempt(max_retries),
             wait=wait_fixed(retry_wait),
             reraise=True,
-            retry=retry_if_exception(is_retryable_httpx_exception),
+            retry=retry_if_exception(is_retryable_aiohttp_exception),
         )
         async def _send_request_with_retry() -> _SendRequestResult:
             return await self._send_http_request(
                 http_method=http_method,
                 target_path=target_path,
                 data=data,
+                timeout=timeout,
                 query_params=query_params,
             )
 
-        with handle_httpx_exceptions():
+        with handle_aiohttp_exceptions():
             return await _send_request_with_retry()

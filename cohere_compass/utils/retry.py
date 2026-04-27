@@ -1,3 +1,4 @@
+import aiohttp
 import httpx
 
 from cohere_compass.exceptions import CompassServerError
@@ -37,6 +38,37 @@ def is_retryable_httpx_exception(exc: BaseException) -> bool:
     if isinstance(exc, httpx.HTTPStatusError):
         status = exc.response.status_code
         # Retry 5xx, caller will eventually see CompassServerError
+        if 500 <= status < 600:
+            return True
+
+    return False
+
+
+def is_retryable_aiohttp_exception(exc: BaseException) -> bool:
+    """
+    Determine if it is beneficial to retry the given aiohttp exception.
+
+    Mirrors :func:`is_retryable_httpx_exception` for the aiohttp-based async clients.
+    Retries timeouts, low-level connection errors, and 5xx server responses.
+
+    Args:
+        exc (BaseException): The exception to evaluate.
+
+    Returns:
+        bool: True if the exception is retryable, False otherwise.
+
+    """
+    if isinstance(exc, TimeoutError):
+        return True
+
+    if isinstance(exc, aiohttp.ServerTimeoutError):
+        return True
+
+    if isinstance(exc, aiohttp.ClientConnectionError):
+        return True
+
+    if isinstance(exc, aiohttp.ClientResponseError):
+        status = exc.status
         if 500 <= status < 600:
             return True
 

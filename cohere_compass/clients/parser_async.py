@@ -15,7 +15,7 @@ from types import TracebackType
 from typing import Any
 
 # 3rd party imports
-import httpx
+import aiohttp
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_fixed
 
 # Local imports
@@ -25,7 +25,7 @@ from cohere_compass.constants import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_WAIT,
 )
-from cohere_compass.exceptions import handle_httpx_exceptions
+from cohere_compass.exceptions import handle_aiohttp_exceptions
 from cohere_compass.models import CompassDocument, ParserConfig
 from cohere_compass.utils.asyn import async_map
 from cohere_compass.utils.fs import open_document, scan_folder
@@ -62,7 +62,7 @@ class CompassParserAsyncClient:
         bearer_token: str | None = None,
         num_workers: int = 1,
         timeout: timedelta | None = None,
-        httpx_client: httpx.AsyncClient | None = None,
+        session: aiohttp.ClientSession | None = None,
     ):
         """
         Initialize the CompassParserClient.
@@ -79,11 +79,11 @@ class CompassParserAsyncClient:
         :param bearer_token (optional): The bearer token for authentication.
         :param num_workers (optional): The number of workers to use for processing
             files.
-        :param timeout (optional): The timeout to use for the httpx client. Default is
-            DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT.
-        :param httpx_client (optional): The httpx client to use for making requests.
-            If not provided, a new httpx client will be created with the timeout set
-            when creating the client. If an httpx client is provided, the timeout will
+        :param timeout (optional): The timeout to use for the aiohttp session. Default
+            is DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT.
+        :param session (optional): The aiohttp client session to use for making
+            requests. If not provided, a new session will be created with the timeout
+            set when creating the client. If a session is provided, the timeout will
             be ignored.
         """
         self.parser_url = parser_url if not parser_url.endswith("/") else parser_url[:-1]
@@ -96,24 +96,26 @@ class CompassParserAsyncClient:
             if timeout is not None
             else (
                 DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT
-                if httpx_client is None
+                if session is None
                 else (
-                    timedelta(seconds=httpx_client.timeout.read)
-                    if httpx_client.timeout.read
+                    timedelta(seconds=session.timeout.total)
+                    if session.timeout.total
                     else DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT
                 )
             )
         )
-        self.httpx = httpx_client or httpx.AsyncClient(timeout=self.timeout.total_seconds())
-        self._own_httpx_client = httpx_client is None
+        self.session = session or aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=self.timeout.total_seconds()),
+        )
+        self._own_session = session is None
         self._closed = False
 
         logger.info(f"CompassParserClient initialized with parser_url: {self.parser_url}")
 
     async def aclose(self):
-        """Close the httpx client if it was created by the CompassParserAsyncClient."""
-        if self._own_httpx_client and not self._closed:
-            await self.httpx.aclose()
+        """Close the aiohttp session if it was created by the CompassParserAsyncClient."""
+        if self._own_session and not self._closed:
+            await self.session.close()
             self._closed = True
 
     close = aclose  # Alias for consistency with sync client
@@ -354,22 +356,37 @@ class CompassParserAsyncClient:
         custom_context: Fn_or_Dict | None = None,
         timeout: timedelta | None = None,
     ) -> list[CompassDocument]:
-        headers = None
+        headers: dict[str, str] | None = None
         if self.bearer_token:
             headers = {"Authorization": f"Bearer {self.bearer_token}"}
 
-        with handle_httpx_exceptions():
-            res = await self.httpx.post(
+        client_timeout = aiohttp.ClientTimeout(total=(timeout or self.timeout).total_seconds())
+
+        form = aiohttp.FormData()
+        form.add_field("data", json.dumps(params.model_dump()))
+        form.add_field("file", file_bytes, filename=filename)
+
+        with handle_aiohttp_exceptions():
+            async with self.session.post(
                 url=f"{self.parser_url}/v1/process_file",
-                data={"data": json.dumps(params.model_dump())},
-                files={"file": (filename, file_bytes)},
+                data=form,
                 headers=headers,
-                timeout=(timeout or self.timeout).total_seconds(),
-            )
-            res.raise_for_status()
+                timeout=client_timeout,
+            ) as res:
+                body_bytes = await res.read()
+                if res.status >= 400:
+                    body_text = body_bytes.decode("utf-8", errors="replace")
+                    raise aiohttp.ClientResponseError(
+                        res.request_info,
+                        res.history,
+                        status=res.status,
+                        message=body_text,
+                        headers=res.headers,
+                    )
+                payload = json.loads(body_bytes)
 
         docs: list[CompassDocument] = []
-        for doc in res.json()["docs"]:
+        for doc in payload["docs"]:
             compass_doc = self._adapt_doc_id_compass_doc(doc)
             if compass_doc.errors:
                 doc_id = compass_doc.metadata.document_id

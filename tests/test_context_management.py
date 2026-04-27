@@ -5,6 +5,7 @@
 from collections.abc import Callable
 from typing import Any
 
+import aiohttp
 import httpx
 import pytest
 
@@ -49,15 +50,15 @@ def client_factory(request: pytest.FixtureRequest) -> tuple[Callable[..., Any], 
 
 
 @pytest.mark.asyncio
-async def test_context_manager_closes_own_httpx_client(
+async def test_context_manager_closes_own_http_client(
     client_factory: tuple[Callable[..., Any], bool],
 ):
-    """Context manager should close httpx client it created."""
+    """Context manager should close the HTTP client it created."""
     factory, is_async = client_factory
 
     if is_async:
         async with factory() as client:
-            assert client._own_httpx_client is True
+            assert client._own_session is True
             assert client._closed is False
         assert client._closed is True
     else:
@@ -68,23 +69,23 @@ async def test_context_manager_closes_own_httpx_client(
 
 
 @pytest.mark.asyncio
-async def test_context_manager_does_not_close_external_httpx_client(
+async def test_context_manager_does_not_close_external_http_client(
     client_factory: tuple[Callable[..., Any], bool],
 ):
-    """Context manager should not close externally provided httpx client."""
+    """Context manager should not close externally provided HTTP clients."""
     factory, is_async = client_factory
 
     if is_async:
-        external_httpx = httpx.AsyncClient()
+        external_session = aiohttp.ClientSession()
         try:
-            async with factory(httpx_client=external_httpx) as client:
-                assert client._own_httpx_client is False
+            async with factory(session=external_session) as client:
+                assert client._own_session is False
                 assert client._closed is False
 
             assert client._closed is False
-            assert not external_httpx.is_closed
+            assert not external_session.closed
         finally:
-            await external_httpx.aclose()
+            await external_session.close()
     else:
         external_httpx = httpx.Client()
         try:
