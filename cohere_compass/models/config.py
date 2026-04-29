@@ -200,6 +200,10 @@ class ParserConfig(BaseModel):
     presentation_parsing_strategy: PresentationParsingStrategy | None = None
     docx_parsing_strategy: DocxParsingStrategy | None = None
 
+    # ASR configuration
+    min_asr_chunk_duration_seconds: int | None = None
+    max_asr_chunk_duration_seconds: int | None = None
+
 
 class WebhookEnricherConfig(BaseModel):
     """

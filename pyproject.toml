@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cohere-compass-sdk"
-version = "2.9.1"
+version = "2.10.0"
 authors = []
 description = "Cohere Compass SDK"
 readme = "README.md"
