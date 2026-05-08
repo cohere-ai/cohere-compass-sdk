@@ -47,6 +47,10 @@ class AssetType(str, Enum):
     # A dump of the text extracted from a document
     DOCUMENT_TEXT = "document_text"
 
+    VIDEO = "video"
+
+    AUDIO = "audio"
+
 
 class CompassDocumentChunkAsset(BaseModel):
     """An asset associated with a Compass document chunk."""

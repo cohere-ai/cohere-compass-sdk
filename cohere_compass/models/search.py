@@ -26,7 +26,7 @@ class AssetInfo(BaseModel):
     asset_id: str | None = None
     asset_type: AssetType
     content_type: str
-    presigned_url: str
+    presigned_url: str | None = None
     visual_elements: list[VisualElement] | None = None
 
 
