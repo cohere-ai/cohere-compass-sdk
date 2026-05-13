@@ -527,7 +527,18 @@ class CompassClient:
         if result.result is None:
             return None
 
-        return RetentionPolicy.model_validate(result.result)
+        # The server wraps the policy in an envelope: {"retention_policy": {...}}.
+        # Fall back to the raw payload to remain compatible with any deployment that
+        # returns the bare policy.
+        policy_data = (
+            result.result.get("retention_policy")
+            if isinstance(result.result, dict) and "retention_policy" in result.result
+            else result.result
+        )
+        if policy_data is None:
+            return None
+
+        return RetentionPolicy.model_validate(policy_data)
 
     def delete_retention_policy(
         self,
