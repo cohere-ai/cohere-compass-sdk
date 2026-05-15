@@ -1403,6 +1403,60 @@ class CompassAsyncClient:
 
         return result.result, result.content_type  # type: ignore
 
+    async def get_media_clip(
+        self,
+        *,
+        index_name: str,
+        document_id: str,
+        asset_id: str,
+        start_time: float,
+        end_time: float,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> tuple[str | bytes | dict[str, Any], str]:
+        """
+        Get an audio or video clip from a document asset in Compass.
+
+        Extracts a segment of an audio or video asset between ``start_time`` and
+        ``end_time`` (in seconds). The asset must be of type AUDIO (returns WAV)
+        or VIDEO (returns MP4). The server caps the segment duration at 15 minutes.
+
+        :param index_name: the name of the index
+        :param document_id: the id of the document
+        :param asset_id: the id of the asset
+        :param start_time: start time in seconds for the clip
+        :param end_time: end time in seconds for the clip
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            A tuple of the clip bytes and the content type string (e.g.
+            ``"audio/wav"`` or ``"video/mp4"``).
+
+        Raises:
+            CompassError: if the clip cannot be retrieved, either because the asset
+                doesn't exist, is not an audio/video asset, or the user doesn't have
+                permission to access it.
+
+        """
+        result = await self._send_request(
+            api_name="get_visual_element",
+            index_name=index_name,
+            document_id=document_id,
+            asset_id=asset_id,
+            query_params={"start_time": start_time, "end_time": end_time},
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+        return result.result, result.content_type  # type: ignore
+
     async def _send_http_request(
         self,
         http_method: str,
@@ -1453,15 +1507,12 @@ class CompassAsyncClient:
 
         content_type = response.headers.get("content-type")
         if content_type in ("image/jpeg", "image/png", "image/webp"):
-            # To handle response from get_document_asset() when the asset
-            # is an image.
             result = response.content
         elif content_type == "text/markdown":
-            # To handle response from get_document_asset() when the asset
-            # is a markdown.
             result = response.text
+        elif content_type is not None and (content_type.startswith("audio/") or content_type.startswith("video/")):
+            result = response.content
         else:
-            # To handle response from other APIs.
             result = response.json() if response.text else None
         return _SendRequestResult(
             result=result,

@@ -379,6 +379,30 @@ def test_get_document_asset_image(client: CompassClient, respx_mock: MockRouter)
     assert content_type == "image/png"
 
 
+def test_get_media_clip(client: CompassClient, respx_mock: MockRouter):
+    route = respx_mock.get(
+        "http://test.com/v1/indexes/test_index/documents/doc_audio/assets/audio_asset_id",
+        params={"start_time": "1.5", "end_time": "3.0"},
+    ).mock(
+        return_value=httpx.Response(
+            200,
+            content=b"fake-wav-bytes",
+            headers={"Content-Type": "audio/wav"},
+        ),
+    )
+    clip, content_type = client.get_media_clip(
+        index_name="test_index",
+        document_id="doc_audio",
+        asset_id="audio_asset_id",
+        start_time=1.5,
+        end_time=3.0,
+    )
+    assert route.called
+    assert isinstance(clip, bytes)
+    assert clip == b"fake-wav-bytes"
+    assert content_type == "audio/wav"
+
+
 def test_direct_search_is_valid(client: CompassClient, respx_mock: MockRouter):
     route = respx_mock.post("http://test.com/v1/indexes/test_index/_direct_search").mock(
         return_value=httpx.Response(
