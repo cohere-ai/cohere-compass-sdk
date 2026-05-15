@@ -78,6 +78,8 @@ from cohere_compass.models.documents import (
     ParsedDocumentResponse,
     PutDocumentsResponse,
     UploadDocumentsStatus,
+    UploadFilePresignedUrlRequest,
+    UploadFilePresignedUrlResponse,
 )
 from cohere_compass.models.indexes import IndexDetails, ListIndexesResponse, RetentionPolicy
 from cohere_compass.models.search import (
@@ -169,6 +171,10 @@ API_DEFINITIONS = {
     "upload_documents": (
         "POST",
         "indexes/{index_name}/documents/upload",
+    ),
+    "get_upload_presigned_url": (
+        "POST",
+        "indexes/{index_name}/documents/upload/presigned_url",
     ),
     "upload_documents_status": (
         "GET",
@@ -733,7 +739,9 @@ class CompassClient:
         *,
         index_name: str,
         filename: str,
-        filebytes: bytes,
+        filebytes: bytes | None = None,
+        file_data_uuid: uuid.UUID | None = None,
+        content_length_bytes: int | None = None,
         document_id: str,
         attributes: DocumentAttributes = DocumentAttributes(),
         config: ParseableDocumentConfig = ParseableDocumentConfig(),
@@ -747,9 +755,18 @@ class CompassClient:
         """
         Parse and insert a document into an index in Compass.
 
+        Provide exactly one of ``filebytes`` or ``file_data_uuid``:
+
+        - **filebytes**: the raw document bytes (will be base64-encoded and sent inline).
+        - **file_data_uuid**: a UUID returned by ``get_upload_presigned_url`` after
+          the client has already PUT the file bytes to object storage. When using this
+          path, ``content_length_bytes`` must also be supplied.
+
         :param index_name: The name of the index.
         :param filename: The filename of the document.
         :param filebytes: The raw bytes of the document.
+        :param file_data_uuid: UUID from a prior ``get_upload_presigned_url`` call.
+        :param content_length_bytes: Required when using ``file_data_uuid``.
         :param content_type: optional content type of the document.
             Recommended to pass it otherwise auto-detected.
         :param document_id: The ID to assign to the document.
@@ -770,17 +787,40 @@ class CompassClient:
         Returns:
             UploadDocumentsResult containing the upload ID and status.
 
+        Raises:
+            ValueError: If both or neither of ``filebytes`` and ``file_data_uuid``
+                are provided, or if ``content_length_bytes`` is missing when using
+                ``file_data_uuid``.
+
         """
-        b64 = base64.b64encode(filebytes).decode("utf-8")
-        doc = ParseableDocument(
-            id=document_id,
-            filename=filename,
-            content_type=content_type,
-            content_length_bytes=len(filebytes),
-            content_encoded_bytes=b64,
-            attributes=attributes,
-            config=config,
-        )
+        if filebytes is not None and file_data_uuid is not None:
+            raise ValueError("Provide exactly one of `filebytes` or `file_data_uuid`, not both.")
+        if filebytes is None and file_data_uuid is None:
+            raise ValueError("Provide exactly one of `filebytes` or `file_data_uuid`.")
+
+        if filebytes is not None:
+            b64 = base64.b64encode(filebytes).decode("utf-8")
+            doc = ParseableDocument(
+                id=document_id,
+                filename=filename,
+                content_type=content_type,
+                content_length_bytes=len(filebytes),
+                content_encoded_bytes=b64,
+                attributes=attributes,
+                config=config,
+            )
+        else:
+            if content_length_bytes is None:
+                raise ValueError("`content_length_bytes` is required when using `file_data_uuid`.")
+            doc = ParseableDocument(
+                id=document_id,
+                filename=filename,
+                content_type=content_type,
+                content_length_bytes=content_length_bytes,
+                file_data_uuid=file_data_uuid,
+                attributes=attributes,
+                config=config,
+            )
 
         result = self._send_request(
             api_name="upload_documents",
@@ -796,6 +836,51 @@ class CompassClient:
         )
 
         return UploadDocumentsResult.model_validate(result.result)
+
+    def get_upload_presigned_url(
+        self,
+        *,
+        index_name: str,
+        filename: str,
+        content_type: ContentTypeEnum,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> UploadFilePresignedUrlResponse:
+        """
+        Get a presigned URL to upload a file directly to object storage.
+
+        Returns a presigned URL that can be used to PUT raw file bytes directly to
+        storage, plus a ``file_data_uuid`` that can later be passed to
+        ``upload_document`` (via the ``file_data_uuid`` parameter) to ingest the
+        uploaded file without re-sending its bytes through the API.
+
+        :param index_name: The name of the index the file will be uploaded to.
+        :param filename: The filename of the document to be uploaded.
+        :param content_type: The content type (MIME type) of the document. The client
+            must send the same value as the Content-Type header when PUTting bytes to
+            the returned presigned URL.
+        :param max_retries: Maximum number of retries for failed requests.
+        :param retry_wait: Time to wait between retries.
+        :param timeout: Request timeout duration.
+
+        Returns:
+            UploadFilePresignedUrlResponse containing the presigned URL, file_data_uuid,
+            expiration, and content type.
+
+        """
+        result = self._send_request(
+            api_name="get_upload_presigned_url",
+            index_name=index_name,
+            data=UploadFilePresignedUrlRequest(
+                filename=filename,
+                content_type=content_type,
+            ),
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return UploadFilePresignedUrlResponse.model_validate(result.result)
 
     def upload_document_status(
         self,
