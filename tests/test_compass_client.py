@@ -1258,6 +1258,8 @@ def test_get_upload_presigned_url(client: CompassClient, respx_mock: MockRouter)
     request_body = json.loads(route.calls.last.request.content)
     assert request_body["filename"] == "report.pdf"
     assert request_body["content_type"] == "application/pdf"
+
+
 # Retention policy tests
 
 
