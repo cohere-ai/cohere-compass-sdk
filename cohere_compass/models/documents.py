@@ -285,9 +285,18 @@ class ParseableDocument(BaseModel):
     filename: Annotated[str, StringConstraints(min_length=1)]  # Ensures the filename is a non-empty string
     content_type: str | None = None
     content_length_bytes: PositiveInt  # File size must be a non-negative integer
-    content_encoded_bytes: str  # Base64-encoded file contents
+    content_encoded_bytes: str | None = None  # Base64 encoded bytes of the file
+    file_data_uuid: UUID4 | None = None
     attributes: DocumentAttributes
     config: ParseableDocumentConfig = ParseableDocumentConfig()
+
+    @model_validator(mode="after")
+    def _validate_content_source(self) -> "ParseableDocument":
+        has_bytes = self.content_encoded_bytes is not None
+        has_uuid = self.file_data_uuid is not None
+        if has_bytes == has_uuid:
+            raise ValueError("Exactly one of `content_encoded_bytes` or `file_data_uuid` must be provided.")
+        return self
 
 
 class UploadDocumentsInput(BaseModel):
@@ -381,10 +390,23 @@ class ParsedDocumentResponse(BaseModel):
 
 
 class AssetPresignedUrlRequest(BaseModel):
-    """A single asset presigned URL request item."""
+    """
+    A single asset presigned URL request item.
+
+    The document_id is the ID of the document.
+    The asset_id is the ID of the asset in the asset_info.
+    The x0, y0, x1, y1 are the coordinates of the asset if you want cropped images.
+    The start_time and end_time are the start and end times of media assets like audio or video.
+    """
 
     document_id: str
     asset_id: uuid.UUID
+    x0: int | None = Field(default=None, ge=0, le=1000)
+    y0: int | None = Field(default=None, ge=0, le=1000)
+    x1: int | None = Field(default=None, ge=0, le=1000)
+    y1: int | None = Field(default=None, ge=0, le=1000)
+    start_time: float | None = Field(default=None, ge=0)
+    end_time: float | None = Field(default=None, ge=0)
 
 
 class GetAssetPresignedUrlsRequest(BaseModel):
@@ -398,7 +420,7 @@ class AssetPresignedUrlDetails(BaseModel):
 
     document_id: str
     asset_id: uuid.UUID
-    presigned_url: str
+    presigned_url: str | None
 
 
 class GetAssetPresignedUrlsResponse(BaseModel):
@@ -463,3 +485,19 @@ class ContentTypeEnum(str, Enum):
 
     # Message types
     MessageRfc822 = "message/rfc822"  # eml files
+
+
+class UploadFilePresignedUrlRequest(BaseModel):
+    """Request body for getting a presigned URL to upload a file directly to storage."""
+
+    filename: Annotated[str, StringConstraints(min_length=1)]
+    content_type: ContentTypeEnum
+
+
+class UploadFilePresignedUrlResponse(BaseModel):
+    """Response from the presigned URL upload endpoint."""
+
+    file_data_uuid: UUID4
+    presigned_url: str
+    expires_in_seconds: int
+    content_type: str
