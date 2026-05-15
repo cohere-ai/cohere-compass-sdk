@@ -210,11 +210,6 @@ API_DEFINITIONS = {
         "GET",
         "tasks/{task_id}",
     ),
-    # Get visual element from asset
-    "get_visual_element": (
-        "GET",
-        "indexes/{index_name}/documents/{document_id}/assets/{asset_id}",
-    ),
     # Retention Policy APIs
     "set_retention_policy": (
         "PUT",
@@ -1528,7 +1523,7 @@ class CompassClient:
 
         """
         result = self._send_request(
-            api_name="get_visual_element",
+            api_name="get_document_asset",
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
@@ -1582,7 +1577,7 @@ class CompassClient:
 
         """
         result = self._send_request(
-            api_name="get_visual_element",
+            api_name="get_document_asset",
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,

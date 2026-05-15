@@ -1391,7 +1391,7 @@ class CompassAsyncClient:
 
         """
         result = await self._send_request(
-            api_name="get_visual_element",
+            api_name="get_document_asset",
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
@@ -1445,7 +1445,7 @@ class CompassAsyncClient:
 
         """
         result = await self._send_request(
-            api_name="get_visual_element",
+            api_name="get_document_asset",
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
