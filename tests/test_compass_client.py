@@ -34,7 +34,12 @@ from cohere_compass.models.documents import (
     UploadFilePresignedUrlRequest,
     UploadFilePresignedUrlResponse,
 )
-from cohere_compass.models.indexes import IndexDetails, IndexInfo
+from cohere_compass.models.indexes import (
+    IndexDetails,
+    IndexInfo,
+    RetentionPolicy,
+    RetentionType,
+)
 from cohere_compass.models.search import (
     SortBy,
 )
@@ -1253,3 +1258,81 @@ def test_get_upload_presigned_url(client: CompassClient, respx_mock: MockRouter)
     request_body = json.loads(route.calls.last.request.content)
     assert request_body["filename"] == "report.pdf"
     assert request_body["content_type"] == "application/pdf"
+# Retention policy tests
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes/test_index/retention",
+    200,
+    response_body={
+        "retention_policy": {
+            "retention_type": "sliding",
+            "ttl_days": 365,
+            "grace_period_days": 7,
+            "enabled": True,
+        }
+    },
+)
+def test_get_retention_policy_unwraps_envelope(client: CompassClient):
+    # Regression test for https://github.com/cohere-ai/cohere-compass-sdk/issues/204:
+    # the server wraps the policy under a `retention_policy` key, which used to
+    # raise a pydantic ValidationError.
+    policy = client.get_retention_policy(index_name="test_index")
+
+    assert policy == RetentionPolicy(
+        retention_type=RetentionType.Sliding,
+        ttl_days=365,
+        grace_period_days=7,
+        enabled=True,
+    )
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes/test_index/retention",
+    200,
+    response_body={"retention_policy": None},
+)
+def test_get_retention_policy_returns_none_when_envelope_null(client: CompassClient):
+    assert client.get_retention_policy(index_name="test_index") is None
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes/test_index/retention",
+    200,
+    response_body=None,
+)
+def test_get_retention_policy_returns_none_when_body_empty(client: CompassClient):
+    assert client.get_retention_policy(index_name="test_index") is None
+
+
+@mock_endpoint(
+    "PUT",
+    "http://test.com/v1/indexes/test_index/retention",
+    200,
+    expected_request_body={
+        "retention_type": "fixed",
+        "ttl_days": 30,
+        "grace_period_days": 7,
+        "enabled": True,
+    },
+)
+def test_set_retention_policy_sends_correct_body(client: CompassClient):
+    client.set_retention_policy(
+        index_name="test_index",
+        retention_policy=RetentionPolicy(
+            retention_type=RetentionType.Fixed,
+            ttl_days=30,
+        ),
+    )
+
+
+@mock_endpoint(
+    "DELETE",
+    "http://test.com/v1/indexes/test_index/retention",
+    200,
+)
+def test_delete_retention_policy_sends_request(client: CompassClient):
+    client.delete_retention_policy(index_name="test_index")
