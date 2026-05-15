@@ -780,7 +780,7 @@ class CompassClient:
         :param content_length_bytes: Required when using ``file_data_uuid``.
         :param content_type: optional content type of the document.
             Recommended to pass it otherwise auto-detected.
-        :param document_id: The ID to assign to the document.
+        :param document_id: The ID to assign to the document (optional).
         :param attributes: Additional attributes to add to the document.
         :param config: Configuration for the document parsing.
         :param authorized_groups: When Document-level Security is enabled,
