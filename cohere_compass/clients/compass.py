@@ -747,7 +747,6 @@ class CompassClient:
         filename: str,
         filebytes: bytes | None = None,
         file_data_uuid: uuid.UUID | None = None,
-        content_length_bytes: int | None = None,
         document_id: str,
         attributes: DocumentAttributes = DocumentAttributes(),
         config: ParseableDocumentConfig = ParseableDocumentConfig(),
@@ -765,14 +764,12 @@ class CompassClient:
 
         - **filebytes**: the raw document bytes (will be base64-encoded and sent inline).
         - **file_data_uuid**: a UUID returned by ``get_upload_presigned_url`` after
-          the client has already PUT the file bytes to object storage. When using this
-          path, ``content_length_bytes`` must also be supplied.
+          the client has already PUT the file bytes to object storage.
 
         :param index_name: The name of the index.
         :param filename: The filename of the document.
         :param filebytes: The raw bytes of the document.
         :param file_data_uuid: UUID from a prior ``get_upload_presigned_url`` call.
-        :param content_length_bytes: Required when using ``file_data_uuid``.
         :param content_type: optional content type of the document.
             Recommended to pass it otherwise auto-detected.
         :param document_id: The ID to assign to the document.
@@ -795,8 +792,7 @@ class CompassClient:
 
         Raises:
             ValueError: If both or neither of ``filebytes`` and ``file_data_uuid``
-                are provided, or if ``content_length_bytes`` is missing when using
-                ``file_data_uuid``.
+                are provided.
 
         """
         if filebytes is not None and file_data_uuid is not None:
@@ -820,8 +816,6 @@ class CompassClient:
                 id=document_id,
                 filename=filename,
                 content_type=content_type,
-                # This is calculated by the client when file_uuid is provided.
-                content_length_bytes=content_length_bytes or 0,
                 file_data_uuid=file_data_uuid,
                 attributes=attributes,
                 config=config,
