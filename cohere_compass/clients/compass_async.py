@@ -631,7 +631,7 @@ class CompassAsyncClient:
         :param content_length_bytes: Required when using ``file_data_uuid``.
         :param content_type: optional content type of the document.
             Recommended to pass it otherwise auto-detected.
-        :param document_id: the id of the document (optional)
+        :param document_id: the id of the document.
         :param attributes: Additional attributes to add to the document.
         :param config: Configuration for the document parsing.
         :param authorized_groups: The groups that are authorized to access the
@@ -672,13 +672,12 @@ class CompassAsyncClient:
                 config=config,
             )
         else:
-            if content_length_bytes is None:
-                raise ValueError("`content_length_bytes` is required when using `file_data_uuid`.")
             doc = ParseableDocument(
                 id=document_id,
                 filename=filename,
                 content_type=content_type,
-                content_length_bytes=content_length_bytes,
+                # This is calculated by the client when file_uuid is provided.
+                content_length_bytes=content_length_bytes or 0,
                 file_data_uuid=file_data_uuid,
                 attributes=attributes,
                 config=config,
@@ -703,7 +702,6 @@ class CompassAsyncClient:
         self,
         *,
         index_name: str,
-        filename: str,
         content_type: ContentTypeEnum,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
@@ -735,7 +733,6 @@ class CompassAsyncClient:
             api_name="get_upload_presigned_url",
             index_name=index_name,
             data=UploadFilePresignedUrlRequest(
-                filename=filename,
                 content_type=content_type,
             ),
             max_retries=max_retries,

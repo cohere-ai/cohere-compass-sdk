@@ -490,7 +490,6 @@ class ContentTypeEnum(str, Enum):
 class UploadFilePresignedUrlRequest(BaseModel):
     """Request body for getting a presigned URL to upload a file directly to storage."""
 
-    filename: Annotated[str, StringConstraints(min_length=1)]
     content_type: ContentTypeEnum
 
 
@@ -500,4 +499,3 @@ class UploadFilePresignedUrlResponse(BaseModel):
     file_data_uuid: UUID4
     presigned_url: str
     expires_in_seconds: int
-    content_type: str
