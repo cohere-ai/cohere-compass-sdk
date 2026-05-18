@@ -1154,19 +1154,9 @@ def test_asset_presigned_url_details_with_url():
 
 def test_upload_file_presigned_url_request():
     req = UploadFilePresignedUrlRequest(
-        filename="report.pdf",
         content_type=ContentTypeEnum.ApplicationPdf,
     )
-    assert req.filename == "report.pdf"
     assert req.content_type == ContentTypeEnum.ApplicationPdf
-
-
-def test_upload_file_presigned_url_request_empty_filename():
-    with pytest.raises(ValidationError):
-        UploadFilePresignedUrlRequest(
-            filename="",
-            content_type=ContentTypeEnum.ApplicationPdf,
-        )
 
 
 def test_upload_file_presigned_url_response():
@@ -1175,19 +1165,17 @@ def test_upload_file_presigned_url_response():
         file_data_uuid=test_uuid,
         presigned_url="https://storage.example.com/upload?sig=abc",
         expires_in_seconds=3600,
-        content_type="application/pdf",
     )
     assert resp.file_data_uuid == test_uuid
     assert resp.presigned_url == "https://storage.example.com/upload?sig=abc"
     assert resp.expires_in_seconds == 3600
-    assert resp.content_type == "application/pdf"
 
 
 # ── Client: upload_document with file_data_uuid ──────────────────────────
 
 
 @respx.mock
-def test_upload_document_with_file_data_uuid(client: CompassClient, respx_mock: MockRouter):
+def test_upload_document_via_uuid(client: CompassClient, respx_mock: MockRouter):
     upload_id = uuid.uuid4()
     document_id = "test_document_id"
     file_uuid = uuid.uuid4()
@@ -1196,7 +1184,7 @@ def test_upload_document_with_file_data_uuid(client: CompassClient, respx_mock: 
         return_value=httpx.Response(200, json={"upload_id": str(upload_id), "document_ids": [document_id]})
     )
 
-    result = client.upload_document(
+    result = client.upload_document_via_uuid(
         index_name="test_index",
         filename="test.pdf",
         file_data_uuid=file_uuid,
@@ -1213,40 +1201,6 @@ def test_upload_document_with_file_data_uuid(client: CompassClient, respx_mock: 
     assert doc_payload["file_data_uuid"] == str(file_uuid)
     assert doc_payload.get("content_encoded_bytes") is None
     assert doc_payload["content_length_bytes"] == 4096
-
-
-@respx.mock
-def test_upload_document_rejects_both_filebytes_and_uuid(client: CompassClient, respx_mock: MockRouter):
-    with pytest.raises(ValueError, match="not both"):
-        client.upload_document(
-            index_name="test_index",
-            filename="test.pdf",
-            filebytes=b"test",
-            file_data_uuid=uuid.uuid4(),
-            content_length_bytes=4,
-            document_id="doc1",
-        )
-
-
-@respx.mock
-def test_upload_document_rejects_neither_filebytes_nor_uuid(client: CompassClient, respx_mock: MockRouter):
-    with pytest.raises(ValueError, match="Provide exactly one"):
-        client.upload_document(
-            index_name="test_index",
-            filename="test.pdf",
-            document_id="doc1",
-        )
-
-
-@respx.mock
-def test_upload_document_uuid_requires_content_length(client: CompassClient, respx_mock: MockRouter):
-    with pytest.raises(ValueError, match="content_length_bytes"):
-        client.upload_document(
-            index_name="test_index",
-            filename="test.pdf",
-            file_data_uuid=uuid.uuid4(),
-            document_id="doc1",
-        )
 
 
 # ── Client: get_upload_presigned_url ─────────────────────────────────────
@@ -1269,7 +1223,6 @@ def test_get_upload_presigned_url(client: CompassClient, respx_mock: MockRouter)
 
     result = client.get_upload_presigned_url(
         index_name="test_index",
-        filename="report.pdf",
         content_type=ContentTypeEnum.ApplicationPdf,
     )
 
@@ -1277,10 +1230,8 @@ def test_get_upload_presigned_url(client: CompassClient, respx_mock: MockRouter)
     assert result.file_data_uuid == file_uuid
     assert result.presigned_url == "https://storage.example.com/upload?sig=xyz"
     assert result.expires_in_seconds == 3600
-    assert result.content_type == "application/pdf"
 
     request_body = json.loads(route.calls.last.request.content)
-    assert request_body["filename"] == "report.pdf"
     assert request_body["content_type"] == "application/pdf"
 
 

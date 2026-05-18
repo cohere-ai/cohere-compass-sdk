@@ -601,8 +601,7 @@ class CompassAsyncClient:
         *,
         index_name: str,
         filename: str,
-        filebytes: bytes | None = None,
-        file_data_uuid: uuid.UUID | None = None,
+        filebytes: bytes,
         document_id: str,
         attributes: DocumentAttributes = DocumentAttributes(),
         config: ParseableDocumentConfig = ParseableDocumentConfig(),
@@ -614,18 +613,13 @@ class CompassAsyncClient:
         timeout: timedelta | None = None,
     ) -> UploadDocumentsResult:
         """
-        Parse and insert a document into an index in Compass.
+        Parse and insert a document into an index in Compass using raw bytes.
 
-        Provide exactly one of ``filebytes`` or ``file_data_uuid``:
-
-        - **filebytes**: the raw document bytes (will be base64-encoded and sent inline).
-        - **file_data_uuid**: a UUID returned by ``get_upload_presigned_url`` after
-          the client has already PUT the file bytes to object storage.
+        The document bytes are base64-encoded and sent inline in the request.
 
         :param index_name: the name of the index
         :param filename: the filename of the document
         :param filebytes: the bytes of the document
-        :param file_data_uuid: UUID from a prior ``get_upload_presigned_url`` call.
         :param content_type: optional content type of the document.
             Recommended to pass it otherwise auto-detected.
         :param document_id: the id of the document.
@@ -646,36 +640,91 @@ class CompassAsyncClient:
         Returns:
             UploadDocumentsResult object containing the result of the upload
 
-        Raises:
-            ValueError: If both or neither of ``filebytes`` and ``file_data_uuid``
-                are provided
+        """
+        b64 = base64.b64encode(filebytes).decode("utf-8")
+        doc = ParseableDocument(
+            id=document_id,
+            filename=filename,
+            content_type=content_type,
+            content_length_bytes=len(filebytes),
+            content_encoded_bytes=b64,
+            attributes=attributes,
+            config=config,
+        )
+
+        result = await self._send_request(
+            api_name="upload_documents",
+            data=UploadDocumentsInput(
+                documents=[doc],
+                authorized_groups=authorized_groups,
+                merge_groups_on_conflict=merge_groups_on_conflict,
+            ),
+            index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+        return UploadDocumentsResult.model_validate(result.result)
+
+    async def upload_document_via_uuid(
+        self,
+        *,
+        index_name: str,
+        filename: str,
+        file_data_uuid: uuid.UUID,
+        content_length_bytes: int,
+        document_id: str,
+        attributes: DocumentAttributes = DocumentAttributes(),
+        config: ParseableDocumentConfig = ParseableDocumentConfig(),
+        content_type: ContentTypeEnum | None = None,
+        authorized_groups: list[str] | None = None,
+        merge_groups_on_conflict: bool = False,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> UploadDocumentsResult:
+        """
+        Parse and insert a document into an index in Compass using a pre-uploaded file.
+
+        Use this method when the file bytes have already been uploaded to object
+        storage via ``get_upload_presigned_url``. Pass the ``file_data_uuid``
+        returned by that call.
+
+        :param index_name: the name of the index
+        :param filename: the filename of the document
+        :param file_data_uuid: UUID from a prior ``get_upload_presigned_url`` call.
+        :param content_length_bytes: The size of the uploaded file in bytes.
+        :param content_type: optional content type of the document.
+            Recommended to pass it otherwise auto-detected.
+        :param document_id: the id of the document.
+        :param attributes: Additional attributes to add to the document.
+        :param config: Configuration for the document parsing.
+        :param authorized_groups: The groups that are authorized to access the
+            document. These groups should exist in RBAC. None passed will make the
+            document public.
+        :param merge_groups_on_conflict: Allows combining authorized group field
+          when document already exists, and Document Level Security is enabled.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            UploadDocumentsResult object containing the result of the upload
 
         """
-        if filebytes is not None and file_data_uuid is not None:
-            raise ValueError("Provide exactly one of `filebytes` or `file_data_uuid`, not both.")
-        if filebytes is None and file_data_uuid is None:
-            raise ValueError("Provide exactly one of `filebytes` or `file_data_uuid`.")
-
-        if filebytes is not None:
-            b64 = base64.b64encode(filebytes).decode("utf-8")
-            doc = ParseableDocument(
-                id=document_id,
-                filename=filename,
-                content_type=content_type,
-                content_length_bytes=len(filebytes),
-                content_encoded_bytes=b64,
-                attributes=attributes,
-                config=config,
-            )
-        else:
-            doc = ParseableDocument(
-                id=document_id,
-                filename=filename,
-                content_type=content_type,
-                file_data_uuid=file_data_uuid,
-                attributes=attributes,
-                config=config,
-            )
+        doc = ParseableDocument(
+            id=document_id,
+            filename=filename,
+            content_type=content_type,
+            content_length_bytes=content_length_bytes,
+            file_data_uuid=file_data_uuid,
+            attributes=attributes,
+            config=config,
+        )
 
         result = await self._send_request(
             api_name="upload_documents",
@@ -706,8 +755,8 @@ class CompassAsyncClient:
 
         Returns a presigned URL that can be used to PUT raw file bytes directly to
         storage, plus a ``file_data_uuid`` that can later be passed to
-        ``upload_document`` (via the ``file_data_uuid`` parameter) to ingest the
-        uploaded file without re-sending its bytes through the API.
+        ``upload_document_via_uuid`` to ingest the uploaded file without
+        re-sending its bytes through the API.
 
         :param index_name: The name of the index the file will be uploaded to.
         :param filename: The filename of the document to be uploaded.
