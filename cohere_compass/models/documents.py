@@ -491,6 +491,7 @@ class UploadFilePresignedUrlRequest(BaseModel):
     """Request body for getting a presigned URL to upload a file directly to storage."""
 
     content_type: ContentTypeEnum
+    filename: str
 
 
 class UploadFilePresignedUrlResponse(BaseModel):

@@ -673,7 +673,6 @@ class CompassAsyncClient:
         index_name: str,
         filename: str,
         file_data_uuid: uuid.UUID,
-        content_length_bytes: int,
         document_id: str,
         attributes: DocumentAttributes = DocumentAttributes(),
         config: ParseableDocumentConfig = ParseableDocumentConfig(),
@@ -694,7 +693,6 @@ class CompassAsyncClient:
         :param index_name: the name of the index
         :param filename: the filename of the document
         :param file_data_uuid: UUID from a prior ``get_upload_presigned_url`` call.
-        :param content_length_bytes: The size of the uploaded file in bytes.
         :param content_type: optional content type of the document.
             Recommended to pass it otherwise auto-detected.
         :param document_id: the id of the document.
@@ -720,7 +718,6 @@ class CompassAsyncClient:
             id=document_id,
             filename=filename,
             content_type=content_type,
-            content_length_bytes=content_length_bytes,
             file_data_uuid=file_data_uuid,
             attributes=attributes,
             config=config,
@@ -746,6 +743,7 @@ class CompassAsyncClient:
         *,
         index_name: str,
         content_type: ContentTypeEnum,
+        filename: str,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -777,6 +775,7 @@ class CompassAsyncClient:
             index_name=index_name,
             data=UploadFilePresignedUrlRequest(
                 content_type=content_type,
+                filename=filename,
             ),
             max_retries=max_retries,
             retry_wait=retry_wait,
