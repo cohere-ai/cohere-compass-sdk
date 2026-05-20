@@ -1155,6 +1155,7 @@ def test_asset_presigned_url_details_with_url():
 def test_upload_file_presigned_url_request():
     req = UploadFilePresignedUrlRequest(
         content_type=ContentTypeEnum.ApplicationPdf,
+        filename="test.pdf",
     )
     assert req.content_type == ContentTypeEnum.ApplicationPdf
 
@@ -1188,7 +1189,6 @@ def test_upload_document_via_uuid(client: CompassClient, respx_mock: MockRouter)
         index_name="test_index",
         filename="test.pdf",
         file_data_uuid=file_uuid,
-        content_length_bytes=4096,
         content_type=ContentTypeEnum.ApplicationPdf,
         document_id=document_id,
     )
@@ -1200,7 +1200,6 @@ def test_upload_document_via_uuid(client: CompassClient, respx_mock: MockRouter)
     doc_payload = request_body["documents"][0]
     assert doc_payload["file_data_uuid"] == str(file_uuid)
     assert doc_payload.get("content_encoded_bytes") is None
-    assert doc_payload["content_length_bytes"] == 4096
 
 
 # ── Client: get_upload_presigned_url ─────────────────────────────────────
@@ -1224,6 +1223,7 @@ def test_get_upload_presigned_url(client: CompassClient, respx_mock: MockRouter)
     result = client.get_upload_presigned_url(
         index_name="test_index",
         content_type=ContentTypeEnum.ApplicationPdf,
+        filename="test.pdf",
     )
 
     assert route.called
