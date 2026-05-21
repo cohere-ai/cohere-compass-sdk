@@ -77,6 +77,8 @@ from cohere_compass.models.documents import (
     PutDocumentsResponse,
     UploadDocumentsResult,
     UploadDocumentsStatus,
+    UploadFilePresignedUrlRequest,
+    UploadFilePresignedUrlResponse,
 )
 from cohere_compass.models.indexes import IndexDetails, ListIndexesResponse, RetentionPolicy
 from cohere_compass.models.search import GetDocumentResponse, RetrievedDocument, SortBy
@@ -611,14 +613,16 @@ class CompassAsyncClient:
         timeout: timedelta | None = None,
     ) -> UploadDocumentsResult:
         """
-        Parse and insert a document into an index in Compass.
+        Parse and insert a document into an index in Compass using raw bytes.
+
+        The document bytes are base64-encoded and sent inline in the request.
 
         :param index_name: the name of the index
         :param filename: the filename of the document
         :param filebytes: the bytes of the document
         :param content_type: optional content type of the document.
             Recommended to pass it otherwise auto-detected.
-        :param document_id: the id of the document (optional)
+        :param document_id: the id of the document.
         :param attributes: Additional attributes to add to the document.
         :param config: Configuration for the document parsing.
         :param authorized_groups: The groups that are authorized to access the
@@ -662,6 +666,122 @@ class CompassAsyncClient:
         )
 
         return UploadDocumentsResult.model_validate(result.result)
+
+    async def upload_document_via_uuid(
+        self,
+        *,
+        index_name: str,
+        filename: str,
+        file_data_uuid: uuid.UUID,
+        document_id: str,
+        attributes: DocumentAttributes = DocumentAttributes(),
+        config: ParseableDocumentConfig = ParseableDocumentConfig(),
+        content_type: ContentTypeEnum | None = None,
+        authorized_groups: list[str] | None = None,
+        merge_groups_on_conflict: bool = False,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> UploadDocumentsResult:
+        """
+        Parse and insert a document into an index in Compass using a pre-uploaded file.
+
+        Use this method when the file bytes have already been uploaded to object
+        storage via ``get_upload_presigned_url``. Pass the ``file_data_uuid``
+        returned by that call.
+
+        :param index_name: the name of the index
+        :param filename: the filename of the document
+        :param file_data_uuid: UUID from a prior ``get_upload_presigned_url`` call.
+        :param content_type: optional content type of the document.
+            Recommended to pass it otherwise auto-detected.
+        :param document_id: the id of the document.
+        :param attributes: Additional attributes to add to the document.
+        :param config: Configuration for the document parsing.
+        :param authorized_groups: The groups that are authorized to access the
+            document. These groups should exist in RBAC. None passed will make the
+            document public.
+        :param merge_groups_on_conflict: Allows combining authorized group field
+          when document already exists, and Document Level Security is enabled.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            UploadDocumentsResult object containing the result of the upload
+
+        """
+        doc = ParseableDocument(
+            id=document_id,
+            filename=filename,
+            content_type=content_type,
+            file_data_uuid=file_data_uuid,
+            attributes=attributes,
+            config=config,
+        )
+
+        result = await self._send_request(
+            api_name="upload_documents",
+            data=UploadDocumentsInput(
+                documents=[doc],
+                authorized_groups=authorized_groups,
+                merge_groups_on_conflict=merge_groups_on_conflict,
+            ),
+            index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+        return UploadDocumentsResult.model_validate(result.result)
+
+    async def get_upload_presigned_url(
+        self,
+        *,
+        index_name: str,
+        content_type: ContentTypeEnum,
+        filename: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> UploadFilePresignedUrlResponse:
+        """
+        Get a presigned URL to upload a file directly to object storage.
+
+        Returns a presigned URL that can be used to PUT raw file bytes directly to
+        storage, plus a ``file_data_uuid`` that can later be passed to
+        ``upload_document_via_uuid`` to ingest the uploaded file without
+        re-sending its bytes through the API.
+
+        :param index_name: The name of the index the file will be uploaded to.
+        :param filename: The filename of the document to be uploaded.
+        :param content_type: The content type (MIME type) of the document. The client
+            must send the same value as the Content-Type header when PUTting bytes to
+            the returned presigned URL.
+        :param max_retries: Maximum number of retries for failed requests.
+        :param retry_wait: Time to wait between retries.
+        :param timeout: Request timeout duration.
+
+        Returns:
+            UploadFilePresignedUrlResponse containing the presigned URL, file_data_uuid,
+            expiration, and content type.
+
+        """
+        result = await self._send_request(
+            api_name="get_upload_presigned_url",
+            index_name=index_name,
+            data=UploadFilePresignedUrlRequest(
+                content_type=content_type,
+                filename=filename,
+            ),
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return UploadFilePresignedUrlResponse.model_validate(result.result)
 
     async def upload_document_status(
         self,
@@ -1310,11 +1430,65 @@ class CompassAsyncClient:
 
         """
         result = await self._send_request(
-            api_name="get_visual_element",
+            api_name="get_document_asset",
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
             query_params={"x0": x0, "y0": y0, "x1": x1, "y1": y1},
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+        return result.result, result.content_type  # type: ignore
+
+    async def get_media_clip(
+        self,
+        *,
+        index_name: str,
+        document_id: str,
+        asset_id: str,
+        start_time: float,
+        end_time: float,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> tuple[str | bytes | dict[str, Any], str]:
+        """
+        Get an audio or video clip from a document asset in Compass.
+
+        Extracts a segment of an audio or video asset between ``start_time`` and
+        ``end_time`` (in seconds). The asset must be of type AUDIO (returns WAV)
+        or VIDEO (returns MP4). The server caps the segment duration at 15 minutes.
+
+        :param index_name: the name of the index
+        :param document_id: the id of the document
+        :param asset_id: the id of the asset
+        :param start_time: start time in seconds for the clip
+        :param end_time: end time in seconds for the clip
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            A tuple of the clip bytes and the content type string (e.g.
+            ``"audio/wav"`` or ``"video/mp4"``).
+
+        Raises:
+            CompassError: if the clip cannot be retrieved, either because the asset
+                doesn't exist, is not an audio/video asset, or the user doesn't have
+                permission to access it.
+
+        """
+        result = await self._send_request(
+            api_name="get_document_asset",
+            index_name=index_name,
+            document_id=document_id,
+            asset_id=asset_id,
+            query_params={"start_time": start_time, "end_time": end_time},
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1372,15 +1546,12 @@ class CompassAsyncClient:
 
         content_type = response.headers.get("content-type")
         if content_type in ("image/jpeg", "image/png", "image/webp"):
-            # To handle response from get_document_asset() when the asset
-            # is an image.
             result = response.content
         elif content_type == "text/markdown":
-            # To handle response from get_document_asset() when the asset
-            # is a markdown.
             result = response.text
+        elif content_type is not None and (content_type.startswith("audio/") or content_type.startswith("video/")):
+            result = response.content
         else:
-            # To handle response from other APIs.
             result = response.json() if response.text else None
         return _SendRequestResult(
             result=result,

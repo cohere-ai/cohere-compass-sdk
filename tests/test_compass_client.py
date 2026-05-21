@@ -23,11 +23,16 @@ from cohere_compass.models import (
 )
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.documents import (
+    AssetPresignedUrlDetails,
+    AssetPresignedUrlRequest,
     AssetType,
     CompassDocumentMetadata,
     ContentTypeEnum,
     DocumentAttributes,
+    ParseableDocument,
     UploadDocumentsResult,
+    UploadFilePresignedUrlRequest,
+    UploadFilePresignedUrlResponse,
 )
 from cohere_compass.models.indexes import (
     IndexDetails,
@@ -372,6 +377,30 @@ def test_get_document_asset_image(client: CompassClient, respx_mock: MockRouter)
     assert isinstance(asset, bytes)
     assert asset == b"test"
     assert content_type == "image/png"
+
+
+def test_get_media_clip(client: CompassClient, respx_mock: MockRouter):
+    route = respx_mock.get(
+        "http://test.com/v1/indexes/test_index/documents/doc_audio/assets/audio_asset_id",
+        params={"start_time": "1.5", "end_time": "3.0"},
+    ).mock(
+        return_value=httpx.Response(
+            200,
+            content=b"fake-wav-bytes",
+            headers={"Content-Type": "audio/wav"},
+        ),
+    )
+    clip, content_type = client.get_media_clip(
+        index_name="test_index",
+        document_id="doc_audio",
+        asset_id="audio_asset_id",
+        start_time=1.5,
+        end_time=3.0,
+    )
+    assert route.called
+    assert isinstance(clip, bytes)
+    assert clip == b"fake-wav-bytes"
+    assert content_type == "audio/wav"
 
 
 def test_direct_search_is_valid(client: CompassClient, respx_mock: MockRouter):
@@ -987,6 +1016,223 @@ def test_get_asset_presigned_urls_success(client: CompassClient, respx_mock: Moc
     assert result[1].document_id == "doc_456"
     assert result[1].asset_id == asset_b_uuid
     assert result[1].presigned_url == "https://example.com/asset_B?X-Amz-Signature=..."
+
+
+# ── ParseableDocument model validator tests ──────────────────────────────
+
+
+def test_parseable_document_with_encoded_bytes():
+    doc = ParseableDocument(
+        id="doc1",
+        filename="test.pdf",
+        content_length_bytes=100,
+        content_encoded_bytes="dGVzdA==",
+        attributes=DocumentAttributes(),
+    )
+    assert doc.content_encoded_bytes == "dGVzdA=="
+    assert doc.file_data_uuid is None
+
+
+def test_parseable_document_with_file_data_uuid():
+    test_uuid = uuid.uuid4()
+    doc = ParseableDocument(
+        id="doc1",
+        filename="test.pdf",
+        content_length_bytes=100,
+        file_data_uuid=test_uuid,
+        attributes=DocumentAttributes(),
+    )
+    assert doc.file_data_uuid == test_uuid
+    assert doc.content_encoded_bytes is None
+
+
+def test_parseable_document_rejects_both_bytes_and_uuid():
+    with pytest.raises(ValidationError, match="Exactly one of"):
+        ParseableDocument(
+            id="doc1",
+            filename="test.pdf",
+            content_length_bytes=100,
+            content_encoded_bytes="dGVzdA==",
+            file_data_uuid=uuid.uuid4(),
+            attributes=DocumentAttributes(),
+        )
+
+
+def test_parseable_document_rejects_neither_bytes_nor_uuid():
+    with pytest.raises(ValidationError, match="Exactly one of"):
+        ParseableDocument(
+            id="doc1",
+            filename="test.pdf",
+            content_length_bytes=100,
+            attributes=DocumentAttributes(),
+        )
+
+
+# ── AssetPresignedUrlRequest new optional fields ─────────────────────────
+
+
+def test_asset_presigned_url_request_with_crop_fields():
+    asset_id = uuid.uuid4()
+    req = AssetPresignedUrlRequest(
+        document_id="doc1",
+        asset_id=asset_id,
+        x0=10,
+        y0=20,
+        x1=500,
+        y1=800,
+    )
+    assert req.x0 == 10
+    assert req.y0 == 20
+    assert req.x1 == 500
+    assert req.y1 == 800
+    assert req.start_time is None
+    assert req.end_time is None
+
+
+def test_asset_presigned_url_request_with_time_fields():
+    asset_id = uuid.uuid4()
+    req = AssetPresignedUrlRequest(
+        document_id="doc1",
+        asset_id=asset_id,
+        start_time=1.5,
+        end_time=10.0,
+    )
+    assert req.start_time == 1.5
+    assert req.end_time == 10.0
+    assert req.x0 is None
+
+
+def test_asset_presigned_url_request_defaults_none():
+    asset_id = uuid.uuid4()
+    req = AssetPresignedUrlRequest(document_id="doc1", asset_id=asset_id)
+    assert req.x0 is None
+    assert req.y0 is None
+    assert req.x1 is None
+    assert req.y1 is None
+    assert req.start_time is None
+    assert req.end_time is None
+
+
+def test_asset_presigned_url_request_crop_bounds_validation():
+    with pytest.raises(ValidationError):
+        AssetPresignedUrlRequest(
+            document_id="doc1",
+            asset_id=uuid.uuid4(),
+            x0=1001,
+        )
+    with pytest.raises(ValidationError):
+        AssetPresignedUrlRequest(
+            document_id="doc1",
+            asset_id=uuid.uuid4(),
+            start_time=-1.0,
+        )
+
+
+# ── AssetPresignedUrlDetails nullable presigned_url ──────────────────────
+
+
+def test_asset_presigned_url_details_null_url():
+    detail = AssetPresignedUrlDetails(
+        document_id="doc1",
+        asset_id=uuid.uuid4(),
+        presigned_url=None,
+    )
+    assert detail.presigned_url is None
+
+
+def test_asset_presigned_url_details_with_url():
+    detail = AssetPresignedUrlDetails(
+        document_id="doc1",
+        asset_id=uuid.uuid4(),
+        presigned_url="https://example.com/asset",
+    )
+    assert detail.presigned_url == "https://example.com/asset"
+
+
+# ── UploadFilePresignedUrl models ────────────────────────────────────────
+
+
+def test_upload_file_presigned_url_request():
+    req = UploadFilePresignedUrlRequest(
+        content_type=ContentTypeEnum.ApplicationPdf,
+        filename="test.pdf",
+    )
+    assert req.content_type == ContentTypeEnum.ApplicationPdf
+
+
+def test_upload_file_presigned_url_response():
+    test_uuid = uuid.uuid4()
+    resp = UploadFilePresignedUrlResponse(
+        file_data_uuid=test_uuid,
+        presigned_url="https://storage.example.com/upload?sig=abc",
+        expires_in_seconds=3600,
+    )
+    assert resp.file_data_uuid == test_uuid
+    assert resp.presigned_url == "https://storage.example.com/upload?sig=abc"
+    assert resp.expires_in_seconds == 3600
+
+
+# ── Client: upload_document with file_data_uuid ──────────────────────────
+
+
+@respx.mock
+def test_upload_document_via_uuid(client: CompassClient, respx_mock: MockRouter):
+    upload_id = uuid.uuid4()
+    document_id = "test_document_id"
+    file_uuid = uuid.uuid4()
+
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/upload").mock(
+        return_value=httpx.Response(200, json={"upload_id": str(upload_id), "document_ids": [document_id]})
+    )
+
+    result = client.upload_document_via_uuid(
+        index_name="test_index",
+        filename="test.pdf",
+        file_data_uuid=file_uuid,
+        content_type=ContentTypeEnum.ApplicationPdf,
+        document_id=document_id,
+    )
+
+    assert route.called
+    assert result == UploadDocumentsResult(upload_id=upload_id, document_ids=[document_id])
+
+    request_body = json.loads(route.calls.last.request.content)
+    doc_payload = request_body["documents"][0]
+    assert doc_payload["file_data_uuid"] == str(file_uuid)
+    assert doc_payload.get("content_encoded_bytes") is None
+
+
+# ── Client: get_upload_presigned_url ─────────────────────────────────────
+
+
+@respx.mock
+def test_get_upload_presigned_url(client: CompassClient, respx_mock: MockRouter):
+    file_uuid = uuid.uuid4()
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/upload/presigned_url").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "file_data_uuid": str(file_uuid),
+                "presigned_url": "https://storage.example.com/upload?sig=xyz",
+                "expires_in_seconds": 3600,
+                "content_type": "application/pdf",
+            },
+        )
+    )
+
+    result = client.get_upload_presigned_url(
+        index_name="test_index",
+        content_type=ContentTypeEnum.ApplicationPdf,
+        filename="test.pdf",
+    )
+
+    assert route.called
+    assert result.file_data_uuid == file_uuid
+    assert result.presigned_url == "https://storage.example.com/upload?sig=xyz"
+    assert result.expires_in_seconds == 3600
+
+    request_body = json.loads(route.calls.last.request.content)
+    assert request_body["content_type"] == "application/pdf"
 
 
 # Retention policy tests
