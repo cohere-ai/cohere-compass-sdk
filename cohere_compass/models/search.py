@@ -2,10 +2,10 @@
 
 # Python imports
 from enum import Enum
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 # 3rd party imports
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from cohere_compass.models.documents import AssetType
 
@@ -26,8 +26,23 @@ class AssetInfo(BaseModel):
     asset_id: str | None = None
     asset_type: AssetType
     content_type: str
-    presigned_url: str | None = None
+    presigned_url: str
     visual_elements: list[VisualElement] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_presigned_url(cls, data: Any) -> Any:
+        """
+        Ensure that the presigned_url is always present.
+
+        This is done to keep it backward compatible.
+        """
+        if isinstance(data, dict):
+            values = cast(dict[str, Any], data)
+            if values.get("presigned_url") is None:
+                values = {**values, "presigned_url": ""}
+            return values
+        return data
 
 
 class RetrievedChunk(BaseModel):

@@ -41,6 +41,7 @@ from cohere_compass.models.indexes import (
     RetentionType,
 )
 from cohere_compass.models.search import (
+    AssetInfo,
     SortBy,
 )
 from tests.utils import SyncifiedCompassAsyncClient
@@ -1147,6 +1148,41 @@ def test_asset_presigned_url_details_with_url():
         presigned_url="https://example.com/asset",
     )
     assert detail.presigned_url == "https://example.com/asset"
+
+
+# ── AssetInfo presigned_url null handling ────────────────────────────────
+
+
+def test_asset_info_null_presigned_url_defaults_to_empty_string():
+    asset = AssetInfo.model_validate(
+        {
+            "asset_type": AssetType.PAGE_IMAGE,
+            "content_type": "image/png",
+            "presigned_url": None,
+        }
+    )
+    assert asset.presigned_url == ""
+
+
+def test_asset_info_missing_presigned_url_defaults_to_empty_string():
+    asset = AssetInfo.model_validate(
+        {
+            "asset_type": AssetType.PAGE_IMAGE,
+            "content_type": "image/png",
+        }
+    )
+    assert asset.presigned_url == ""
+
+
+def test_asset_info_with_presigned_url():
+    asset = AssetInfo.model_validate(
+        {
+            "asset_type": AssetType.PAGE_IMAGE,
+            "content_type": "image/png",
+            "presigned_url": "https://example.com/asset",
+        }
+    )
+    assert asset.presigned_url == "https://example.com/asset"
 
 
 # ── UploadFilePresignedUrl models ────────────────────────────────────────
