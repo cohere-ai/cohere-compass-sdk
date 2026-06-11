@@ -936,6 +936,45 @@ def test_search_documents_with_filters(client: CompassClient, respx_mock: MockRo
     assert result.hits[0].document_id == "doc1"
 
 
+@respx.mock
+def test_search_documents_with_neq_filter(client: CompassClient, respx_mock: MockRouter):
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/_search").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "hits": [
+                    {
+                        "document_id": "doc1",
+                        "score": 0.9,
+                        "content": {"department": "sales"},
+                        "path": "doc1.pdf",
+                        "parent_document_id": "parent1",
+                        "chunks": [],
+                    }
+                ]
+            },
+        )
+    )
+
+    search_filter = SearchFilter(field="department", type=SearchFilter.FilterType.NEQ, value="engineering")
+    result = client.search_documents(index_name="test_index", query="test query", top_k=10, filters=[search_filter])
+
+    assert route.called
+    payload = json.loads(route.calls.last.request.content)
+    assert payload["filters"] == [{"field": "department", "type": "$neq", "value": "engineering"}]
+    assert result.hits[0].document_id == "doc1"
+
+
+def test_search_filter_neq_serialization():
+    search_filter = SearchFilter(field="department", type=SearchFilter.FilterType.NEQ, value="engineering")
+
+    assert search_filter.model_dump(mode="json") == {
+        "field": "department",
+        "type": "$neq",
+        "value": "engineering",
+    }
+
+
 # Test edge cases and validation
 @respx.mock
 def test_empty_query_search(client: CompassClient, respx_mock: MockRouter):
