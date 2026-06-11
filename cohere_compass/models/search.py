@@ -114,6 +114,7 @@ class SearchFilter(BaseModel):
         """Types of filters supported."""
 
         EQ = "$eq"
+        NEQ = "$neq"
         LT_EQ = "$lte"
         GT_EQ = "$gte"
         WORD_MATCH = "$wordMatch"
