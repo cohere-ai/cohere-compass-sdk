@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Literal
 
 # 3rd party imports
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from cohere_compass.models.documents import AssetType
 
@@ -26,8 +26,13 @@ class AssetInfo(BaseModel):
     asset_id: str | None = None
     asset_type: AssetType
     content_type: str
-    presigned_url: str | None = None
+    presigned_url: str
     visual_elements: list[VisualElement] | None = None
+
+    @field_validator("presigned_url", mode="before")
+    @classmethod
+    def _default_presigned_url(cls, value: str | None) -> str:
+        return value if value is not None else ""
 
 
 class RetrievedChunk(BaseModel):
