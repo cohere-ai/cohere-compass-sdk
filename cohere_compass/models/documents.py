@@ -12,10 +12,13 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    GetJsonSchemaHandler,
     PositiveInt,
     StringConstraints,
     model_validator,
 )
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import CoreSchema
 
 # Local imports
 from cohere_compass.constants import URL_SAFE_STRING_PATTERN
@@ -46,10 +49,19 @@ class AssetType(str, Enum):
     PAGE_MARKDOWN = "page_markdown"
     # A dump of the text extracted from a document
     DOCUMENT_TEXT = "document_text"
-
+    # A video asset type
     VIDEO = "video"
-
+    # An audio asset type
     AUDIO = "audio"
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        """Make AssetType an extensible enum for better OpenAPI schema generation."""
+        json_schema = handler(core_schema)
+        values = json_schema.pop("enum", None)
+        if values is not None:
+            json_schema["x-extensible-enum"] = values
+        return json_schema
 
 
 class CompassDocumentChunkAsset(BaseModel):
