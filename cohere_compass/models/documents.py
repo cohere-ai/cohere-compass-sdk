@@ -4,7 +4,7 @@
 import uuid
 from dataclasses import field
 from enum import Enum
-from typing import Annotated, Any, TypeAlias
+from typing import Annotated, Any, TypeAlias, cast
 
 # 3rd party imports
 from pydantic import (
@@ -432,7 +432,22 @@ class AssetPresignedUrlDetails(BaseModel):
 
     document_id: str
     asset_id: uuid.UUID
-    presigned_url: str | None
+    presigned_url: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_presigned_url(cls, data: Any) -> Any:
+        """
+        Ensure that the presigned_url is always present.
+
+        This is done to keep it backward compatible.
+        """
+        if isinstance(data, dict):
+            values = cast(dict[str, Any], data)
+            if values.get("presigned_url") is None:
+                values = {**values, "presigned_url": ""}
+            return values
+        return data
 
 
 class GetAssetPresignedUrlsResponse(BaseModel):

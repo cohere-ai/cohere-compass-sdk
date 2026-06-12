@@ -23,7 +23,6 @@ from cohere_compass.models import (
 )
 from cohere_compass.models.config import IndexConfig
 from cohere_compass.models.documents import (
-    AssetPresignedUrlDetails,
     AssetPresignedUrlRequest,
     AssetType,
     CompassDocumentMetadata,
@@ -31,8 +30,6 @@ from cohere_compass.models.documents import (
     DocumentAttributes,
     ParseableDocument,
     UploadDocumentsResult,
-    UploadFilePresignedUrlRequest,
-    UploadFilePresignedUrlResponse,
 )
 from cohere_compass.models.indexes import (
     IndexDetails,
@@ -1168,27 +1165,6 @@ def test_asset_presigned_url_request_crop_bounds_validation():
         )
 
 
-# ── AssetPresignedUrlDetails nullable presigned_url ──────────────────────
-
-
-def test_asset_presigned_url_details_null_url():
-    detail = AssetPresignedUrlDetails(
-        document_id="doc1",
-        asset_id=uuid.uuid4(),
-        presigned_url=None,
-    )
-    assert detail.presigned_url is None
-
-
-def test_asset_presigned_url_details_with_url():
-    detail = AssetPresignedUrlDetails(
-        document_id="doc1",
-        asset_id=uuid.uuid4(),
-        presigned_url="https://example.com/asset",
-    )
-    assert detail.presigned_url == "https://example.com/asset"
-
-
 # ── AssetInfo presigned_url null handling ────────────────────────────────
 
 
@@ -1222,29 +1198,6 @@ def test_asset_info_with_presigned_url():
         }
     )
     assert asset.presigned_url == "https://example.com/asset"
-
-
-# ── UploadFilePresignedUrl models ────────────────────────────────────────
-
-
-def test_upload_file_presigned_url_request():
-    req = UploadFilePresignedUrlRequest(
-        content_type=ContentTypeEnum.ApplicationPdf,
-        filename="test.pdf",
-    )
-    assert req.content_type == ContentTypeEnum.ApplicationPdf
-
-
-def test_upload_file_presigned_url_response():
-    test_uuid = uuid.uuid4()
-    resp = UploadFilePresignedUrlResponse(
-        file_data_uuid=test_uuid,
-        presigned_url="https://storage.example.com/upload?sig=abc",
-        expires_in_seconds=3600,
-    )
-    assert resp.file_data_uuid == test_uuid
-    assert resp.presigned_url == "https://storage.example.com/upload?sig=abc"
-    assert resp.expires_in_seconds == 3600
 
 
 # ── Client: upload_document with file_data_uuid ──────────────────────────
