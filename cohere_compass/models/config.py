@@ -36,10 +36,12 @@ class TabularParsingStrategy(str, Enum):
 
     Granular: Convert each row of the table to a document chunk.
     Digest: Creates one chunk for the table, containing metadata about the table.
+    SubTables: Splits the table into semantic sub-table chunks optimized for retrieval.
     """
 
     Granular = "granular"
     Digest = "digest"
+    SubTables = "subtables"
 
     @classmethod
     def _missing_(cls, value: Any):
