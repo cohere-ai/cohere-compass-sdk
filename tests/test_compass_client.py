@@ -41,6 +41,14 @@ from cohere_compass.models.search import (
     AssetInfo,
     SortBy,
 )
+from cohere_compass.models.synchronizers import (
+    DataOrigin,
+    DataSelector,
+    Selector,
+    SynchronizerResponse,
+    TreeRequest,
+    UpsertSynchronizerRequest,
+)
 from tests.utils import SyncifiedCompassAsyncClient
 
 HTTPMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
@@ -1341,3 +1349,226 @@ def test_set_retention_policy_sends_correct_body(client: CompassClient):
 )
 def test_delete_retention_policy_sends_request(client: CompassClient):
     client.delete_retention_policy(index_name="test_index")
+
+
+# ── Synchronizers ────────────────────────────────────────────────────
+
+_SYNCHRONIZER_BODY = {
+    "name": "test_sync",
+    "index_name": "test_index",
+    "credential_bundle_id": "user-default",
+    "credential_bundle_user_id": "alice",
+    "data_origin_id": "sharepoint",
+    "data_selector": None,
+    "atlas_data_connection_id": "conn-1",
+    "auth_status": "authenticated",
+    "created_at": "2024-01-27T10:14:00Z",
+    "updated_at": "2024-01-27T10:14:00Z",
+}
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/synchronizers/data-origins",
+    200,
+    response_body={
+        "data_origins": [
+            {"id": "sharepoint", "name": "SharePoint", "description": "", "uri": None},
+            {"id": "onedrive", "name": "OneDrive"},
+        ]
+    },
+)
+def test_list_data_origins(client: CompassClient):
+    result = client.list_data_origins()
+    assert result.data_origins == [
+        DataOrigin(id="sharepoint", name="SharePoint"),
+        DataOrigin(id="onedrive", name="OneDrive"),
+    ]
+
+
+@mock_endpoint(
+    "PUT",
+    "http://test.com/v1/indexes/test_index/synchronizers/test_sync",
+    200,
+    response_body=_SYNCHRONIZER_BODY,
+    expected_request_body={
+        "data_origin_id": "sharepoint",
+        "credential_bundle_id": "user-default",
+    },
+)
+def test_upsert_synchronizer_sends_correct_body(client: CompassClient):
+    result = client.upsert_synchronizer(
+        index_name="test_index",
+        synchronizer_name="test_sync",
+        synchronizer=UpsertSynchronizerRequest(data_origin_id="sharepoint"),
+    )
+    assert isinstance(result, SynchronizerResponse)
+    assert result.name == "test_sync"
+    assert result.auth_status == "authenticated"
+
+
+@mock_endpoint(
+    "PUT",
+    "http://test.com/v1/indexes/test_index/synchronizers/test_sync",
+    200,
+    response_body=_SYNCHRONIZER_BODY,
+    expected_request_body={
+        "data_origin_id": "sharepoint",
+        "credential_bundle_id": "team",
+        "data_selector": {"include_selector": {"patterns": ["docs/**"]}},
+    },
+)
+def test_upsert_synchronizer_with_selector_and_bundle(client: CompassClient):
+    client.upsert_synchronizer(
+        index_name="test_index",
+        synchronizer_name="test_sync",
+        synchronizer=UpsertSynchronizerRequest(
+            data_origin_id="sharepoint",
+            credential_bundle_id="team",
+            data_selector=DataSelector(include_selector=Selector(patterns=["docs/**"])),
+        ),
+    )
+
+
+@respx.mock
+def test_upsert_synchronizer_with_invalid_name(client: CompassClient, respx_mock: MockRouter):
+    with pytest.raises(ValueError) as exc_info:
+        client.upsert_synchronizer(
+            index_name="test_index",
+            synchronizer_name="has/slashes",
+            synchronizer=UpsertSynchronizerRequest(data_origin_id="sharepoint"),
+        )
+    assert "Invalid synchronizer name" in str(exc_info.value)
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes/test_index/synchronizers/test_sync",
+    200,
+    response_body=_SYNCHRONIZER_BODY,
+)
+def test_get_synchronizer(client: CompassClient):
+    result = client.get_synchronizer(index_name="test_index", synchronizer_name="test_sync")
+    assert result.name == "test_sync"
+    assert result.credential_bundle_user_id == "alice"
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes/test_index/synchronizers",
+    200,
+    response_body={"synchronizers": [_SYNCHRONIZER_BODY]},
+)
+def test_list_synchronizers(client: CompassClient):
+    result = client.list_synchronizers(index_name="test_index")
+    assert len(result.synchronizers) == 1
+    assert result.synchronizers[0].name == "test_sync"
+
+
+@mock_endpoint(
+    "DELETE",
+    "http://test.com/v1/indexes/test_index/synchronizers/test_sync",
+    204,
+)
+def test_delete_synchronizer(client: CompassClient):
+    client.delete_synchronizer(index_name="test_index", synchronizer_name="test_sync")
+
+
+@mock_endpoint(
+    "POST",
+    "http://test.com/v1/indexes/test_index/synchronizers/test_sync/tree",
+    200,
+    response_body={
+        "tree_entries": [
+            {"display_name": "Docs", "selector_path": "/docs", "type": "folder"},
+        ],
+        "page_token": "next",
+    },
+    expected_request_body={"depth": 1, "page_size": 0, "page_token": ""},
+)
+def test_get_synchronizer_tree(client: CompassClient):
+    result = client.get_synchronizer_tree(
+        index_name="test_index",
+        synchronizer_name="test_sync",
+        tree_request=TreeRequest(depth=1),
+    )
+    assert result.page_token == "next"
+    assert result.tree_entries[0].display_name == "Docs"
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes/test_index/synchronizers/test_sync/oauth/auth",
+    200,
+    response_body={"auth_url": "https://idp.example.com/authorize?x=1"},
+)
+def test_get_synchronizer_oauth_url(client: CompassClient):
+    result = client.get_synchronizer_oauth_url(index_name="test_index", synchronizer_name="test_sync")
+    assert result.auth_url == "https://idp.example.com/authorize?x=1"
+
+
+@mock_endpoint(
+    "POST",
+    "http://test.com/v1/indexes/test_index/synchronizers/test_sync/sync",
+    200,
+    response_body=_SYNCHRONIZER_BODY,
+)
+def test_start_sync(client: CompassClient):
+    result = client.start_sync(index_name="test_index", synchronizer_name="test_sync")
+    assert result.name == "test_sync"
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes/test_index/synchronizers/test_sync/sync",
+    200,
+    response_body={
+        "sync_status": {
+            "total_count": 10,
+            "done_count": 7,
+            "failed_items": [],
+            "last_sync_time": "2024-01-27T10:14:00Z",
+            "last_sync_state": "running",
+        }
+    },
+)
+def test_get_sync_status(client: CompassClient):
+    result = client.get_sync_status(index_name="test_index", synchronizer_name="test_sync")
+    assert result.sync_status is not None
+    assert result.sync_status.total_count == 10
+    assert result.sync_status.done_count == 7
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes/test_index/synchronizers/test_sync/sync/latest-job",
+    200,
+    response_body={"latest_sync_job": {"id": "job-1", "state": "running"}},
+)
+def test_get_latest_sync_job(client: CompassClient):
+    result = client.get_latest_sync_job(index_name="test_index", synchronizer_name="test_sync")
+    assert result.latest_sync_job == {"id": "job-1", "state": "running"}
+
+
+@mock_endpoint(
+    "POST",
+    "http://test.com/v1/indexes/test_index/synchronizers/test_sync/cancel",
+    200,
+    response_body=_SYNCHRONIZER_BODY,
+)
+def test_cancel_sync(client: CompassClient):
+    result = client.cancel_sync(index_name="test_index", synchronizer_name="test_sync")
+    assert result.name == "test_sync"
+
+
+@respx.mock
+def test_upsert_synchronizer_409_propagated_to_caller(client: CompassClient, respx_mock: MockRouter):
+    respx_mock.put("http://test.com/v1/indexes/test_index/synchronizers/test_sync").mock(
+        return_value=httpx.Response(409, json={"error": "data_origin_id cannot change"})
+    )
+    with pytest.raises(CompassError):
+        client.upsert_synchronizer(
+            index_name="test_index",
+            synchronizer_name="test_sync",
+            synchronizer=UpsertSynchronizerRequest(data_origin_id="onedrive"),
+        )
