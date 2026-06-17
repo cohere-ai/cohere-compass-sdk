@@ -9,6 +9,7 @@ concurrent operations and comprehensive error handling.
 # Python imports
 import base64
 import os
+import re
 import uuid
 from collections import deque
 from collections.abc import AsyncIterable, Iterable
@@ -31,6 +32,7 @@ from tenacity import (
 from cohere_compass import GroupAuthorizationInput
 from cohere_compass.clients.compass import (
     API_DEFINITIONS,
+    SYNCHRONIZER_NAME_PATTERN,
     _SendRequestResult,  # pyright: ignore[reportPrivateUsage]
     logger,
 )
@@ -82,10 +84,19 @@ from cohere_compass.models.documents import (
 )
 from cohere_compass.models.indexes import IndexDetails, ListIndexesResponse, RetentionPolicy
 from cohere_compass.models.search import GetDocumentResponse, RetrievedDocument, SortBy
-from cohere_compass.utils.asyn import async_apply, async_enumerate
-from cohere_compass.utils.documents import (
-    partition_documents_async,
+from cohere_compass.models.synchronizers import (
+    DataOriginResponse,
+    GetLatestSyncJobResponse,
+    GetSyncStatusResponse,
+    ListSynchronizerResponse,
+    OAuthResponse,
+    SynchronizerResponse,
+    TreeRequest,
+    TreeResponse,
+    UpsertSynchronizerRequest,
 )
+from cohere_compass.utils.asyn import async_apply, async_enumerate
+from cohere_compass.utils.documents import partition_documents_async
 from cohere_compass.utils.retry import is_retryable_httpx_exception
 
 
@@ -431,6 +442,396 @@ class CompassAsyncClient:
             retry_wait=retry_wait,
             timeout=timeout,
         )
+
+    async def list_data_origins(
+        self,
+        *,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> DataOriginResponse:
+        """
+        List the data origins supported by this deployment (e.g. SharePoint, OneDrive).
+
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            A DataOriginResponse listing the supported data origins.
+
+        """
+        result = await self._send_request(
+            api_name="list_data_origins",
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return DataOriginResponse.model_validate(result.result)
+
+    async def upsert_synchronizer(
+        self,
+        *,
+        index_name: str,
+        synchronizer_name: str,
+        synchronizer: UpsertSynchronizerRequest,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> SynchronizerResponse:
+        """
+        Create or update a synchronizer on an index.
+
+        On create, this provisions the backing Atlas role, data connection, and data
+        consumer. On update, the credential owner may change the data selector or
+        credential bundle; a non-owner may only replace the credentials with their own.
+
+        :param index_name: The index the synchronizer feeds.
+        :param synchronizer_name: The synchronizer name. Must match
+            ``^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$``.
+        :param synchronizer: The synchronizer configuration to upsert.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            The upserted SynchronizerResponse.
+
+        :raises ValueError: If the synchronizer name contains invalid characters.
+
+        """
+        if not re.match(SYNCHRONIZER_NAME_PATTERN, synchronizer_name):
+            raise ValueError(f"Invalid synchronizer name '{synchronizer_name}', please avoid special characters.")
+        result = await self._send_request(
+            api_name="upsert_synchronizer",
+            index_name=index_name,
+            synchronizer_name=synchronizer_name,
+            data=synchronizer,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return SynchronizerResponse.model_validate(result.result)
+
+    async def get_synchronizer(
+        self,
+        *,
+        index_name: str,
+        synchronizer_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> SynchronizerResponse:
+        """
+        Get a synchronizer and its current authentication status.
+
+        :param index_name: The index the synchronizer feeds.
+        :param synchronizer_name: The synchronizer name.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            The requested SynchronizerResponse.
+
+        """
+        result = await self._send_request(
+            api_name="get_synchronizer",
+            index_name=index_name,
+            synchronizer_name=synchronizer_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return SynchronizerResponse.model_validate(result.result)
+
+    async def list_synchronizers(
+        self,
+        *,
+        index_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> ListSynchronizerResponse:
+        """
+        List all synchronizers on an index, regardless of which user created them.
+
+        :param index_name: The index to list synchronizers for.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            A ListSynchronizerResponse with all synchronizers for the index.
+
+        """
+        result = await self._send_request(
+            api_name="list_synchronizers",
+            index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return ListSynchronizerResponse.model_validate(result.result)
+
+    async def delete_synchronizer(
+        self,
+        *,
+        index_name: str,
+        synchronizer_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ):
+        """
+        Delete a synchronizer and clean up its Atlas resources.
+
+        :param index_name: The index the synchronizer feeds.
+        :param synchronizer_name: The synchronizer name.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        """
+        await self._send_request(
+            api_name="delete_synchronizer",
+            index_name=index_name,
+            synchronizer_name=synchronizer_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+    async def get_synchronizer_tree(
+        self,
+        *,
+        index_name: str,
+        synchronizer_name: str,
+        tree_request: TreeRequest | None = None,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> TreeResponse:
+        """
+        Browse the tree structure of a synchronizer's data origin (e.g. folders).
+
+        :param index_name: The index the synchronizer feeds.
+        :param synchronizer_name: The synchronizer name.
+        :param tree_request: Which subtree to browse and how. Defaults to the root.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            A TreeResponse with the requested tree entries.
+
+        """
+        result = await self._send_request(
+            api_name="get_synchronizer_tree",
+            index_name=index_name,
+            synchronizer_name=synchronizer_name,
+            data=tree_request or TreeRequest(),
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return TreeResponse.model_validate(result.result)
+
+    async def get_synchronizer_oauth_url(
+        self,
+        *,
+        index_name: str,
+        synchronizer_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> OAuthResponse:
+        """
+        Get the OAuth authorization URL for a synchronizer's credential.
+
+        The credential owner visits this URL to authorize the data origin before
+        syncing can succeed.
+
+        :param index_name: The index the synchronizer feeds.
+        :param synchronizer_name: The synchronizer name.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            An OAuthResponse containing the authorization URL.
+
+        """
+        result = await self._send_request(
+            api_name="get_synchronizer_oauth_url",
+            index_name=index_name,
+            synchronizer_name=synchronizer_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return OAuthResponse.model_validate(result.result)
+
+    async def start_sync(
+        self,
+        *,
+        index_name: str,
+        synchronizer_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> SynchronizerResponse:
+        """
+        Start a sync job for a synchronizer.
+
+        :param index_name: The index the synchronizer feeds.
+        :param synchronizer_name: The synchronizer name.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            The SynchronizerResponse after the sync job has been started.
+
+        """
+        result = await self._send_request(
+            api_name="start_sync",
+            index_name=index_name,
+            synchronizer_name=synchronizer_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return SynchronizerResponse.model_validate(result.result)
+
+    async def get_sync_status(
+        self,
+        *,
+        index_name: str,
+        synchronizer_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> GetSyncStatusResponse:
+        """
+        Get the cumulative sync status for a synchronizer.
+
+        :param index_name: The index the synchronizer feeds.
+        :param synchronizer_name: The synchronizer name.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            A GetSyncStatusResponse with the cumulative sync status.
+
+        """
+        result = await self._send_request(
+            api_name="get_sync_status",
+            index_name=index_name,
+            synchronizer_name=synchronizer_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return GetSyncStatusResponse.model_validate(result.result)
+
+    async def get_latest_sync_job(
+        self,
+        *,
+        index_name: str,
+        synchronizer_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> GetLatestSyncJobResponse:
+        """
+        Get the latest sync job for a synchronizer.
+
+        :param index_name: The index the synchronizer feeds.
+        :param synchronizer_name: The synchronizer name.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            A GetLatestSyncJobResponse with the most recent sync job.
+
+        """
+        result = await self._send_request(
+            api_name="get_latest_sync_job",
+            index_name=index_name,
+            synchronizer_name=synchronizer_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return GetLatestSyncJobResponse.model_validate(result.result)
+
+    async def cancel_sync(
+        self,
+        *,
+        index_name: str,
+        synchronizer_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> SynchronizerResponse:
+        """
+        Cancel the current sync job for a synchronizer.
+
+        :param index_name: The index the synchronizer feeds.
+        :param synchronizer_name: The synchronizer name.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            The SynchronizerResponse after the sync job has been cancelled.
+
+        """
+        result = await self._send_request(
+            api_name="cancel_sync",
+            index_name=index_name,
+            synchronizer_name=synchronizer_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return SynchronizerResponse.model_validate(result.result)
 
     async def delete_document(
         self,

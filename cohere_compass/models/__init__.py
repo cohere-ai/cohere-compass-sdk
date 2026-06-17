@@ -46,3 +46,4 @@ from cohere_compass.models.indexes import (  # noqa: E402
     RetentionType as RetentionType,
 )
 from cohere_compass.models.search import *  # noqa: E402, F403
+from cohere_compass.models.synchronizers import *  # noqa: E402, F403
