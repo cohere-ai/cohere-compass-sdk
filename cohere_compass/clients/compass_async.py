@@ -83,7 +83,13 @@ from cohere_compass.models.documents import (
     UploadFilePresignedUrlResponse,
 )
 from cohere_compass.models.indexes import IndexDetails, ListIndexesResponse, RetentionPolicy
-from cohere_compass.models.search import GetDocumentResponse, RetrievedDocument, SortBy
+from cohere_compass.models.search import (
+    BatchGetDocumentsRequest,
+    BatchGetDocumentsResponse,
+    GetDocumentResponse,
+    RetrievedDocument,
+    SortBy,
+)
 from cohere_compass.models.synchronizers import (
     DataOriginResponse,
     GetLatestSyncJobResponse,
@@ -897,6 +903,44 @@ class CompassAsyncClient:
         )
         response = GetDocumentResponse.model_validate(result.result)
         return response.document
+
+    async def batch_get_documents(
+        self,
+        *,
+        index_name: str,
+        document_ids: list[str],
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> BatchGetDocumentsResponse:
+        """
+        Retrieve multiple documents from Compass by their IDs in a single request.
+
+        Documents that are not found are silently omitted from the response; a not-found
+        error is only raised when none of the requested IDs exist in the index.
+
+        :param index_name: The name of the index containing the documents.
+        :param document_ids: List of document IDs to retrieve.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            BatchGetDocumentsResponse containing the list of retrieved documents.
+
+        """
+        result = await self._send_request(
+            api_name="batch_get_documents",
+            data=BatchGetDocumentsRequest(document_ids=document_ids),
+            index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return BatchGetDocumentsResponse.model_validate(result.result)
 
     async def list_indexes(
         self,

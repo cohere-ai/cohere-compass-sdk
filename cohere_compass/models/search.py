@@ -95,6 +95,18 @@ class GetDocumentResponse(BaseModel):
     document: RetrievedDocument
 
 
+class BatchGetDocumentsRequest(BaseModel):
+    """Request body for batch_get_documents API."""
+
+    document_ids: list[str]
+
+
+class BatchGetDocumentsResponse(BaseModel):
+    """Response object for batch_get_documents API."""
+
+    documents: list[RetrievedDocument]
+
+
 class SearchDocumentsResponse(BaseModel):
     """Response object for search_documents API."""
 
