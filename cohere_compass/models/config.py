@@ -122,54 +122,8 @@ class DocxParsingStrategy(str, Enum):
         return cls.MarkItDown
 
 
-class ParsingStrategy(str, Enum):
-    """Enum for specifying the parsing strategy to use."""
-
-    Fast = "fast"
-    Hi_Res = "hi_res"
-
-    @classmethod
-    def _missing_(cls, value: Any):
-        return cls.Fast
-
-
-class ParsingModel(str, Enum):
-    """Enum for specifying the parsing model to use."""
-
-    # Default model, which is actually a combination of models used by the "Marker" PDF
-    # parser
-    Marker = "marker"
-    # Only PDF parsing working option from Unstructured
-    YoloX_Quantized = "yolox_quantized"
-
-    @classmethod
-    def _missing_(cls, value: Any):
-        return cls.Marker
-
-
 class ParserConfig(BaseModel):
-    """
-    A model class for specifying parsing configuration.
-
-    Important parameters:
-
-    :param parsing_strategy: the parsing strategy to use:
-        - 'auto' (default): automatically determine the best strategy
-        - 'fast': leverage traditional NLP extraction techniques to quickly pull all the
-          text elements. “Fast” strategy is not good for image based file types.
-        - 'hi_res': identifies the layout of the document using detectron2. The
-          advantage of “hi_res” is that it uses the document layout to gain additional
-          information about document elements.  We recommend using this strategy if your
-          use case is highly sensitive to correct classifications for document elements.
-        - 'ocr_only': leverage Optical Character Recognition to extract text from the
-          image based files.
-    :param parsing_model: the parsing model to use. One of:
-        - yolox_quantized (default): single-stage object detection model, quantized.
-          Runs faster than YoloX. See
-          https://unstructured-io.github.io/unstructured/best_practices/models.html for
-          more details. We have temporarily removed the option to use other models
-          because of ongoing stability issues.
-    """
+    """A model class for specifying parsing configuration."""
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -181,8 +135,6 @@ class ParserConfig(BaseModel):
     allowed_image_types: list[str] | None = None
     min_chars_per_element: int = DEFAULT_MIN_CHARS_PER_ELEMENT
     skip_infer_table_types: list[str] = SKIP_INFER_TABLE_TYPES
-    parsing_strategy: ParsingStrategy = ParsingStrategy.Fast
-    parsing_model: ParsingModel = ParsingModel.YoloX_Quantized
 
     # CompassChunker configuration
     num_tokens_per_chunk: int = DEFAULT_NUM_TOKENS_PER_CHUNK

@@ -53,6 +53,8 @@ class AssetType(str, Enum):
     VIDEO = "video"
     # An audio asset type
     AUDIO = "audio"
+    # The original uploaded file bytes (when enable_raw_file_asset is on)
+    RAW = "raw"
 
     @classmethod
     def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
@@ -505,6 +507,7 @@ class ContentTypeEnum(str, Enum):
     # Audio types
     AudioMpeg = "audio/mpeg"
     AudioWav = "audio/wav"
+    AudioMp3 = "audio/mp3"
 
     # Video types
     VideoMp4 = "video/mp4"
