@@ -490,8 +490,6 @@ class ContentTypeEnum(str, Enum):
     ApplicationMsOutlook = "application/vnd.ms-outlook"
     ApplicationOctetStream = "application/octet-stream"
     ApplicationRtf = "application/rtf"
-    # Pre-parsed CompassDocument JSON (upload with this MIME to skip parsing).
-    ApplicationVndCohereCompassV1Json = "application/vnd.cohere.compassV1+json"
     # HWP types
     ApplicationXHwp = "application/x-hwp"
     ApplicationXHwpx = "application/x-hwpx"
