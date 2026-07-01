@@ -122,35 +122,8 @@ class DocxParsingStrategy(str, Enum):
         return cls.MarkItDown
 
 
-class ParsingStrategy(str, Enum):
-    """Enum for specifying the parsing strategy to use."""
-
-    Auto = "auto"
-    Fast = "fast"
-    Hi_Res = "hi_res"
-
-    @classmethod
-    def _missing_(cls, value: Any):
-        return cls.Fast
-
-
 class ParserConfig(BaseModel):
-    """
-    A model class for specifying parsing configuration.
-
-    Important parameters:
-
-    :param parsing_strategy: the parsing strategy to use:
-        - 'auto' (default): automatically determine the best strategy
-        - 'fast': leverage traditional NLP extraction techniques to quickly pull all the
-          text elements. “Fast” strategy is not good for image based file types.
-        - 'hi_res': identifies the layout of the document using detectron2. The
-          advantage of “hi_res” is that it uses the document layout to gain additional
-          information about document elements.  We recommend using this strategy if your
-          use case is highly sensitive to correct classifications for document elements.
-        - 'ocr_only': leverage Optical Character Recognition to extract text from the
-          image based files.
-    """
+    """A model class for specifying parsing configuration."""
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -162,7 +135,6 @@ class ParserConfig(BaseModel):
     allowed_image_types: list[str] | None = None
     min_chars_per_element: int = DEFAULT_MIN_CHARS_PER_ELEMENT
     skip_infer_table_types: list[str] = SKIP_INFER_TABLE_TYPES
-    parsing_strategy: ParsingStrategy = ParsingStrategy.Fast
 
     # CompassChunker configuration
     num_tokens_per_chunk: int = DEFAULT_NUM_TOKENS_PER_CHUNK
