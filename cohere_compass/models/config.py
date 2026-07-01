@@ -125,6 +125,7 @@ class DocxParsingStrategy(str, Enum):
 class ParsingStrategy(str, Enum):
     """Enum for specifying the parsing strategy to use."""
 
+    Auto = "auto"
     Fast = "fast"
     Hi_Res = "hi_res"
 
@@ -136,8 +137,8 @@ class ParsingStrategy(str, Enum):
 class ParsingModel(str, Enum):
     """Enum for specifying the parsing model to use."""
 
-    # Default model, which is actually a combination of models used by the "Marker" PDF
-    # parser
+    # Deprecated: Marker is retained for backward compatibility; the server currently
+    # accepts yolox_quantized for PDF parsing.
     Marker = "marker"
     # Only PDF parsing working option from Unstructured
     YoloX_Quantized = "yolox_quantized"

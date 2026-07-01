@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Literal, cast
 
 # 3rd party imports
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from cohere_compass.models.documents import AssetType
 
@@ -26,7 +26,14 @@ class AssetInfo(BaseModel):
     asset_id: str | None = None
     asset_type: AssetType
     content_type: str
-    presigned_url: str
+    presigned_url: str = Field(
+        default="",
+        deprecated=True,
+        description=(
+            'Deprecated: use get_asset_presigned_urls ("/{index_name}/assets/_presigned_urls") instead. '
+            "May be empty for AUDIO, VIDEO, and RAW assets."
+        ),
+    )
     visual_elements: list[VisualElement] | None = None
 
     @model_validator(mode="before")

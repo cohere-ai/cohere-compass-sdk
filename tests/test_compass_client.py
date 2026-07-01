@@ -1208,6 +1208,60 @@ def test_asset_info_with_presigned_url():
     assert asset.presigned_url == "https://example.com/asset"
 
 
+def test_asset_info_accepts_raw_asset_type():
+    """RAW is returned by search when enable_raw_file_asset is enabled on the server."""
+    asset = AssetInfo.model_validate(
+        {
+            "asset_type": AssetType.RAW,
+            "content_type": "application/pdf",
+            "presigned_url": "https://example.com/raw.pdf",
+        }
+    )
+    assert asset.asset_type == AssetType.RAW
+
+
+def test_search_chunks_response_accepts_raw_assets_info():
+    from cohere_compass.models.search import SearchChunksResponse
+
+    response = SearchChunksResponse.model_validate(
+        {
+            "hits": [
+                {
+                    "chunk_id": "doc/1",
+                    "sort_id": 0,
+                    "parent_document_id": "doc",
+                    "path": "example.pdf",
+                    "content": {"text": "hello"},
+                    "origin": {},
+                    "score": 1.0,
+                    "document_id": "doc",
+                    "assets_info": [
+                        {
+                            "asset_type": "raw",
+                            "content_type": "application/pdf",
+                            "presigned_url": "https://example.com/raw.pdf",
+                            "asset_id": "00000000-0000-0000-0000-000000000001",
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+    assert response.hits[0].assets_info is not None
+    assert response.hits[0].assets_info[0].asset_type == AssetType.RAW
+
+
+def test_content_type_enum_includes_compass_v1_json_and_audio_mp3():
+    assert ContentTypeEnum.ApplicationVndCohereCompassV1Json == "application/vnd.cohere.compassV1+json"
+    assert ContentTypeEnum.AudioMp3 == "audio/mp3"
+
+
+def test_parsing_strategy_includes_auto():
+    from cohere_compass.models.config import ParsingStrategy
+
+    assert ParsingStrategy.Auto == "auto"
+
+
 # ── Client: upload_document with file_data_uuid ──────────────────────────
 
 
