@@ -18,6 +18,7 @@ class VisualElement(BaseModel):
     y0: int
     x1: int
     y1: int
+    asset_id: str | None = None
 
 
 class AssetInfo(BaseModel):
