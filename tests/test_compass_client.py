@@ -40,6 +40,7 @@ from cohere_compass.models.indexes import (
 from cohere_compass.models.search import (
     AssetInfo,
     SortBy,
+    VisualElement,
 )
 from cohere_compass.models.synchronizers import (
     DataOrigin,
@@ -1206,6 +1207,39 @@ def test_asset_info_with_presigned_url():
         }
     )
     assert asset.presigned_url == "https://example.com/asset"
+
+
+# ── VisualElement asset_id ───────────────────────────────────────────────
+
+
+def test_visual_element_carries_asset_id():
+    """The visual element repeats its owning asset_id so it sits beside the element's coordinates."""
+    element = VisualElement.model_validate(
+        {"id": 1, "x0": 72, "y0": 100, "x1": 924, "y1": 215, "asset_id": "b77a2254-c0ae-4005-bad1-fa86ff15675f"}
+    )
+    assert element.asset_id == "b77a2254-c0ae-4005-bad1-fa86ff15675f"
+
+
+def test_visual_element_asset_id_defaults_to_none_when_absent():
+    """Responses from older servers omit asset_id; the field stays None rather than failing to parse."""
+    element = VisualElement.model_validate({"id": 1, "x0": 0, "y0": 0, "x1": 1, "y1": 1})
+    assert element.asset_id is None
+
+
+def test_asset_info_visual_elements_expose_asset_id():
+    """asset_id survives when a visual element is parsed as part of an AssetInfo payload."""
+    asset = AssetInfo.model_validate(
+        {
+            "asset_type": AssetType.PAGE_IMAGE,
+            "content_type": "image/png",
+            "presigned_url": "https://example.com/asset",
+            "visual_elements": [
+                {"id": 1, "x0": 72, "y0": 100, "x1": 924, "y1": 215, "asset_id": "asset-1"},
+            ],
+        }
+    )
+    assert asset.visual_elements is not None
+    assert asset.visual_elements[0].asset_id == "asset-1"
 
 
 # ── Client: upload_document with file_data_uuid ──────────────────────────
