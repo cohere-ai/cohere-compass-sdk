@@ -379,10 +379,9 @@ class CompassParserClient:
         for doc in res.json()["docs"]:
             if doc.get("errors"):
                 logger.error(f"Error processing file {filename}: {doc['errors']}")
-            else:
-                compass_doc = CompassDocument.adapt_doc_id_compass_doc(doc)
-                additional_metadata = CompassParserClient._get_metadata(doc=compass_doc, custom_context=custom_context)
-                compass_doc.content = {**compass_doc.content, **additional_metadata}
-                docs.append(compass_doc)
+            compass_doc = CompassDocument.adapt_doc_id_compass_doc(doc)
+            additional_metadata = CompassParserClient._get_metadata(doc=compass_doc, custom_context=custom_context)
+            compass_doc.content = {**compass_doc.content, **additional_metadata}
+            docs.append(compass_doc)
 
         return docs
