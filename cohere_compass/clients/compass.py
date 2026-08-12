@@ -64,7 +64,7 @@ from cohere_compass.models import (
     UploadDocumentsInput,
     UploadDocumentsResult,
 )
-from cohere_compass.models.config import IndexConfig
+from cohere_compass.models.config import IndexConfig, SupportedFileTypesResponse
 from cohere_compass.models.documents import (
     AssetPresignedUrlDetails,
     AssetPresignedUrlRequest,
@@ -128,6 +128,10 @@ API_DEFINITIONS = {
     "get_models": (
         "GET",
         "config/models",
+    ),
+    "get_supported_file_types": (
+        "GET",
+        "config/supported-file-types",
     ),
     # Index APIs
     "create_index": (
@@ -388,6 +392,42 @@ class CompassClient:
             raise ValueError("Invalid response from Compass API")
 
         return result.result
+
+    def get_supported_file_types(
+        self,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> SupportedFileTypesResponse:
+        """
+        Get the file types Compass can currently parse and index.
+
+        The result depends on the deployment's runtime configuration, so it describes
+        what this Compass deployment accepts rather than a fixed capability list.
+
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        :return: The supported file types, pairing accepted MIME types with the file
+            extensions that map to them.
+
+        :raises CompassClientError: With code 404 against Compass deployments that
+            predate this endpoint.
+        """
+        result = self._send_request(
+            api_name="get_supported_file_types",
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        if not isinstance(result.result, dict):
+            raise ValueError("Invalid response from Compass API")
+
+        return SupportedFileTypesResponse.model_validate(result.result)
 
     def create_index(
         self,

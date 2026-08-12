@@ -21,7 +21,11 @@ from cohere_compass.models import (
     CompassDocument,
     SearchFilter,
 )
-from cohere_compass.models.config import IndexConfig
+from cohere_compass.models.config import (
+    IndexConfig,
+    SupportedFileType,
+    SupportedFileTypesResponse,
+)
 from cohere_compass.models.documents import (
     AssetPresignedUrlRequest,
     AssetType,
@@ -544,6 +548,72 @@ def test_get_models(client: CompassClient, respx_mock: MockRouter):
             "rerank-v3.5",
         ],
     }
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/config/supported-file-types",
+    200,
+    response_body={
+        "file_types": [
+            {"mime_types": ["application/pdf"], "extensions": [".pdf"]},
+            {"mime_types": ["text/html"], "extensions": [".htm", ".html"]},
+            {"mime_types": ["application/octet-stream"], "extensions": []},
+        ]
+    },
+)
+def test_get_supported_file_types_returns_parsed_response(client: CompassClient):
+    """Each advertised format is parsed into a SupportedFileType with its MIME types and extensions."""
+    result = client.get_supported_file_types()
+
+    assert result == SupportedFileTypesResponse(
+        file_types=[
+            SupportedFileType(mime_types=["application/pdf"], extensions=[".pdf"]),
+            SupportedFileType(mime_types=["text/html"], extensions=[".htm", ".html"]),
+            SupportedFileType(mime_types=["application/octet-stream"], extensions=[]),
+        ]
+    )
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/config/supported-file-types",
+    200,
+    response_body={"file_types": [{"mime_types": ["application/x-not-in-sdk-enum"], "extensions": [".weird"]}]},
+)
+def test_get_supported_file_types_accepts_mime_types_unknown_to_the_sdk(client: CompassClient):
+    """A newer deployment advertising a MIME type the SDK's ContentTypeEnum lacks must still parse."""
+    result = client.get_supported_file_types()
+
+    assert result.mime_types == {"application/x-not-in-sdk-enum"}
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/config/supported-file-types",
+    200,
+    response_body={"file_types": []},
+)
+def test_get_supported_file_types_handles_empty_file_types(client: CompassClient):
+    """A deployment advertising nothing yields an empty response rather than an error."""
+    result = client.get_supported_file_types()
+
+    assert result.file_types == []
+    assert result.mime_types == set()
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/config/supported-file-types",
+    404,
+    response_body={"detail": "Not Found"},
+)
+def test_get_supported_file_types_raises_client_error_on_older_deployment(client: CompassClient):
+    """Deployments predating the endpoint return 404, which must surface as a catchable CompassClientError."""
+    with pytest.raises(CompassClientError) as exc_info:
+        client.get_supported_file_types()
+
+    assert exc_info.value.code == 404
 
 
 @respx.mock
