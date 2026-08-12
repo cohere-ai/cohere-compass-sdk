@@ -3,6 +3,7 @@
 # Python imports
 import math
 from enum import Enum
+from pathlib import PurePosixPath
 from typing import Annotated, Any, Literal
 
 # 3rd party imports
@@ -215,3 +216,82 @@ class IndexConfig(BaseModel):
     analyzer: str | None = None
     dense_model: str | None = None
     sparse_model: str | None = None
+
+
+class SupportedFileType(BaseModel):
+    """
+    One file format Compass accepts, as a set of MIME types and matching extensions.
+
+    MIME types are modelled as plain strings rather than ContentTypeEnum so that a
+    Compass deployment newer than the SDK can advertise types the SDK does not know
+    about yet without failing validation.
+
+    :param mime_types: MIME types accepted for this format, canonical type first
+        followed by any aliases that resolve to the same extensions.
+    :param extensions: File extensions for this format, lowercase and dot-prefixed.
+        Empty for formats uploaded by MIME type only, such as application/octet-stream.
+    """
+
+    mime_types: list[str] = Field(
+        default_factory=list,
+        description="MIME types accepted for this format: canonical type first, then aliases.",
+    )
+    extensions: list[str] = Field(
+        default_factory=list,
+        description="File extensions (with leading dot) for this format. Empty for MIME-only formats.",
+    )
+
+
+class SupportedFileTypesResponse(BaseModel):
+    """
+    The file formats a Compass deployment can currently parse and index.
+
+    The set is gated by the deployment's runtime configuration rather than being a
+    static capability list: audio formats are advertised only when ASR is enabled, and
+    video formats additionally require the video LLM. Query it per deployment instead
+    of caching it across environments.
+
+    :param file_types: The supported formats, each pairing MIME types with extensions.
+    """
+
+    file_types: list[SupportedFileType] = Field(
+        default_factory=list[SupportedFileType],
+        description="Supported formats, each pairing accepted MIME types with their file extensions.",
+    )
+
+    @property
+    def mime_types(self) -> set[str]:
+        """All accepted MIME types, flattened across formats."""
+        return {mime_type for file_type in self.file_types for mime_type in file_type.mime_types}
+
+    @property
+    def extensions(self) -> set[str]:
+        """All accepted file extensions, flattened across formats."""
+        return {extension for file_type in self.file_types for extension in file_type.extensions}
+
+    def supports(self, *, filename: str | None = None, mime_type: str | None = None) -> bool:
+        """
+        Check whether Compass accepts a file identified by its name and/or MIME type.
+
+        When both arguments are given the file counts as supported if either one
+        matches, since Compass can accept an upload on the strength of either signal.
+        Prefer passing the MIME type when you have a trustworthy one, as that is what
+        Compass validates at upload time. Callers needing to know which signal matched
+        should test :attr:`mime_types` and :attr:`extensions` directly.
+
+        :param filename: File name to check. Only its extension is used, matched
+            case-insensitively.
+        :param mime_type: MIME type to check. Matched case-insensitively, ignoring any
+            parameters such as "; charset=utf-8".
+
+        :return: True if Compass accepts the file, False otherwise.
+
+        :raises ValueError: If neither filename nor mime_type is provided.
+        """
+        if filename is None and mime_type is None:
+            raise ValueError("At least one of filename or mime_type must be provided.")
+
+        if mime_type is not None and mime_type.split(";")[0].strip().lower() in self.mime_types:
+            return True
+
+        return filename is not None and PurePosixPath(filename).suffix.lower() in self.extensions
