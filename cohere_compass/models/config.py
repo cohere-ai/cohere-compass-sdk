@@ -291,7 +291,9 @@ class SupportedFileTypesResponse(BaseModel):
         if filename is None and mime_type is None:
             raise ValueError("At least one of filename or mime_type must be provided.")
 
-        if mime_type is not None and mime_type.split(";")[0].strip().lower() in self.mime_types:
-            return True
+        if mime_type is not None:
+            queried = mime_type.split(";")[0].strip().lower()
+            if any(queried == advertised.lower() for advertised in self.mime_types):
+                return True
 
         return filename is not None and PurePosixPath(filename).suffix.lower() in self.extensions

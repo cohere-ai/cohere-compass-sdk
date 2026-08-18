@@ -42,10 +42,14 @@ from cohere_compass.constants import (
     DEFAULT_RETRY_WAIT,
     URL_SAFE_STRING_PATTERN,
 )
+from cohere_compass.content_types import BASELINE_SUPPORTED_FILE_TYPES
 from cohere_compass.exceptions import (
+    CompassClientError,
     CompassError,
     CompassInsertionError,
     CompassMaxErrorRateExceeded,
+    CompassNetworkError,
+    CompassServerError,
     handle_httpx_exceptions,
 )
 from cohere_compass.models import (
@@ -334,6 +338,7 @@ class CompassClient:
         self.httpx = httpx_client or httpx.Client(timeout=self.timeout.total_seconds())
         self._own_httpx_client = httpx_client is None
         self._closed = False
+        self._supported_file_types: SupportedFileTypesResponse | None = None
 
         self.bearer_token = bearer_token
 
@@ -395,16 +400,24 @@ class CompassClient:
 
     def get_supported_file_types(
         self,
+        fallback_on_failure: bool = True,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
     ) -> SupportedFileTypesResponse:
         """
-        Get the file types Compass can currently parse and index.
+        Get the file types this Compass deployment can parse and index.
 
-        The result depends on the deployment's runtime configuration, so it describes
-        what this Compass deployment accepts rather than a fixed capability list.
+        The result depends on the deployment's configuration, so it describes what this
+        deployment accepts rather than a fixed capability list. The response is not
+        cached; each call queries the deployment.
 
+        :param fallback_on_failure: When True, return
+            :data:`cohere_compass.content_types.BASELINE_SUPPORTED_FILE_TYPES` instead of
+            raising if the deployment cannot answer, meaning it is unreachable, returned a
+            server error, or predates this endpoint. Authentication and other client
+            errors always raise, since those indicate a problem with the request rather
+            than with the deployment.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -416,18 +429,84 @@ class CompassClient:
             extensions that map to them.
 
         :raises CompassClientError: With code 404 against Compass deployments that
-            predate this endpoint.
+            predate this endpoint, unless fallback_on_failure is True.
         """
-        result = self._send_request(
-            api_name="get_supported_file_types",
-            max_retries=max_retries,
-            retry_wait=retry_wait,
-            timeout=timeout,
-        )
+        try:
+            result = self._send_request(
+                api_name="get_supported_file_types",
+                max_retries=max_retries,
+                retry_wait=retry_wait,
+                timeout=timeout,
+            )
+        except (CompassNetworkError, CompassServerError):
+            if not fallback_on_failure:
+                raise
+            return BASELINE_SUPPORTED_FILE_TYPES
+        except CompassClientError as exc:
+            if not fallback_on_failure or exc.code != 404:
+                raise
+            return BASELINE_SUPPORTED_FILE_TYPES
+
         if not isinstance(result.result, dict):
             raise ValueError("Invalid response from Compass API")
 
         return SupportedFileTypesResponse.model_validate(result.result)
+
+    def is_file_type_supported(
+        self,
+        *,
+        filename: str | None = None,
+        mime_type: str | None = None,
+        fallback_on_failure: bool = True,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> bool:
+        """
+        Check whether this Compass deployment accepts a file.
+
+        Answers from :data:`cohere_compass.content_types.BASELINE_SUPPORTED_FILE_TYPES`
+        first, and only queries the deployment for file types outside that set. The
+        deployment's answer is then reused for the lifetime of this client, so a
+        long-running process makes at most one request. Call
+        :meth:`get_supported_file_types` instead when you need a current answer.
+
+        :param filename: File name to check. Only its extension is used, matched
+            case-insensitively.
+        :param mime_type: MIME type to check. Matched case-insensitively, ignoring any
+            parameters such as "; charset=utf-8".
+        :param fallback_on_failure: When True, a deployment that cannot answer yields
+            False for file types outside the baseline, rather than raising. False is the
+            safe answer here: it reports a file as unsupported rather than accepting one
+            the deployment may reject.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        :return: True if the deployment accepts the file, False otherwise.
+
+        :raises ValueError: If neither filename nor mime_type is provided.
+        """
+        if BASELINE_SUPPORTED_FILE_TYPES.supports(filename=filename, mime_type=mime_type):
+            return True
+
+        if self._supported_file_types is None:
+            fetched = self.get_supported_file_types(
+                fallback_on_failure=fallback_on_failure,
+                max_retries=max_retries,
+                retry_wait=retry_wait,
+                timeout=timeout,
+            )
+            # The baseline is returned only when the deployment could not answer. Caching
+            # it would make one failed request permanently narrow this client's answers.
+            if fetched is BASELINE_SUPPORTED_FILE_TYPES:
+                return False
+            self._supported_file_types = fetched
+
+        return self._supported_file_types.supports(filename=filename, mime_type=mime_type)
 
     def create_index(
         self,

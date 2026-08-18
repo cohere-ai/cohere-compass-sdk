@@ -21,6 +21,11 @@ def main():
     print(f"\nreport.pdf supported? {supported.supports(filename='report.pdf')}")
     print(f"podcast.mp3 supported? {supported.supports(filename='podcast.mp3')}")
 
+    # Or let the client answer. It checks the baseline every deployment accepts
+    # before querying, then reuses the deployment's answer for later calls.
+    print(f"\nreport.pdf? {client.is_file_type_supported(filename='report.pdf')}")
+    print(f"podcast.mp3? {client.is_file_type_supported(filename='podcast.mp3')}")
+
 
 async def main_async():
     client = get_compass_client_async()

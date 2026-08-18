@@ -87,6 +87,20 @@ def test_supports_uppercase_mime_type_returns_true(supported_file_types: Support
     assert supported_file_types.supports(mime_type="Application/PDF") is True
 
 
+def test_supports_advertised_mime_type_with_internal_capitals_returns_true() -> None:
+    """Compass advertises types such as macroEnabled.12, which must match as advertised."""
+    response = SupportedFileTypesResponse(
+        file_types=[
+            SupportedFileType(
+                mime_types=["application/vnd.ms-excel.sheet.macroEnabled.12"],
+                extensions=[".xlsm"],
+            )
+        ]
+    )
+    assert response.supports(mime_type="application/vnd.ms-excel.sheet.macroEnabled.12") is True
+    assert response.supports(mime_type="application/vnd.ms-excel.sheet.macroenabled.12") is True
+
+
 def test_supports_mime_only_format_returns_true(supported_file_types: SupportedFileTypesResponse) -> None:
     """Formats advertised without extensions are still matchable by MIME type."""
     assert supported_file_types.supports(mime_type="application/octet-stream") is True

@@ -467,6 +467,7 @@ class ContentTypeEnum(str, Enum):
     TextCsv = "text/csv"
     TextTsv = "text/tab-separated-values"
     TextMarkdown = "text/markdown"
+    TextXMarkdown = "text/x-markdown"
     TextOrg = "text/org"
     TextRst = "text/prs.fallenstein.rst"
 
@@ -475,11 +476,19 @@ class ContentTypeEnum(str, Enum):
     ApplicationJsonl = "application/jsonl"
     ApplicationJsonLines = "application/json-lines"
     ApplicationPdf = "application/pdf"
+    ApplicationMarkdown = "application/markdown"
+    ApplicationXMarkdown = "application/x-markdown"
     ApplicationXml = "application/xml"
     ApplicationMsword = "application/msword"
     ApplicationVndOpenXMLDocument = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     ApplicationVndMsExcel = "application/vnd.ms-excel"
     ApplicationVndOpenXMLSpreadsheet = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    # Macro-enabled / template OOXML spreadsheet variants (distinct suffixes).
+    ApplicationVndMsExcelSheetMacroEnabled = "application/vnd.ms-excel.sheet.macroEnabled.12"
+    ApplicationVndMsExcelTemplateMacroEnabled = "application/vnd.ms-excel.template.macroEnabled.12"
+    ApplicationVndOpenXMLSpreadsheetTemplate = "application/vnd.openxmlformats-officedocument.spreadsheetml.template"
+    # Nonstandard alias seen in the wild; folds to the .xlsx canonical type.
+    ApplicationXlsx = "application/xlsx"
     ApplicationVndMsPowerpoint = "application/vnd.ms-powerpoint"
     ApplicationVndOpenXMLPresentation = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
     ApplicationEpubZip = "application/epub+zip"
@@ -490,12 +499,20 @@ class ContentTypeEnum(str, Enum):
     ApplicationMsOutlook = "application/vnd.ms-outlook"
     ApplicationOctetStream = "application/octet-stream"
     ApplicationRtf = "application/rtf"
+    ApplicationYaml = "application/yaml"
+    ApplicationXYaml = "application/x-yaml"
+    TextYaml = "text/yaml"
+    TextXYaml = "text/x-yaml"
+    # Serialization of a parser-package CompassDocument. Uploading content with this
+    # MIME type signals "do not parse": the bytes are embedded and indexed unchanged.
+    ApplicationVndCohereCompassV1Json = "application/vnd.cohere.compassV1+json"
     # HWP types
     ApplicationXHwp = "application/x-hwp"
     ApplicationXHwpx = "application/x-hwpx"
 
     # Image types
     ImageJpeg = "image/jpeg"
+    ImageJpg = "image/jpg"
     ImagePng = "image/png"
     ImageHeic = "image/heic"
     ImageTiff = "image/tiff"

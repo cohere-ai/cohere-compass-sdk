@@ -11,10 +11,12 @@ from respx import MockRouter
 
 from cohere_compass import GroupAuthorizationActions, GroupAuthorizationInput
 from cohere_compass.clients import CompassClient
+from cohere_compass.content_types import BASELINE_SUPPORTED_FILE_TYPES
 from cohere_compass.exceptions import (
     CompassAuthError,
     CompassClientError,
     CompassError,
+    CompassNetworkError,
     CompassTimeoutError,
 )
 from cohere_compass.models import (
@@ -608,12 +610,147 @@ def test_get_supported_file_types_handles_empty_file_types(client: CompassClient
     404,
     response_body={"detail": "Not Found"},
 )
-def test_get_supported_file_types_raises_client_error_on_older_deployment(client: CompassClient):
-    """Deployments predating the endpoint return 404, which must surface as a catchable CompassClientError."""
+def test_get_supported_file_types_raises_client_error_on_older_deployment_without_fallback(client: CompassClient):
+    """Deployments predating the endpoint return 404, which must surface when fallback is declined."""
+    with pytest.raises(CompassClientError) as exc_info:
+        client.get_supported_file_types(fallback_on_failure=False)
+
+    assert exc_info.value.code == 404
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/config/supported-file-types",
+    404,
+    response_body={"detail": "Not Found"},
+)
+def test_get_supported_file_types_falls_back_to_baseline_on_older_deployment(client: CompassClient):
+    """A deployment predating the endpoint yields the baseline, not an error, by default."""
+    assert client.get_supported_file_types() is BASELINE_SUPPORTED_FILE_TYPES
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/config/supported-file-types",
+    401,
+    response_body={"detail": "Unauthorized"},
+)
+def test_get_supported_file_types_raises_on_auth_error_despite_fallback(client: CompassClient):
+    """A bad token is a caller problem, so it must surface rather than degrade to the baseline."""
+    with pytest.raises(CompassAuthError):
+        client.get_supported_file_types()
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/config/supported-file-types",
+    400,
+    response_body={"detail": "Bad Request"},
+)
+def test_get_supported_file_types_raises_on_other_client_errors_despite_fallback(client: CompassClient):
+    """Only 404 means "this deployment has no such endpoint"; other 4xx indicate a bad request."""
     with pytest.raises(CompassClientError) as exc_info:
         client.get_supported_file_types()
 
-    assert exc_info.value.code == 404
+    assert exc_info.value.code == 400
+
+
+@respx.mock
+def test_get_supported_file_types_falls_back_to_baseline_on_server_error(client: CompassClient, respx_mock: MockRouter):
+    """A deployment that is up but erroring cannot answer, so the baseline applies."""
+    respx_mock.get("http://test.com/v1/config/supported-file-types").mock(
+        return_value=httpx.Response(503, json={"detail": "Service Unavailable"})
+    )
+
+    assert client.get_supported_file_types(max_retries=1) is BASELINE_SUPPORTED_FILE_TYPES
+
+
+@respx.mock
+def test_get_supported_file_types_falls_back_to_baseline_when_unreachable(
+    client: CompassClient, respx_mock: MockRouter
+):
+    """An unreachable deployment is the case the baseline exists for."""
+    respx_mock.get("http://test.com/v1/config/supported-file-types").mock(side_effect=httpx.ConnectError("no route"))
+
+    assert client.get_supported_file_types(max_retries=1) is BASELINE_SUPPORTED_FILE_TYPES
+
+
+@respx.mock
+def test_get_supported_file_types_raises_when_unreachable_without_fallback(
+    client: CompassClient, respx_mock: MockRouter
+):
+    """Declining the fallback keeps deployment reachability visible to the caller."""
+    respx_mock.get("http://test.com/v1/config/supported-file-types").mock(side_effect=httpx.ConnectError("no route"))
+
+    with pytest.raises(CompassNetworkError):
+        client.get_supported_file_types(fallback_on_failure=False, max_retries=1)
+
+
+@respx.mock
+def test_is_file_type_supported_answers_baseline_types_without_querying(client: CompassClient, respx_mock: MockRouter):
+    """File types every deployment accepts need no request, which is the point of the baseline."""
+    route = respx_mock.get("http://test.com/v1/config/supported-file-types")
+
+    assert client.is_file_type_supported(filename="report.pdf") is True
+    assert not route.called
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/config/supported-file-types",
+    200,
+    response_body={"file_types": [{"mime_types": ["audio/mpeg", "audio/mp3"], "extensions": [".mp3"]}]},
+)
+def test_is_file_type_supported_queries_deployment_for_types_outside_the_baseline(client: CompassClient):
+    """Capability-gated types are absent from the baseline, so only the deployment can answer."""
+    assert client.is_file_type_supported(filename="podcast.mp3") is True
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/config/supported-file-types",
+    200,
+    response_body={"file_types": [{"mime_types": ["audio/mpeg"], "extensions": [".mp3"]}]},
+)
+def test_is_file_type_supported_reuses_the_deployment_answer_across_calls(client: CompassClient):
+    """mock_endpoint asserts exactly one call, so three checks proving the answer is cached."""
+    assert client.is_file_type_supported(filename="first.mp3") is True
+    assert client.is_file_type_supported(filename="second.mp3") is True
+    assert client.is_file_type_supported(filename="clip.avi") is False
+
+
+@respx.mock
+def test_is_file_type_supported_returns_false_when_deployment_cannot_answer(
+    client: CompassClient, respx_mock: MockRouter
+):
+    """False is the safe answer: better to skip a file than upload one the deployment rejects."""
+    respx_mock.get("http://test.com/v1/config/supported-file-types").mock(side_effect=httpx.ConnectError("no route"))
+
+    assert client.is_file_type_supported(filename="podcast.mp3", max_retries=1) is False
+
+
+@respx.mock
+def test_is_file_type_supported_does_not_cache_a_failed_lookup(client: CompassClient, respx_mock: MockRouter):
+    """One transient failure must not narrow this client's answers for the rest of its life."""
+    route = respx_mock.get("http://test.com/v1/config/supported-file-types")
+    route.mock(side_effect=httpx.ConnectError("no route"))
+
+    assert client.is_file_type_supported(filename="podcast.mp3", max_retries=1) is False
+
+    route.mock(
+        return_value=httpx.Response(200, json={"file_types": [{"mime_types": ["audio/mpeg"], "extensions": [".mp3"]}]})
+    )
+
+    assert client.is_file_type_supported(filename="podcast.mp3") is True
+
+
+@respx.mock
+def test_is_file_type_supported_without_arguments_raises_value_error(client: CompassClient, respx_mock: MockRouter):
+    """Calling with no identifiers is a programming error rather than a silent False."""
+    respx_mock.get("http://test.com/v1/config/supported-file-types")
+
+    with pytest.raises(ValueError, match="At least one of filename or mime_type"):
+        client.is_file_type_supported()
 
 
 @respx.mock
