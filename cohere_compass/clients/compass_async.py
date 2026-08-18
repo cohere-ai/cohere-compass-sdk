@@ -12,7 +12,7 @@ import os
 import re
 import uuid
 from collections import deque
-from collections.abc import AsyncIterable, Iterable
+from collections.abc import AsyncIterable, Collection, Iterable
 from datetime import timedelta
 from statistics import mean
 from types import TracebackType
@@ -43,7 +43,7 @@ from cohere_compass.constants import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_WAIT,
 )
-from cohere_compass.content_types import MINIMAL_SUPPORTED_FILE_TYPES
+from cohere_compass.content_types import ParserCapability, supported_file_types
 from cohere_compass.exceptions import (
     CompassClientError,
     CompassError,
@@ -220,13 +220,13 @@ class CompassAsyncClient:
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
         fallback_on_failure: bool = True,
+        capabilities: Collection[ParserCapability] = (),
     ) -> SupportedFileTypesResponse:
         """
         Get the file types this Compass deployment can currently parse and index.
 
         If the deployment is unreachable or does not implement this endpoint, returns
-        :data:`~cohere_compass.content_types.MINIMAL_SUPPORTED_FILE_TYPES` when
-        ``fallback_on_failure`` is True.
+        the locally known set for ``capabilities`` when ``fallback_on_failure`` is True.
 
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
@@ -234,8 +234,10 @@ class CompassAsyncClient:
             from the client will be used.
         :param timeout: Request timeout duration. If not provided, the default from the
             client will be used.
-        :param fallback_on_failure: Return the minimal set on network failure or HTTP
-            404 instead of raising. Defaults to True.
+        :param fallback_on_failure: Return the local set on network failure or HTTP 404
+            instead of raising. Defaults to True.
+        :param capabilities: Parser backends this deployment is known to have. Used
+            only when falling back. Defaults to none, so audio and video are omitted.
 
         :return: The supported file types, pairing accepted MIME types with the file
             extensions that map to them.
@@ -249,7 +251,7 @@ class CompassAsyncClient:
             )
         except (CompassNetworkError, CompassClientError) as exc:
             if fallback_on_failure and (isinstance(exc, CompassNetworkError) or exc.code == 404):
-                return MINIMAL_SUPPORTED_FILE_TYPES
+                return supported_file_types(capabilities)
             raise
         if not isinstance(result.result, dict):
             raise ValueError("Invalid response from Compass API")
@@ -265,13 +267,13 @@ class CompassAsyncClient:
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
         fallback_on_failure: bool = True,
+        capabilities: Collection[ParserCapability] = (),
     ) -> bool:
         """
         Return whether this Compass deployment accepts a file.
 
-        Types in :data:`~cohere_compass.content_types.MINIMAL_SUPPORTED_FILE_TYPES` are
-        resolved locally. All others query the deployment and cache the result on this
-        client.
+        Types that need only ``capabilities`` are resolved locally. All others query
+        the deployment and cache the result on this client.
 
         :param filename: File name to check. Only its extension is used.
         :param mime_type: MIME type to check. Matched case-insensitively, ignoring any
@@ -283,13 +285,14 @@ class CompassAsyncClient:
         :param timeout: Request timeout duration. If not provided, the default from the
             client will be used.
         :param fallback_on_failure: Passed to :meth:`get_supported_file_types` when the
-            file is not in the minimal set.
+            file is not in the local set.
+        :param capabilities: Parser backends this deployment is known to have.
 
         :return: True if Compass accepts the file, False otherwise.
 
         :raises ValueError: If neither filename nor mime_type is provided.
         """
-        if MINIMAL_SUPPORTED_FILE_TYPES.supports(filename=filename, mime_type=mime_type):
+        if supported_file_types(capabilities).supports(filename=filename, mime_type=mime_type):
             return True
         if self._supported_file_types is None:
             self._supported_file_types = await self.get_supported_file_types(
@@ -297,6 +300,7 @@ class CompassAsyncClient:
                 retry_wait=retry_wait,
                 timeout=timeout,
                 fallback_on_failure=fallback_on_failure,
+                capabilities=capabilities,
             )
         return self._supported_file_types.supports(filename=filename, mime_type=mime_type)
 

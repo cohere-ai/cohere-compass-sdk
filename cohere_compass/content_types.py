@@ -1,19 +1,26 @@
-"""The minimal set of file types every Compass deployment accepts."""
+"""File types Compass can parse, gated by optional parser capabilities."""
 
+from collections.abc import Collection
+from enum import Enum
 from typing import NamedTuple
 
 from cohere_compass.models.config import SupportedFileType, SupportedFileTypesResponse
 
 
+class ParserCapability(str, Enum):
+    """A gated parser backend a Compass deployment may have."""
+
+    ASR = "asr"
+    VIDEO_LLM = "video_llm"
+
+
 class _FileType(NamedTuple):
     mime_types: tuple[str, ...]
     extensions: tuple[str, ...]
-    required_capabilities: tuple[str, ...] = ()
+    required_capabilities: tuple[ParserCapability, ...] = ()
 
 
-# Each record is the MIME types and extensions for one format, plus any Compass
-# capabilities that format requires. Records with no required capabilities are the
-# minimal set every deployment accepts.
+# MIME types, extensions, and any parser capabilities the format requires.
 _FILE_TYPES: tuple[_FileType, ...] = (
     _FileType(("text/plain",), (".txt",)),
     _FileType(("text/html",), (".htm", ".html")),
@@ -73,16 +80,22 @@ _FILE_TYPES: tuple[_FileType, ...] = (
     _FileType(("image/svg+xml",), (".svg",)),
     _FileType(("image/webp",), (".webp",)),
     _FileType(("message/rfc822",), (".eml",)),
-    _FileType(("audio/mpeg", "audio/mp3"), (".mp3",), ("asr",)),
-    _FileType(("audio/wav",), (".wav",), ("asr",)),
-    _FileType(("video/mp4",), (".mp4",), ("asr", "video_llm")),
-    _FileType(("video/x-msvideo",), (".avi",), ("asr", "video_llm")),
+    _FileType(("audio/mpeg", "audio/mp3"), (".mp3",), (ParserCapability.ASR,)),
+    _FileType(("audio/wav",), (".wav",), (ParserCapability.ASR,)),
+    _FileType(("video/mp4",), (".mp4",), (ParserCapability.ASR, ParserCapability.VIDEO_LLM)),
+    _FileType(("video/x-msvideo",), (".avi",), (ParserCapability.ASR, ParserCapability.VIDEO_LLM)),
 )
 
-MINIMAL_SUPPORTED_FILE_TYPES = SupportedFileTypesResponse(
-    file_types=[
-        SupportedFileType(mime_types=list(file_type.mime_types), extensions=list(file_type.extensions))
-        for file_type in _FILE_TYPES
-        if not file_type.required_capabilities
-    ]
-)
+
+def supported_file_types(
+    capabilities: Collection[ParserCapability] = (),
+) -> SupportedFileTypesResponse:
+    """File types accepted given the parser backends this deployment is known to have."""
+    available = frozenset(capabilities)
+    return SupportedFileTypesResponse(
+        file_types=[
+            SupportedFileType(mime_types=list(file_type.mime_types), extensions=list(file_type.extensions))
+            for file_type in _FILE_TYPES
+            if set(file_type.required_capabilities) <= available
+        ]
+    )

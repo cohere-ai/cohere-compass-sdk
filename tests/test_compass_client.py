@@ -12,7 +12,7 @@ from respx import MockRouter
 
 from cohere_compass import GroupAuthorizationActions, GroupAuthorizationInput
 from cohere_compass.clients import CompassClient
-from cohere_compass.content_types import MINIMAL_SUPPORTED_FILE_TYPES
+from cohere_compass.content_types import ParserCapability, supported_file_types
 from cohere_compass.exceptions import (
     CompassAuthError,
     CompassClientError,
@@ -613,7 +613,7 @@ def test_get_supported_file_types_handles_empty_file_types(client: CompassClient
 def test_get_supported_file_types_falls_back_on_older_deployment(client: CompassClient):
     result = client.get_supported_file_types()
 
-    assert result == MINIMAL_SUPPORTED_FILE_TYPES
+    assert result == supported_file_types()
 
 
 @mock_endpoint(
@@ -637,7 +637,21 @@ def test_get_supported_file_types_falls_back_on_timeout(client: CompassClient, r
 
     result = client.get_supported_file_types(max_retries=1, retry_wait=timedelta(0))
 
-    assert result == MINIMAL_SUPPORTED_FILE_TYPES
+    assert result == supported_file_types()
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/config/supported-file-types",
+    404,
+    response_body={"detail": "Not Found"},
+)
+def test_get_supported_file_types_fallback_includes_known_capabilities(client: CompassClient):
+    result = client.get_supported_file_types(capabilities=[ParserCapability.ASR])
+
+    assert result == supported_file_types([ParserCapability.ASR])
+    assert result.supports(filename="interview.mp3") is True
+    assert result.supports(filename="clip.mp4") is False
 
 
 @mock_endpoint(
@@ -658,6 +672,16 @@ def test_is_file_type_supported_resolves_minimal_types_locally(client: CompassCl
     )
 
     assert client.is_file_type_supported(filename="report.pdf") is True
+    assert not route.called
+
+
+@respx.mock
+def test_is_file_type_supported_resolves_known_capabilities_locally(client: CompassClient, respx_mock: MockRouter):
+    route = respx_mock.get("http://test.com/v1/config/supported-file-types").mock(
+        return_value=httpx.Response(200, json={"file_types": []})
+    )
+
+    assert client.is_file_type_supported(filename="interview.mp3", capabilities=[ParserCapability.ASR]) is True
     assert not route.called
 
 
