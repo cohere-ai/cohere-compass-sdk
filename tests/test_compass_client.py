@@ -666,50 +666,6 @@ def test_get_supported_file_types_does_not_fallback_on_auth_error(client: Compas
 
 
 @respx.mock
-def test_is_file_type_supported_resolves_minimal_types_locally(client: CompassClient, respx_mock: MockRouter):
-    route = respx_mock.get("http://test.com/v1/config/supported-file-types").mock(
-        return_value=httpx.Response(200, json={"file_types": []})
-    )
-
-    assert client.is_file_type_supported(filename="report.pdf") is True
-    assert not route.called
-
-
-@respx.mock
-def test_is_file_type_supported_resolves_known_capabilities_locally(client: CompassClient, respx_mock: MockRouter):
-    route = respx_mock.get("http://test.com/v1/config/supported-file-types").mock(
-        return_value=httpx.Response(200, json={"file_types": []})
-    )
-
-    assert client.is_file_type_supported(filename="interview.mp3", capabilities=[ParserCapability.ASR]) is True
-    assert not route.called
-
-
-@mock_endpoint(
-    "GET",
-    "http://test.com/v1/config/supported-file-types",
-    200,
-    response_body={"file_types": [{"mime_types": ["audio/mpeg"], "extensions": [".mp3"]}]},
-)
-def test_is_file_type_supported_queries_deployment_for_other_types(client: CompassClient):
-    assert client.is_file_type_supported(filename="interview.mp3") is True
-
-
-@respx.mock
-def test_is_file_type_supported_caches_deployment_response(client: CompassClient, respx_mock: MockRouter):
-    route = respx_mock.get("http://test.com/v1/config/supported-file-types").mock(
-        return_value=httpx.Response(
-            200,
-            json={"file_types": [{"mime_types": ["audio/mpeg"], "extensions": [".mp3"]}]},
-        )
-    )
-
-    assert client.is_file_type_supported(filename="a.mp3") is True
-    assert client.is_file_type_supported(filename="b.mp3") is True
-    assert route.call_count == 1
-
-
-@respx.mock
 def test_get_index_details(client: CompassClient, respx_mock: MockRouter):
     route = respx_mock.get("http://test.com/v1/indexes/test_index").mock(
         return_value=httpx.Response(

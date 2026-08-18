@@ -346,7 +346,6 @@ class CompassClient:
             raise ValueError("retry_wait must be a non-negative integer.")
         self.max_retries = max_retries
         self.retry_wait = retry_wait
-        self._supported_file_types: SupportedFileTypesResponse | None = None
 
     def close(self):
         """Close the httpx client if it was created by this instance."""
@@ -440,52 +439,6 @@ class CompassClient:
             raise ValueError("Invalid response from Compass API")
 
         return SupportedFileTypesResponse.model_validate(result.result)
-
-    def is_file_type_supported(
-        self,
-        *,
-        filename: str | None = None,
-        mime_type: str | None = None,
-        max_retries: int | None = None,
-        retry_wait: timedelta | None = None,
-        timeout: timedelta | None = None,
-        fallback_on_failure: bool = True,
-        capabilities: Collection[ParserCapability] = (),
-    ) -> bool:
-        """
-        Return whether this Compass deployment accepts a file.
-
-        Types that need only ``capabilities`` are resolved locally. All others query
-        the deployment and cache the result on this client.
-
-        :param filename: File name to check. Only its extension is used.
-        :param mime_type: MIME type to check. Matched case-insensitively, ignoring any
-            parameters such as "; charset=utf-8".
-        :param max_retries: Maximum number of retries for failed requests. If not
-            provided, the default from the client will be used.
-        :param retry_wait: Time to wait between retries. If not provided, the default
-            from the client will be used.
-        :param timeout: Request timeout duration. If not provided, the default from the
-            client will be used.
-        :param fallback_on_failure: Passed to :meth:`get_supported_file_types` when the
-            file is not in the local set.
-        :param capabilities: Parser backends this deployment is known to have.
-
-        :return: True if Compass accepts the file, False otherwise.
-
-        :raises ValueError: If neither filename nor mime_type is provided.
-        """
-        if supported_file_types(capabilities).supports(filename=filename, mime_type=mime_type):
-            return True
-        if self._supported_file_types is None:
-            self._supported_file_types = self.get_supported_file_types(
-                max_retries=max_retries,
-                retry_wait=retry_wait,
-                timeout=timeout,
-                fallback_on_failure=fallback_on_failure,
-                capabilities=capabilities,
-            )
-        return self._supported_file_types.supports(filename=filename, mime_type=mime_type)
 
     def create_index(
         self,
