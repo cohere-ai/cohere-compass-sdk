@@ -14,7 +14,7 @@ import re
 import threading
 import uuid
 from collections import deque
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from datetime import timedelta
 from statistics import mean
@@ -42,10 +42,13 @@ from cohere_compass.constants import (
     DEFAULT_RETRY_WAIT,
     URL_SAFE_STRING_PATTERN,
 )
+from cohere_compass.content_types import ParserCapability, supported_file_types
 from cohere_compass.exceptions import (
+    CompassClientError,
     CompassError,
     CompassInsertionError,
     CompassMaxErrorRateExceeded,
+    CompassNetworkError,
     handle_httpx_exceptions,
 )
 from cohere_compass.models import (
@@ -398,12 +401,14 @@ class CompassClient:
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
+        fallback_on_failure: bool = True,
+        capabilities: Collection[ParserCapability] = (),
     ) -> SupportedFileTypesResponse:
         """
-        Get the file types Compass can currently parse and index.
+        Get the file types this Compass deployment can currently parse and index.
 
-        The result depends on the deployment's runtime configuration, so it describes
-        what this Compass deployment accepts rather than a fixed capability list.
+        If the deployment is unreachable or does not implement this endpoint, returns
+        the locally known set for ``capabilities`` when ``fallback_on_failure`` is True.
 
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
@@ -411,19 +416,25 @@ class CompassClient:
             from the client will be used.
         :param timeout: Request timeout duration. If not provided, the default from the
             client will be used.
+        :param fallback_on_failure: Return the local set on network failure or HTTP 404
+            instead of raising. Defaults to True.
+        :param capabilities: Parser backends this deployment is known to have. Used
+            only when falling back. Defaults to none, so audio and video are omitted.
 
         :return: The supported file types, pairing accepted MIME types with the file
             extensions that map to them.
-
-        :raises CompassClientError: With code 404 against Compass deployments that
-            predate this endpoint.
         """
-        result = self._send_request(
-            api_name="get_supported_file_types",
-            max_retries=max_retries,
-            retry_wait=retry_wait,
-            timeout=timeout,
-        )
+        try:
+            result = self._send_request(
+                api_name="get_supported_file_types",
+                max_retries=max_retries,
+                retry_wait=retry_wait,
+                timeout=timeout,
+            )
+        except (CompassNetworkError, CompassClientError) as exc:
+            if fallback_on_failure and (isinstance(exc, CompassNetworkError) or exc.code == 404):
+                return supported_file_types(capabilities)
+            raise
         if not isinstance(result.result, dict):
             raise ValueError("Invalid response from Compass API")
 
