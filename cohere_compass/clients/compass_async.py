@@ -1476,7 +1476,6 @@ class CompassAsyncClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
-        enable_profiling: bool = False,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1484,13 +1483,7 @@ class CompassAsyncClient:
         return await self._send_request(
             api_name=api_name,
             index_name=index_name,
-            data=SearchInput(
-                query=query,
-                top_k=top_k,
-                filters=filters,
-                rerank_model=rerank_model,
-                enable_profiling=enable_profiling,
-            ),
+            data=SearchInput(query=query, top_k=top_k, filters=filters, rerank_model=rerank_model),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1504,7 +1497,6 @@ class CompassAsyncClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
-        enable_profiling: bool = False,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1517,7 +1509,6 @@ class CompassAsyncClient:
         :param top_k: the number of documents to return
         :param filters: the search filters to apply
         :param rerank_model: the model to use for reranking the results
-        :param enable_profiling: whether to request server-side search profiling
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1536,7 +1527,6 @@ class CompassAsyncClient:
             top_k=top_k,
             filters=filters,
             rerank_model=rerank_model,
-            enable_profiling=enable_profiling,
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1552,7 +1542,6 @@ class CompassAsyncClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
-        enable_profiling: bool = False,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1565,7 +1554,6 @@ class CompassAsyncClient:
         :param top_k: the number of chunks to return
         :param filters: the search filters to apply
         :param rerank_model: the model to use for reranking the results
-        :param enable_profiling: whether to request server-side search profiling
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1584,7 +1572,6 @@ class CompassAsyncClient:
             top_k=top_k,
             filters=filters,
             rerank_model=rerank_model,
-            enable_profiling=enable_profiling,
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,

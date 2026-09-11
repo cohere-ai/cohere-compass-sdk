@@ -291,14 +291,11 @@ def test_get_document_is_valid(client: CompassClient):
 
     assert document.document_id == "test-document-id"
     assert document.path == "test-path"
-    assert document.parent_document_id == "test-parent-document-id"
     assert document.content == {"field-1": "value-1", "field-2": "value-2"}
     assert document.index_fields == ["field-1", "field-2"]
     assert document.authorized_groups == ["group-1", "group-2"]
 
-    assert document.chunks[0].chunk_id == "test-chunk-id"
     assert document.chunks[0].sort_id == 1
-    assert document.chunks[0].parent_document_id == "test-parent-document-id"
     assert document.chunks[0].content == {"field-1": "value-1", "field-2": "value-2"}
     assert document.chunks[0].origin == {"field-1": "value-1", "field-2": "value-2"}
 

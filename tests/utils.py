@@ -14,7 +14,6 @@ def create_test_doc(doc_id: str, num_chunks: int = 1, has_errors: bool = False) 
     doc = CompassDocument(
         metadata=CompassDocumentMetadata(
             document_id=doc_id,
-            parent_document_id="parent_" + doc_id,
             filename=f"{doc_id}.txt",
         ),
         content={"test": "content"},
@@ -24,12 +23,8 @@ def create_test_doc(doc_id: str, num_chunks: int = 1, has_errors: bool = False) 
     if not has_errors:
         doc.chunks = [
             CompassDocumentChunk(
-                chunk_id=f"{doc_id}_chunk_{i}",
                 sort_id=i,
-                document_id=f"{doc_id}_chunk_{i}",
-                parent_document_id="parent_" + doc_id,
                 content={"text": f"chunk {i}"},
-                path=f"{doc_id}.txt",
             )
             for i in range(num_chunks)
         ]

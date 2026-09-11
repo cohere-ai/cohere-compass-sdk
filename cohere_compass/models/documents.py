@@ -4,12 +4,11 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Any, TypeAlias, cast
+from typing import Annotated, Any, TypeAlias
 
 # 3rd party imports
 from pydantic import (
     UUID4,
-    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -28,38 +27,14 @@ from cohere_compass.models.config import EnrichmentConfig, ParserConfig
 DocumentId: TypeAlias = Annotated[str, Field(pattern=URL_SAFE_STRING_PATTERN)]
 
 
-class APIModel(BaseModel):
-    """Base for Compass API models: ignore unknown response fields."""
-
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
-
-
-class CompassDocumentMetadata(APIModel):
+class CompassDocumentMetadata(BaseModel):
     """Compass document metadata."""
 
-    document_id: DocumentId = Field(
-        default="",
-        validation_alias=AliasChoices("document_id", "doc_id"),
-    )
+    model_config = ConfigDict(extra="ignore")
+
+    document_id: DocumentId = ""
     filename: str = ""
     meta: dict[str, Any] = Field(default_factory=dict)
-    parent_document_id: str = Field(
-        default="",
-        validation_alias=AliasChoices("parent_document_id", "parent_doc_id"),
-    )
-
-    @field_validator("meta", mode="before")
-    @classmethod
-    def _coerce_meta(cls, value: Any) -> Any:
-        # Older parser payloads serialized meta as a list of singleton dicts.
-        if isinstance(value, list):
-            merged: dict[str, Any] = {}
-            items = cast(list[Any], value)
-            for item in items:
-                if isinstance(item, dict):
-                    merged.update(cast(dict[str, Any], item))
-            return merged
-        return value
 
 
 class AssetType(str, Enum):
@@ -68,12 +43,28 @@ class AssetType(str, Enum):
     def __str__(self) -> str:  # noqa: D105
         return self.value
 
+    # A page that has been rendered as an image
     PAGE_IMAGE = "page_image"
+    # A Markdown representation of a page's content
     PAGE_MARKDOWN = "page_markdown"
+    # A dump of the text extracted from a document
     DOCUMENT_TEXT = "document_text"
+    # A video asset type
     VIDEO = "video"
+    # An audio asset type
     AUDIO = "audio"
+    # The original uploaded file bytes (when enable_raw_file_asset is on)
     RAW = "raw"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "AssetType | None":
+        """Accept asset types added by newer Compass deployments."""
+        if not isinstance(value, str):
+            return None
+        member = str.__new__(cls, value)
+        member._name_ = value
+        member._value_ = value
+        return member
 
     @classmethod
     def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
@@ -85,8 +76,10 @@ class AssetType(str, Enum):
         return json_schema
 
 
-class VisualElement(APIModel):
+class VisualElement(BaseModel):
     """Visual element of an asset."""
+
+    model_config = ConfigDict(extra="ignore")
 
     id: int
     x0: int
@@ -96,8 +89,10 @@ class VisualElement(APIModel):
     asset_id: str | None = None
 
 
-class DocumentChunkAsset(APIModel):
+class DocumentChunkAsset(BaseModel):
     """An asset associated with a document chunk (write / parser path)."""
+
+    model_config = ConfigDict(extra="ignore")
 
     asset_type: AssetType
     content_type: str
@@ -106,39 +101,28 @@ class DocumentChunkAsset(APIModel):
     visual_elements: list[VisualElement] | None = None
 
 
-class CompassDocumentChunk(APIModel):
-    """A chunk of a Compass document from the parser."""
+class CompassDocumentChunk(BaseModel):
+    """
+    A parsed chunk.
+
+    Identity (document id, path) lives on the parent document. Extra keys from the
+    parser are ignored.
+    """
+
+    model_config = ConfigDict(extra="ignore")
 
     sort_id: int
     content: dict[str, Any]
-    chunk_id: str | None = None
-    document_id: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices("document_id", "doc_id"),
-    )
-    parent_document_id: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices("parent_document_id", "parent_doc_id"),
-    )
     origin: dict[str, Any] | None = None
     assets: list[DocumentChunkAsset] | None = None
-    path: str | None = None
 
-    @field_validator("sort_id", mode="before")
-    @classmethod
-    def _coerce_sort_id(cls, value: Any) -> Any:
-        if isinstance(value, str) and value.lstrip("-").isdigit():
-            return int(value)
-        return value
-
-    def to_index_chunk(self, *, document_id: str, parent_document_id: str, path: str) -> "Chunk":
+    def to_index_chunk(self, *, document_id: str, path: str) -> "Chunk":
         """Build the put-documents write model for this chunk."""
-        resolved_document_id = self.document_id or document_id
         return Chunk(
-            chunk_id=self.chunk_id or f"{resolved_document_id}_{self.sort_id}",
+            chunk_id=f"{document_id}_{self.sort_id}",
             sort_id=self.sort_id,
-            parent_document_id=self.parent_document_id or parent_document_id,
-            path=self.path or path,
+            parent_document_id=document_id,
+            path=path,
             content=self.content,
             origin=self.origin,
             assets=self.assets,
@@ -163,15 +147,20 @@ class CompassSdkStage(str, Enum):
     Indexing = "indexing"
 
 
-class CompassDocument(APIModel):
+class CompassDocument(BaseModel):
     """
-    A parsed Compass document.
+    A model class for a Compass document.
 
-    This is the parser / local working model. Search and get-document responses use
-    :class:`RetrievedDocument` instead.
+    The model contains all the information required to process a document and insert it
+    into the index. It includes:
+
+    - metadata: the document metadata (e.g., filename, title, authors, date)
+    - content: the document content
+    - chunks: the document's chunks (e.g., paragraphs, tables, images).
+    - index_fields: the fields to be indexed. Used by the indexer
     """
 
-    model_config = ConfigDict(extra="ignore", populate_by_name=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra="ignore", arbitrary_types_allowed=True)
 
     filebytes: bytes = b""
     metadata: CompassDocumentMetadata = Field(default_factory=CompassDocumentMetadata)
@@ -233,7 +222,7 @@ class CompassDocument(APIModel):
             missing_fields = set(self.index_fields) - set(chunk_without_index_fields.content.keys())
             raise ValueError(
                 f"All index_fields must exist as keys in chunk content. "
-                f"Missing in chunk {chunk_without_index_fields.chunk_id}: "
+                f"Missing in chunk sort_id={chunk_without_index_fields.sort_id}: "
                 f"{missing_fields}"
             )
         return self
@@ -241,26 +230,18 @@ class CompassDocument(APIModel):
     def to_index_document(self) -> "Document":
         """Build the put-documents write model for this parsed document."""
         document_id = self.metadata.document_id
-        parent_document_id = self.metadata.parent_document_id or document_id
         path = self.metadata.filename
         return Document(
             document_id=document_id,
-            parent_document_id=parent_document_id,
+            parent_document_id=document_id,
             path=path,
             content=self.content,
-            chunks=[
-                chunk.to_index_chunk(
-                    document_id=document_id,
-                    parent_document_id=parent_document_id,
-                    path=path,
-                )
-                for chunk in self.chunks
-            ],
+            chunks=[chunk.to_index_chunk(document_id=document_id, path=path) for chunk in self.chunks],
             index_fields=self.index_fields,
         )
 
 
-class Chunk(APIModel):
+class Chunk(BaseModel):
     """Write model for a chunk sent to put_documents."""
 
     chunk_id: str
@@ -272,7 +253,7 @@ class Chunk(APIModel):
     assets: list[DocumentChunkAsset] | None = None
 
 
-class Document(APIModel):
+class Document(BaseModel):
     """Write model for a document sent to put_documents."""
 
     document_id: DocumentId
@@ -284,7 +265,7 @@ class Document(APIModel):
     authorized_groups: list[str] | None = None
 
 
-class DocumentAttributes(APIModel):
+class DocumentAttributes(BaseModel):
     """Model class for document attributes."""
 
     model_config = ConfigDict(extra="allow")
@@ -293,7 +274,7 @@ class DocumentAttributes(APIModel):
         return super().__setattr__(name, value)
 
 
-class ParseableDocumentConfig(APIModel):
+class ParseableDocumentConfig(BaseModel):
     """Configuration for a parseable document."""
 
     parser_config: ParserConfig = Field(default_factory=ParserConfig)
@@ -301,7 +282,7 @@ class ParseableDocumentConfig(APIModel):
     only_parse_doc: bool = False
 
 
-class ParseableDocument(APIModel):
+class ParseableDocument(BaseModel):
     """A document to be sent to Compass for parsing."""
 
     id: str
@@ -321,7 +302,7 @@ class ParseableDocument(APIModel):
         return self
 
 
-class UploadDocumentsInput(APIModel):
+class UploadDocumentsInput(BaseModel):
     """A model for the input of a call to upload_documents API."""
 
     documents: list[ParseableDocument]
@@ -329,14 +310,16 @@ class UploadDocumentsInput(APIModel):
     merge_groups_on_conflict: bool = False
 
 
-class UploadDocumentsResult(APIModel):
+class UploadDocumentsResult(BaseModel):
     """A model for the result of a call to upload_documents API."""
+
+    model_config = ConfigDict(extra="ignore")
 
     upload_id: UUID4
     document_ids: list[str]
 
 
-class PutDocumentsInput(APIModel):
+class PutDocumentsInput(BaseModel):
     """A model for the input of a call to put_documents API."""
 
     documents: list[Document]
@@ -344,26 +327,32 @@ class PutDocumentsInput(APIModel):
     merge_groups_on_conflict: bool = False
 
 
-class PutDocumentResult(APIModel):
+class PutDocumentResult(BaseModel):
     """
     A model for the response of put_document.
 
     This model is also used by the put_documents and edit_group_authorization APIs.
     """
 
+    model_config = ConfigDict(extra="ignore")
+
     document_id: str
     error: str | None
     task_ids: list[str] | None = None
 
 
-class PutDocumentsResponse(APIModel):
+class PutDocumentsResponse(BaseModel):
     """A model for the response of put_documents and edit_group_authorization APIs."""
+
+    model_config = ConfigDict(extra="ignore")
 
     results: list[PutDocumentResult]
 
 
-class UploadTimeline(APIModel):
+class UploadTimeline(BaseModel):
     """Lifecycle timestamps for an upload, from API receipt to terminal state."""
+
+    model_config = ConfigDict(extra="ignore")
 
     created_at: datetime | None = None
     last_enqueued_at: datetime | None = None
@@ -371,8 +360,10 @@ class UploadTimeline(APIModel):
     completed_at: datetime | None = None
 
 
-class UploadDocumentsStatus(APIModel):
+class UploadDocumentsStatus(BaseModel):
     """Status of a document uploaded via the async upload API."""
+
+    model_config = ConfigDict(extra="ignore")
 
     upload_id: uuid.UUID
     document_id: str
@@ -384,21 +375,25 @@ class UploadDocumentsStatus(APIModel):
     timeline: UploadTimeline = Field(default_factory=UploadTimeline)
 
 
-class BulkUploadStatusRequest(APIModel):
+class BulkUploadStatusRequest(BaseModel):
     """A model for the request body of the bulk upload status API."""
 
     upload_ids: list[UUID4]
 
 
-class BulkUploadDocumentsStatus(APIModel):
+class BulkUploadDocumentsStatus(BaseModel):
     """A model for a single entry in the bulk upload status response."""
+
+    model_config = ConfigDict(extra="ignore")
 
     upload_id: UUID4
     statuses: list[UploadDocumentsStatus]
 
 
-class ParsedDocumentResponse(APIModel):
+class ParsedDocumentResponse(BaseModel):
     """A model response for downloading a parsed document from an async upload."""
+
+    model_config = ConfigDict(extra="ignore")
 
     upload_id: uuid.UUID
     document_id: str
@@ -406,7 +401,7 @@ class ParsedDocumentResponse(APIModel):
     state: str | None = None
 
 
-class AssetPresignedUrlRequest(APIModel):
+class AssetPresignedUrlRequest(BaseModel):
     """
     A single asset presigned URL request item.
 
@@ -426,22 +421,26 @@ class AssetPresignedUrlRequest(APIModel):
     end_time: float | None = Field(default=None, ge=0)
 
 
-class GetAssetPresignedUrlsRequest(APIModel):
+class GetAssetPresignedUrlsRequest(BaseModel):
     """A model for the input of a call to get_asset_presigned_urls API."""
 
     assets: list[AssetPresignedUrlRequest]
 
 
-class AssetPresignedUrlDetails(APIModel):
+class AssetPresignedUrlDetails(BaseModel):
     """A single asset presigned URL response item."""
+
+    model_config = ConfigDict(extra="ignore")
 
     document_id: str
     asset_id: uuid.UUID
     presigned_url: str
 
 
-class GetAssetPresignedUrlsResponse(APIModel):
+class GetAssetPresignedUrlsResponse(BaseModel):
     """A model for the response of get_asset_presigned_urls API."""
+
+    model_config = ConfigDict(extra="ignore")
 
     asset_urls: list[AssetPresignedUrlDetails]
 
@@ -505,15 +504,17 @@ class ContentTypeEnum(str, Enum):
     MessageRfc822 = "message/rfc822"  # eml files
 
 
-class UploadFilePresignedUrlRequest(APIModel):
+class UploadFilePresignedUrlRequest(BaseModel):
     """Request body for getting a presigned URL to upload a file directly to storage."""
 
     content_type: ContentTypeEnum
     filename: str
 
 
-class UploadFilePresignedUrlResponse(APIModel):
+class UploadFilePresignedUrlResponse(BaseModel):
     """Response from the presigned URL upload endpoint."""
+
+    model_config = ConfigDict(extra="ignore")
 
     file_data_uuid: UUID4
     presigned_url: str

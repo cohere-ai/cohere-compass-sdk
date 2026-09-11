@@ -3,9 +3,7 @@
 from enum import Enum
 from typing import Literal
 
-from pydantic import Field
-
-from cohere_compass.models.documents import APIModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RetentionType(str, Enum):
@@ -15,7 +13,7 @@ class RetentionType(str, Enum):
     Sliding = "sliding"
 
 
-class RetentionPolicy(APIModel):
+class RetentionPolicy(BaseModel):
     """
     Retention policy configuration for an index.
 
@@ -51,8 +49,10 @@ class RetentionPolicy(APIModel):
     )
 
 
-class IndexInfo(APIModel):
+class IndexInfo(BaseModel):
     """Information about an index."""
+
+    model_config = ConfigDict(extra="ignore")
 
     name: str = Field(description="The name of the index - this has to be unique")
     count: int = Field(description="The total number of chunks in the index")
@@ -111,13 +111,17 @@ class IndexDetails(IndexInfo):
     )
 
 
-class ListIndexesResponse(APIModel):
+class ListIndexesResponse(BaseModel):
     """Response object for list_indexes API."""
+
+    model_config = ConfigDict(extra="ignore")
 
     indexes: list[IndexInfo]
 
 
-class RetentionPolicyResponse(APIModel):
+class RetentionPolicyResponse(BaseModel):
     """Envelope returned by get_retention_policy."""
+
+    model_config = ConfigDict(extra="ignore")
 
     retention_policy: RetentionPolicy | None = None
