@@ -54,16 +54,13 @@ class AssetType(str, Enum):
     AUDIO = "audio"
     # The original uploaded file bytes (when enable_raw_file_asset is on)
     RAW = "raw"
+    # Asset type the SDK does not know yet (newer Compass deployments)
+    UNKNOWN = "unknown"
 
     @classmethod
-    def _missing_(cls, value: object) -> "AssetType | None":
-        """Accept asset types added by newer Compass deployments."""
-        if not isinstance(value, str):
-            return None
-        member = str.__new__(cls, value)
-        member._name_ = value
-        member._value_ = value
-        return member
+    def _missing_(cls, value: object) -> "AssetType":
+        """Map asset types added by newer Compass deployments to UNKNOWN."""
+        return cls.UNKNOWN
 
     @classmethod
     def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
