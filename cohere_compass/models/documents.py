@@ -22,13 +22,12 @@ from pydantic_core import CoreSchema
 
 # Local imports
 from cohere_compass.constants import URL_SAFE_STRING_PATTERN
-from cohere_compass.models import ValidatedModel
 from cohere_compass.models.config import EnrichmentConfig, ParserConfig
 
 DocumentId: TypeAlias = Annotated[str, Field(pattern=URL_SAFE_STRING_PATTERN)]
 
 
-class CompassDocumentMetadata(ValidatedModel):
+class CompassDocumentMetadata(BaseModel):
     """Compass document metadata."""
 
     document_id: DocumentId = ""
@@ -57,6 +56,16 @@ class AssetType(str, Enum):
     RAW = "raw"
 
     @classmethod
+    def _missing_(cls, value: object) -> "AssetType | None":
+        """Accept asset types added by newer Compass deployments."""
+        if not isinstance(value, str):
+            return None
+        member = str.__new__(cls, value)
+        member._name_ = value
+        member._value_ = value
+        return member
+
+    @classmethod
     def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
         """Make AssetType an extensible enum for better OpenAPI schema generation."""
         json_schema = handler(core_schema)
@@ -75,7 +84,7 @@ class CompassDocumentChunkAsset(BaseModel):
     asset_id: str | None = None
 
 
-class CompassDocumentChunk(ValidatedModel):
+class CompassDocumentChunk(BaseModel):
     """A chunk of a Compass document."""
 
     chunk_id: str
@@ -116,7 +125,7 @@ class CompassSdkStage(str, Enum):
     Indexing = "indexing"
 
 
-class CompassDocument(ValidatedModel):
+class CompassDocument(BaseModel):
     """
     A model class for a Compass document.
 

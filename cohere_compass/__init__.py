@@ -12,7 +12,7 @@ from importlib import metadata
 from pydantic import BaseModel
 
 # Local imports
-from cohere_compass.models import ParserConfig, ValidatedModel
+from cohere_compass.models import ParserConfig
 from cohere_compass.models.documents import DocumentId
 
 __version__ = metadata.version("cohere-compass-sdk")
@@ -21,7 +21,7 @@ __version__ = metadata.version("cohere-compass-sdk")
 # TODO Those models should be moved to a separate module.
 
 
-class ProcessFileParameters(ValidatedModel):
+class ProcessFileParameters(BaseModel):
     """Model for use with the process_file parser API."""
 
     parser_config: ParserConfig
@@ -29,7 +29,7 @@ class ProcessFileParameters(ValidatedModel):
     content_type: str | None = None
 
 
-class ProcessFilesParameters(ValidatedModel):
+class ProcessFilesParameters(BaseModel):
     """Model for use with the process_files parser API."""
 
     doc_ids: list[str] | None = None
