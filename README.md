@@ -118,6 +118,11 @@ branching on `has_markdown()` or those flags, drop that code.
 `{"retention_policy": {...}}` and returns the inner policy (or `None`). A bare
 policy object is no longer accepted.
 
+**Direct search no longer invents `size` or `scroll`.** If you omit them, Compass
+uses its own defaults (`size=10`, `scroll="1m"`). The SDK previously sent
+`size=100` and `scroll="1m"` itself. Pass `size` / `scroll` only when you want
+to override the server.
+
 **This SDK needs a matching Compass.** Point v3 at a Compass that has dropped
 the old SDK shims. Downloaded parsed documents are served through the Compass
 API, which should normalize stored blobs before they reach the client.

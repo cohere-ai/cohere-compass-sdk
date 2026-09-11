@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Literal
 
 # 3rd party imports
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from cohere_compass.models.documents import AssetType, VisualElement
 
@@ -116,7 +116,7 @@ class DirectSearchInput(BaseModel):
     """Input to direct search APIs."""
 
     query: dict[str, Any]
-    size: int
+    size: int | None = None
     sort_by: list[SortBy] | None = None
     scroll: str | None = None
 
@@ -125,7 +125,7 @@ class DirectSearchScrollInput(BaseModel):
     """Input to direct search scroll API."""
 
     scroll_id: str
-    scroll: str = Field(default="1m")
+    scroll: str | None = None
 
 
 class DirectSearchResponse(BaseModel):

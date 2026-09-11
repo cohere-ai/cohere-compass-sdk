@@ -428,7 +428,8 @@ def test_direct_search_is_valid(client: CompassClient, respx_mock: MockRouter):
 
     req_sent = json.loads(route.calls.last.request.content)
     assert "query" in req_sent
-    assert "size" in req_sent
+    assert "size" not in req_sent
+    assert "scroll" not in req_sent
 
 
 def test_direct_search_scroll_is_valid(client: CompassClient, respx_mock: MockRouter):
@@ -457,6 +458,19 @@ def test_direct_search_scroll_is_valid(client: CompassClient, respx_mock: MockRo
     req_sent = json.loads(route.calls.last.request.content)
     assert req_sent["scroll_id"] == "test_scroll_id"
     assert req_sent["scroll"] == "5m"
+
+
+def test_direct_search_scroll_omits_scroll_when_unset(client: CompassClient, respx_mock: MockRouter):
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/_direct_search/scroll").mock(
+        return_value=httpx.Response(200, json={"hits": [], "scroll_id": "test_scroll_id"})
+    )
+
+    client.direct_search_scroll(scroll_id="test_scroll_id", index_name="test_index")
+
+    assert route.called
+    req_sent = json.loads(route.calls.last.request.content)
+    assert req_sent["scroll_id"] == "test_scroll_id"
+    assert "scroll" not in req_sent
 
 
 @respx.mock

@@ -1897,7 +1897,7 @@ class CompassClient:
         index_name: str,
         query: dict[str, Any],
         sort_by: list[SortBy] | None = None,
-        size: int = 100,
+        size: int | None = None,
         scroll: str | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
@@ -1909,8 +1909,9 @@ class CompassClient:
         :param index_name: the name of the index
         :param query: the direct search query (e.g. {"match_all": {}})
         :param sort_by: the sort by criteria
-        :param size: the number of results to return
-        :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        :param size: the number of results to return. Omit to use the server default.
+        :param scroll: the scroll duration (e.g. "1m" for 1 minute). Omit to use the
+            server default.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1940,7 +1941,7 @@ class CompassClient:
         *,
         index_name: str,
         scroll_id: str,
-        scroll: str = "1m",
+        scroll: str | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1950,7 +1951,8 @@ class CompassClient:
 
         :param scroll_id: the scroll ID from a previous direct_search call
         :param index_name: the name of the index same as used in direct_search
-        :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        :param scroll: the scroll duration (e.g. "1m" for 1 minute). Omit to use the
+            server default.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
