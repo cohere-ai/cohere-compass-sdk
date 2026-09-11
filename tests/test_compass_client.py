@@ -764,7 +764,7 @@ def test_upload_document_status(client: CompassClient, respx_mock: MockRouter):
                 {
                     "upload_id": str(upload_id),
                     "document_id": "doc123",
-                    "destinations": ["destination1", "destination2"],
+                    "index_name": "test_index",
                     "file_name": "test.pdf",
                     "state": "completed",
                     "last_error": None,
@@ -780,7 +780,7 @@ def test_upload_document_status(client: CompassClient, respx_mock: MockRouter):
 
     assert result[0].upload_id == upload_id
     assert result[0].document_id == "doc123"
-    assert result[0].destinations == ["destination1", "destination2"]
+    assert result[0].index_name == "test_index"
     assert result[0].file_name == "test.pdf"
     assert result[0].state == "completed"
     assert result[0].last_error is None
@@ -802,7 +802,7 @@ def test_bulk_upload_document_status(client: CompassClient, respx_mock: MockRout
                         {
                             "upload_id": str(upload_id_1),
                             "document_id": "doc-abc",
-                            "destinations": ["test_index"],
+                            "index_name": "test_index",
                             "file_name": "report.pdf",
                             "state": "COMPLETED",
                             "last_error": None,
@@ -834,7 +834,7 @@ def test_bulk_upload_document_status(client: CompassClient, respx_mock: MockRout
     assert len(result[0].statuses) == 1
     assert result[0].statuses[0].upload_id == upload_id_1
     assert result[0].statuses[0].document_id == "doc-abc"
-    assert result[0].statuses[0].destinations == ["test_index"]
+    assert result[0].statuses[0].index_name == "test_index"
     assert result[0].statuses[0].file_name == "report.pdf"
     assert result[0].statuses[0].state == "COMPLETED"
     assert result[0].statuses[0].last_error is None
@@ -1190,7 +1190,6 @@ def test_parseable_document_with_encoded_bytes():
     doc = ParseableDocument(
         id="doc1",
         filename="test.pdf",
-        content_length_bytes=100,
         content_encoded_bytes="dGVzdA==",
         attributes=DocumentAttributes(),
     )
@@ -1203,7 +1202,6 @@ def test_parseable_document_with_file_data_uuid():
     doc = ParseableDocument(
         id="doc1",
         filename="test.pdf",
-        content_length_bytes=100,
         file_data_uuid=test_uuid,
         attributes=DocumentAttributes(),
     )
@@ -1216,7 +1214,6 @@ def test_parseable_document_rejects_both_bytes_and_uuid():
         ParseableDocument(
             id="doc1",
             filename="test.pdf",
-            content_length_bytes=100,
             content_encoded_bytes="dGVzdA==",
             file_data_uuid=uuid.uuid4(),
             attributes=DocumentAttributes(),
@@ -1228,7 +1225,6 @@ def test_parseable_document_rejects_neither_bytes_nor_uuid():
         ParseableDocument(
             id="doc1",
             filename="test.pdf",
-            content_length_bytes=100,
             attributes=DocumentAttributes(),
         )
 
@@ -1296,7 +1292,7 @@ def test_asset_presigned_url_request_crop_bounds_validation():
 # ── AssetInfo presigned_url null handling ────────────────────────────────
 
 
-def test_asset_info_null_presigned_url_defaults_to_empty_string():
+def test_asset_info_null_presigned_url_stays_none():
     asset = AssetInfo.model_validate(
         {
             "asset_type": AssetType.PAGE_IMAGE,
@@ -1304,17 +1300,17 @@ def test_asset_info_null_presigned_url_defaults_to_empty_string():
             "presigned_url": None,
         }
     )
-    assert asset.presigned_url == ""
+    assert asset.presigned_url is None
 
 
-def test_asset_info_missing_presigned_url_defaults_to_empty_string():
+def test_asset_info_missing_presigned_url_stays_none():
     asset = AssetInfo.model_validate(
         {
             "asset_type": AssetType.PAGE_IMAGE,
             "content_type": "image/png",
         }
     )
-    assert asset.presigned_url == ""
+    assert asset.presigned_url is None
 
 
 def test_asset_info_with_presigned_url():

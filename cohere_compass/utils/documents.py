@@ -17,7 +17,7 @@ from cohere_compass.constants import UUID_NAMESPACE
 from cohere_compass.models import (
     CompassDocument,
 )
-from cohere_compass.models.documents import Chunk, CompassDocumentStatus, Document
+from cohere_compass.models.documents import CompassDocumentStatus, Document
 
 logger = logging.getLogger(__name__)
 
@@ -70,19 +70,7 @@ def partition_documents(
                 request_block, errors = [], []
                 num_chunks = 0
 
-            request_block.append(
-                (
-                    doc,
-                    Document(
-                        document_id=doc.metadata.document_id,
-                        parent_document_id=doc.metadata.parent_document_id,
-                        path=doc.metadata.filename,
-                        content=doc.content,
-                        chunks=[Chunk(**c.model_dump()) for c in doc.chunks],
-                        index_fields=doc.index_fields,
-                    ),
-                )
-            )
+            request_block.append((doc, doc.to_index_document()))
 
     if len(request_block) > 0 or len(errors) > 0:
         yield request_block, errors
@@ -120,19 +108,7 @@ async def partition_documents_async(
                 request_block, errors = [], []
                 num_chunks = 0
 
-            request_block.append(
-                (
-                    doc,
-                    Document(
-                        document_id=doc.metadata.document_id,
-                        parent_document_id=doc.metadata.parent_document_id,
-                        path=doc.metadata.filename,
-                        content=doc.content,
-                        chunks=[Chunk(**c.model_dump()) for c in doc.chunks],
-                        index_fields=doc.index_fields,
-                    ),
-                )
-            )
+            request_block.append((doc, doc.to_index_document()))
 
     if len(request_block) > 0 or len(errors) > 0:
         yield request_block, errors

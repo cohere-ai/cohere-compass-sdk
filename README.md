@@ -39,6 +39,7 @@ npm i -g markdown-toc # use sudo if you use a system-wide node installation.
 
 - [Getting Started](#getting-started)
   * [Installation](#installation)
+- [V3 Migration Guide](#v3-migration-guide)
 - [V2 Migration Guide](#v2-migration-guide)
 - [Local Development](#local-development)
   * [Create Python Virtual Environment](#create-python-virtual-environment)
@@ -74,6 +75,29 @@ Once you install it, the best way to learn how to use the SDK is to head over to
 examples](https://github.com/cohere-ai/cohere-compass-sdk/tree/main/examples). For the
 API reference, you can visit this
 [link](https://cohere-preview-d28024ac-1edf-416c-95be-73c5fe85a7c5.docs.buildwithfern.com/compass/reference/list-indexes-v-1-indexes-get).
+
+## V3 Migration Guide
+
+v3 drops SDK-only compatibility shims so the client matches the Compass API as
+it is intended to look. This is a breaking change.
+
+- Parser documents are validated with Pydantic (`CompassDocument.model_validate`).
+  `document_id` / `parent_document_id` are the field names. Older `doc_id` /
+  `parent_doc_id` keys are still accepted as aliases.
+- `sort_id` is an `int`. String values from older parser payloads are coerced.
+- `CompassDocument.metadata.meta` is a `dict`, not a list of singleton dicts.
+- Parser documents no longer have `elements`, `markdown`, or
+  `ignore_metadata_errors`. Extra response keys are ignored.
+- Chunk identity (`chunk_id`, `document_id`) is optional on parser output. The
+  write path fills `chunk_id` as `{document_id}_{sort_id}` when it is missing.
+- Search uses one `RetrievedDocument` / `RetrievedChunk` model. Score,
+  `document_id`, timestamps, and `source` are optional rather than living on
+  subclasses (`RetrievedScoredDocument`, `RetrievedChunkExtended`).
+- `assets_info[].presigned_url` is `str | None`. Audio/video assets return
+  `null`; fetch URLs from `get_asset_presigned_urls`.
+- Upload status uses `index_name` (not `destinations`) and includes `timeline`.
+- `ParseableDocument.content_length_bytes` is gone; the server ignores it.
+- `get_retention_policy` reads the `{retention_policy: ...}` envelope only.
 
 ## V2 Migration Guide
 

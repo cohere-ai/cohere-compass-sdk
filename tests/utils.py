@@ -25,7 +25,7 @@ def create_test_doc(doc_id: str, num_chunks: int = 1, has_errors: bool = False) 
         doc.chunks = [
             CompassDocumentChunk(
                 chunk_id=f"{doc_id}_chunk_{i}",
-                sort_id=str(i),
+                sort_id=i,
                 document_id=f"{doc_id}_chunk_{i}",
                 parent_document_id="parent_" + doc_id,
                 content={"text": f"chunk {i}"},

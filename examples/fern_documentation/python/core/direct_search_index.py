@@ -1,7 +1,7 @@
 from typing import Optional
 
 from cohere_compass.clients import CompassClient
-from cohere_compass.models import RetrievedChunkExtended
+from cohere_compass.models import RetrievedChunk
 
 COMPASS_API_URL = "<COMPASS_API_URL>"
 BEARER_TOKEN = "<BEARER_TOKEN>"
@@ -17,9 +17,9 @@ query = {"query": {"match_all": {}}}
 
 
 def call_direct_search_scroll(
-    hits: list[RetrievedChunkExtended],
+    hits: list[RetrievedChunk],
     scroll_id: Optional[str] = None,
-) -> list[RetrievedChunkExtended]:
+) -> list[RetrievedChunk]:
     if hits is None:
         hits = []
 

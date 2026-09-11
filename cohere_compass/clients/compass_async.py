@@ -85,7 +85,12 @@ from cohere_compass.models.documents import (
     UploadFilePresignedUrlRequest,
     UploadFilePresignedUrlResponse,
 )
-from cohere_compass.models.indexes import IndexDetails, ListIndexesResponse, RetentionPolicy
+from cohere_compass.models.indexes import (
+    IndexDetails,
+    ListIndexesResponse,
+    RetentionPolicy,
+    RetentionPolicyResponse,
+)
 from cohere_compass.models.search import GetDocumentResponse, RetrievedDocument, SortBy
 from cohere_compass.models.synchronizers import (
     DataOriginResponse,
@@ -446,18 +451,7 @@ class CompassAsyncClient:
         if result.result is None:
             return None
 
-        # The server wraps the policy in an envelope: {"retention_policy": {...}}.
-        # Fall back to the raw payload to remain compatible with any deployment that
-        # returns the bare policy.
-        policy_data = (
-            result.result.get("retention_policy")
-            if isinstance(result.result, dict) and "retention_policy" in result.result
-            else result.result
-        )
-        if policy_data is None:
-            return None
-
-        return RetentionPolicy.model_validate(policy_data)
+        return RetentionPolicyResponse.model_validate(result.result).retention_policy
 
     async def delete_retention_policy(
         self,
@@ -1094,7 +1088,6 @@ class CompassAsyncClient:
             id=document_id,
             filename=filename,
             content_type=content_type,
-            content_length_bytes=len(filebytes),
             content_encoded_bytes=b64,
             attributes=attributes,
             config=config,
@@ -1267,7 +1260,7 @@ class CompassAsyncClient:
             timeout=timeout,
         )
 
-        return [UploadDocumentsStatus(**r) for r in result.result]  # type: ignore
+        return [UploadDocumentsStatus.model_validate(r) for r in result.result]  # type: ignore
 
     async def bulk_upload_document_status(
         self,
@@ -1305,7 +1298,7 @@ class CompassAsyncClient:
             timeout=timeout,
         )
 
-        return [BulkUploadDocumentsStatus(**r) for r in result.result]  # type: ignore
+        return [BulkUploadDocumentsStatus.model_validate(r) for r in result.result]  # type: ignore
 
     async def download_parsed_document(
         self,
@@ -1345,7 +1338,7 @@ class CompassAsyncClient:
         if not isinstance(result.result, list):
             raise ValueError("Invalid response from Compass API")
 
-        return [ParsedDocumentResponse.convert(data=r) for r in result.result]
+        return [ParsedDocumentResponse.model_validate(r) for r in result.result]
 
     async def insert_docs(
         self,
@@ -1483,6 +1476,7 @@ class CompassAsyncClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
+        enable_profiling: bool = False,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1490,7 +1484,13 @@ class CompassAsyncClient:
         return await self._send_request(
             api_name=api_name,
             index_name=index_name,
-            data=SearchInput(query=query, top_k=top_k, filters=filters, rerank_model=rerank_model),
+            data=SearchInput(
+                query=query,
+                top_k=top_k,
+                filters=filters,
+                rerank_model=rerank_model,
+                enable_profiling=enable_profiling,
+            ),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1504,6 +1504,7 @@ class CompassAsyncClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
+        enable_profiling: bool = False,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1516,6 +1517,7 @@ class CompassAsyncClient:
         :param top_k: the number of documents to return
         :param filters: the search filters to apply
         :param rerank_model: the model to use for reranking the results
+        :param enable_profiling: whether to request server-side search profiling
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1534,6 +1536,7 @@ class CompassAsyncClient:
             top_k=top_k,
             filters=filters,
             rerank_model=rerank_model,
+            enable_profiling=enable_profiling,
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1549,6 +1552,7 @@ class CompassAsyncClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
+        enable_profiling: bool = False,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1561,6 +1565,7 @@ class CompassAsyncClient:
         :param top_k: the number of chunks to return
         :param filters: the search filters to apply
         :param rerank_model: the model to use for reranking the results
+        :param enable_profiling: whether to request server-side search profiling
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1579,6 +1584,7 @@ class CompassAsyncClient:
             top_k=top_k,
             filters=filters,
             rerank_model=rerank_model,
+            enable_profiling=enable_profiling,
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,

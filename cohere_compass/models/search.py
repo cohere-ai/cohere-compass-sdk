@@ -2,52 +2,26 @@
 
 # Python imports
 from enum import Enum
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 # 3rd party imports
-from pydantic import BaseModel, model_validator
+from pydantic import Field
 
-from cohere_compass.models.documents import AssetType
-
-
-class VisualElement(BaseModel):
-    """Visual element of an asset."""
-
-    id: int
-    x0: int
-    y0: int
-    x1: int
-    y1: int
-    asset_id: str | None = None
+from cohere_compass.models.documents import APIModel, AssetType, VisualElement
 
 
-class AssetInfo(BaseModel):
-    """Information about an asset."""
+class AssetInfo(APIModel):
+    """Read-side asset metadata on retrieved chunks."""
 
-    asset_id: str | None = None
     asset_type: AssetType
     content_type: str
-    presigned_url: str
+    asset_id: str | None = None
+    presigned_url: str | None = None
     visual_elements: list[VisualElement] | None = None
 
-    @model_validator(mode="before")
-    @classmethod
-    def _default_presigned_url(cls, data: Any) -> Any:
-        """
-        Ensure that the presigned_url is always present.
 
-        This is done to keep it backward compatible.
-        """
-        if isinstance(data, dict):
-            values = cast(dict[str, Any], data)
-            if values.get("presigned_url") is None:
-                values = {**values, "presigned_url": ""}
-            return values
-        return data
-
-
-class RetrievedChunk(BaseModel):
-    """Chunk of a document retrieved from get_document API."""
+class RetrievedChunk(APIModel):
+    """A document chunk returned by get-document, search, or direct-search."""
 
     chunk_id: str
     sort_id: int
@@ -56,59 +30,48 @@ class RetrievedChunk(BaseModel):
     content: dict[str, Any]
     origin: dict[str, Any] | None = None
     assets_info: list[AssetInfo] | None = None
+    document_id: str | None = None
+    index_fields: list[str] | None = None
+    score: float | None = None
+    created_at: int | None = None
+    updated_at: int | None = None
+    accessed_at: int | None = None
+    source: str | None = None
 
 
-class RetrievedScoredChunk(RetrievedChunk):
-    """Chunk of a document retrieved from search API."""
-
-    score: float
-
-
-class RetrievedDocument(BaseModel):
-    """Document retrieved from get_document API."""
+class RetrievedDocument(APIModel):
+    """A document returned by get-document or search_documents."""
 
     document_id: str
     path: str
     parent_document_id: str
     content: dict[str, Any]
+    chunks: list[RetrievedChunk]
     index_fields: list[str] | None = None
     authorized_groups: list[str] | None = None
-    chunks: list[RetrievedChunk]
+    score: float | None = None
+    source: str | None = None
 
 
-class RetrievedScoredDocument(RetrievedDocument):
-    """Document retrieved from search API."""
-
-    chunks: list[RetrievedScoredChunk]  # pyright: ignore[reportIncompatibleVariableOverride]
-    score: float
-
-
-class RetrievedChunkExtended(RetrievedScoredChunk):
-    """Additional information about a chunk retrieved from search."""
-
-    document_id: str
-    index_fields: list[str] | None = None
-
-
-class GetDocumentResponse(BaseModel):
+class GetDocumentResponse(APIModel):
     """Response object for get_document API."""
 
     document: RetrievedDocument
 
 
-class SearchDocumentsResponse(BaseModel):
+class SearchDocumentsResponse(APIModel):
     """Response object for search_documents API."""
 
-    hits: list[RetrievedScoredDocument]
+    hits: list[RetrievedDocument]
 
 
-class SearchChunksResponse(BaseModel):
+class SearchChunksResponse(APIModel):
     """Response object for search_chunks API."""
 
-    hits: list[RetrievedChunkExtended]
+    hits: list[RetrievedChunk]
 
 
-class SearchFilter(BaseModel):
+class SearchFilter(APIModel):
     """Filter to apply on search results."""
 
     class FilterType(str, Enum):
@@ -125,23 +88,24 @@ class SearchFilter(BaseModel):
     value: Any
 
 
-class SearchInput(BaseModel):
+class SearchInput(APIModel):
     """Input to search APIs."""
 
     query: str
     top_k: int
     filters: list[SearchFilter] | None = None
     rerank_model: str | None = None
+    enable_profiling: bool = False
 
 
-class SortBy(BaseModel):
+class SortBy(APIModel):
     """Specifies sorting options for search results."""
 
     field: str
     order: Literal["asc", "desc"]
 
 
-class DirectSearchInput(BaseModel):
+class DirectSearchInput(APIModel):
     """Input to direct search APIs."""
 
     query: dict[str, Any]
@@ -150,15 +114,15 @@ class DirectSearchInput(BaseModel):
     scroll: str | None = None
 
 
-class DirectSearchScrollInput(BaseModel):
+class DirectSearchScrollInput(APIModel):
     """Input to direct search scroll API."""
 
     scroll_id: str
-    scroll: str
+    scroll: str = Field(default="1m")
 
 
-class DirectSearchResponse(BaseModel):
+class DirectSearchResponse(APIModel):
     """Response object for direct search APIs."""
 
-    hits: list[RetrievedChunkExtended]
+    hits: list[RetrievedChunk]
     scroll_id: str | None = None
