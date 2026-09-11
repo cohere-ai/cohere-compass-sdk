@@ -98,7 +98,6 @@ async def main():
 
             for i, hit in enumerate(response.hits, 1):
                 print(f"\n--- Result {i} (Score: {hit.score:.4f}) ---")
-                print(f"Chunk ID: {hit.chunk_id}")
                 print(f"Document ID: {hit.document_id}")
                 print(f"Path: {hit.path}")
                 print(f"Sort ID: {hit.sort_id}")

@@ -39,6 +39,7 @@ npm i -g markdown-toc # use sudo if you use a system-wide node installation.
 
 - [Getting Started](#getting-started)
   * [Installation](#installation)
+- [V3 Migration Guide](#v3-migration-guide)
 - [V2 Migration Guide](#v2-migration-guide)
 - [Local Development](#local-development)
   * [Create Python Virtual Environment](#create-python-virtual-environment)
@@ -74,6 +75,57 @@ Once you install it, the best way to learn how to use the SDK is to head over to
 examples](https://github.com/cohere-ai/cohere-compass-sdk/tree/main/examples). For the
 API reference, you can visit this
 [link](https://cohere-preview-d28024ac-1edf-416c-95be-73c5fe85a7c5.docs.buildwithfern.com/compass/reference/list-indexes-v-1-indexes-get).
+
+## V3 Migration Guide
+
+v3.0 is a breaking release. Upgrade it together with a Compass deployment that
+emits the current API shapes (`document_id`, dict-shaped `metadata.meta`,
+integer `sort_id`). Older Compass builds that still send `doc_id`, list-shaped
+`meta`, or string `sort_id` will fail validation.
+
+### What you need to change in your code
+
+**Search hits are one type now.** `search_documents` still returns documents;
+`search_chunks` / `direct_search` still return chunks. There are no longer
+separate `RetrievedScoredDocument` / `RetrievedChunkExtended` classes. Use
+`RetrievedDocument` and `RetrievedChunk`. `score` is an optional field on both.
+
+**Use `document_id` only.** Compass treats parent and document id as the same
+value. `parent_document_id` is gone from parser and search models. If you were
+reading `parent_document_id` or `doc_id`, switch to `document_id`.
+
+**Do not rely on `chunk_id`.** Search and get-document chunks no longer expose
+it. Identify a chunk by `document_id` + `sort_id`. Fetch assets with
+`document_id` + `asset_id` via `get_asset_presigned_urls`.
+
+**Presigned URLs can be missing.** `assets_info[].presigned_url` is
+`str | None`. Audio and video assets return `None` — call
+`get_asset_presigned_urls` (with `start_time` / `end_time` for clips) instead
+of treating an empty string as a URL. A missing URL is not a parse error.
+
+**Upload status uses `index_name`.** `UploadDocumentsStatus.destinations` is
+gone. Read `index_name`. A `timeline` of lifecycle timestamps is also present.
+
+**Stop sending `content_length_bytes`.** Compass ignored it; the SDK field is
+removed. Upload bytes or a `file_data_uuid`, not both.
+
+**Parser documents are stricter.** `CompassDocument.metadata.meta` is a
+`dict[str, Any]`, not a list of singleton dicts. `sort_id` is an `int`.
+`elements`, `markdown`, and `ignore_metadata_errors` are gone. If you were
+branching on `has_markdown()` or those flags, drop that code.
+
+**Retention policy responses are wrapped.** `get_retention_policy` expects
+`{"retention_policy": {...}}` and returns the inner policy (or `None`). A bare
+policy object is no longer accepted.
+
+**Direct search no longer invents `size` or `scroll`.** If you omit them, Compass
+uses its own defaults (`size=10`, `scroll="1m"`). The SDK previously sent
+`size=100` and `scroll="1m"` itself. Pass `size` / `scroll` only when you want
+to override the server.
+
+**This SDK needs a matching Compass.** Point v3 at a Compass that has dropped
+the old SDK shims. Downloaded parsed documents are served through the Compass
+API, which should normalize stored blobs before they reach the client.
 
 ## V2 Migration Guide
 

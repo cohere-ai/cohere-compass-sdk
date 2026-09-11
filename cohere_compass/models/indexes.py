@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RetentionType(str, Enum):
@@ -52,10 +52,20 @@ class RetentionPolicy(BaseModel):
 class IndexInfo(BaseModel):
     """Information about an index."""
 
+    model_config = ConfigDict(extra="ignore")
+
     name: str = Field(description="The name of the index - this has to be unique")
     count: int = Field(description="The total number of chunks in the index")
     parent_doc_count: int | None = Field(
         description="The total number of files provided for the index - files can be broken into 1..* chunks"
+    )
+    collection: str | None = Field(
+        default=None,
+        description="Collection that owns this index, if any.",
+    )
+    is_collection: bool | None = Field(
+        default=None,
+        description="True when this name is a collection rather than a physical index.",
     )
 
 
@@ -70,6 +80,10 @@ class IndexDetails(IndexInfo):
     )
     analyzer: str = Field(
         description="The name of the analyzer used for the index.",
+    )
+    dense_model_dims: int | None = Field(
+        default=None,
+        description="Dimension of the dense embedding vectors stored in the index.",
     )
     store_size_bytes: int | None = Field(
         default=None,
@@ -100,4 +114,14 @@ class IndexDetails(IndexInfo):
 class ListIndexesResponse(BaseModel):
     """Response object for list_indexes API."""
 
+    model_config = ConfigDict(extra="ignore")
+
     indexes: list[IndexInfo]
+
+
+class RetentionPolicyResponse(BaseModel):
+    """Envelope returned by get_retention_policy."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    retention_policy: RetentionPolicy | None = None

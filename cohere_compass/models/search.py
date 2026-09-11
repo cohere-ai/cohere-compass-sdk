@@ -2,96 +2,63 @@
 
 # Python imports
 from enum import Enum
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 # 3rd party imports
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict
 
-from cohere_compass.models.documents import AssetType
-
-
-class VisualElement(BaseModel):
-    """Visual element of an asset."""
-
-    id: int
-    x0: int
-    y0: int
-    x1: int
-    y1: int
-    asset_id: str | None = None
+from cohere_compass.models.documents import AssetType, VisualElement
 
 
 class AssetInfo(BaseModel):
-    """Information about an asset."""
+    """Read-side asset metadata on retrieved chunks."""
 
-    asset_id: str | None = None
+    model_config = ConfigDict(extra="ignore")
+
     asset_type: AssetType
     content_type: str
-    presigned_url: str
+    asset_id: str | None = None
+    presigned_url: str | None = None
     visual_elements: list[VisualElement] | None = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def _default_presigned_url(cls, data: Any) -> Any:
-        """
-        Ensure that the presigned_url is always present.
-
-        This is done to keep it backward compatible.
-        """
-        if isinstance(data, dict):
-            values = cast(dict[str, Any], data)
-            if values.get("presigned_url") is None:
-                values = {**values, "presigned_url": ""}
-            return values
-        return data
 
 
 class RetrievedChunk(BaseModel):
-    """Chunk of a document retrieved from get_document API."""
+    """A document chunk returned by get-document, search, or direct-search."""
 
-    chunk_id: str
+    model_config = ConfigDict(extra="ignore")
+
     sort_id: int
-    parent_document_id: str
     path: str
     content: dict[str, Any]
+    document_id: str | None = None
     origin: dict[str, Any] | None = None
     assets_info: list[AssetInfo] | None = None
-
-
-class RetrievedScoredChunk(RetrievedChunk):
-    """Chunk of a document retrieved from search API."""
-
-    score: float
+    score: float | None = None
+    created_at: int | None = None
+    updated_at: int | None = None
+    accessed_at: int | None = None
+    source: str | None = None
 
 
 class RetrievedDocument(BaseModel):
-    """Document retrieved from get_document API."""
+    """A document returned by get-document or search_documents."""
+
+    model_config = ConfigDict(extra="ignore")
 
     document_id: str
     path: str
-    parent_document_id: str
     content: dict[str, Any]
+    chunks: list[RetrievedChunk]
     index_fields: list[str] | None = None
     authorized_groups: list[str] | None = None
-    chunks: list[RetrievedChunk]
-
-
-class RetrievedScoredDocument(RetrievedDocument):
-    """Document retrieved from search API."""
-
-    chunks: list[RetrievedScoredChunk]  # pyright: ignore[reportIncompatibleVariableOverride]
-    score: float
-
-
-class RetrievedChunkExtended(RetrievedScoredChunk):
-    """Additional information about a chunk retrieved from search."""
-
-    document_id: str
-    index_fields: list[str] | None = None
+    score: float | None = None
+    source: str | None = None
 
 
 class GetDocumentResponse(BaseModel):
     """Response object for get_document API."""
+
+    model_config = ConfigDict(extra="ignore")
 
     document: RetrievedDocument
 
@@ -99,13 +66,17 @@ class GetDocumentResponse(BaseModel):
 class SearchDocumentsResponse(BaseModel):
     """Response object for search_documents API."""
 
-    hits: list[RetrievedScoredDocument]
+    model_config = ConfigDict(extra="ignore")
+
+    hits: list[RetrievedDocument]
 
 
 class SearchChunksResponse(BaseModel):
     """Response object for search_chunks API."""
 
-    hits: list[RetrievedChunkExtended]
+    model_config = ConfigDict(extra="ignore")
+
+    hits: list[RetrievedChunk]
 
 
 class SearchFilter(BaseModel):
@@ -145,7 +116,7 @@ class DirectSearchInput(BaseModel):
     """Input to direct search APIs."""
 
     query: dict[str, Any]
-    size: int
+    size: int | None = None
     sort_by: list[SortBy] | None = None
     scroll: str | None = None
 
@@ -154,11 +125,13 @@ class DirectSearchScrollInput(BaseModel):
     """Input to direct search scroll API."""
 
     scroll_id: str
-    scroll: str
+    scroll: str | None = None
 
 
 class DirectSearchResponse(BaseModel):
     """Response object for direct search APIs."""
 
-    hits: list[RetrievedChunkExtended]
+    model_config = ConfigDict(extra="ignore")
+
+    hits: list[RetrievedChunk]
     scroll_id: str | None = None

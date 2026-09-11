@@ -55,8 +55,8 @@ async def main():
 
         for i, chunk in enumerate(response.hits, 1):
             print(f"--- Chunk {i} (Score: {chunk.score:.4f}) ---")
-            print(f"Chunk ID: {chunk.chunk_id}")
             print(f"Document ID: {chunk.document_id}")
+            print(f"Sort ID: {chunk.sort_id}")
             print(f"Path: {chunk.path}")
             print(f"Content preview: {str(chunk.content)[:200]}...")
             if chunk.assets_info:

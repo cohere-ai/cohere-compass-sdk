@@ -377,7 +377,7 @@ def test_partition_creates_correct_document_objects():
     assert compass_doc == doc
     assert isinstance(document, Document)
     assert document.document_id == "doc1"
-    assert document.parent_document_id == "parent_doc1"
+    assert document.parent_document_id == "doc1"
     assert document.path == "doc1.txt"
     assert len(document.chunks) == 2
     assert all(isinstance(chunk, Chunk) for chunk in document.chunks)

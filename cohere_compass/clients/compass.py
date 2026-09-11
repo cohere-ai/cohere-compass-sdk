@@ -84,7 +84,12 @@ from cohere_compass.models.documents import (
     UploadFilePresignedUrlRequest,
     UploadFilePresignedUrlResponse,
 )
-from cohere_compass.models.indexes import IndexDetails, ListIndexesResponse, RetentionPolicy
+from cohere_compass.models.indexes import (
+    IndexDetails,
+    ListIndexesResponse,
+    RetentionPolicy,
+    RetentionPolicyResponse,
+)
 from cohere_compass.models.search import (
     GetDocumentResponse,
     RetrievedDocument,
@@ -637,18 +642,7 @@ class CompassClient:
         if result.result is None:
             return None
 
-        # The server wraps the policy in an envelope: {"retention_policy": {...}}.
-        # Fall back to the raw payload to remain compatible with any deployment that
-        # returns the bare policy.
-        policy_data = (
-            result.result.get("retention_policy")
-            if isinstance(result.result, dict) and "retention_policy" in result.result
-            else result.result
-        )
-        if policy_data is None:
-            return None
-
-        return RetentionPolicy.model_validate(policy_data)
+        return RetentionPolicyResponse.model_validate(result.result).retention_policy
 
     def delete_retention_policy(
         self,
@@ -1289,7 +1283,6 @@ class CompassClient:
             id=document_id,
             filename=filename,
             content_type=content_type,
-            content_length_bytes=len(filebytes),
             content_encoded_bytes=b64,
             attributes=attributes,
             config=config,
@@ -1336,7 +1329,6 @@ class CompassClient:
         :param index_name: The name of the index.
         :param filename: The filename of the document.
         :param file_data_uuid: UUID from a prior ``get_upload_presigned_url`` call.
-        :param content_length_bytes: The size of the uploaded file in bytes.
         :param document_id: The ID to assign to the document.
         :param attributes: Additional attributes to add to the document.
         :param config: Configuration for the document parsing.
@@ -1459,7 +1451,7 @@ class CompassClient:
             timeout=timeout,
         )
 
-        return [UploadDocumentsStatus(**r) for r in result.result]  # type: ignore
+        return [UploadDocumentsStatus.model_validate(r) for r in result.result]  # type: ignore
 
     def bulk_upload_document_status(
         self,
@@ -1497,7 +1489,7 @@ class CompassClient:
             timeout=timeout,
         )
 
-        return [BulkUploadDocumentsStatus(**r) for r in result.result]  # type: ignore
+        return [BulkUploadDocumentsStatus.model_validate(r) for r in result.result]  # type: ignore
 
     def download_parsed_document(
         self,
@@ -1533,7 +1525,7 @@ class CompassClient:
             timeout=timeout,
         )
 
-        return [ParsedDocumentResponse.convert(data=r) for r in result.result]  # type: ignore
+        return [ParsedDocumentResponse.model_validate(r) for r in result.result]  # type: ignore
 
     def insert_docs(
         self,
@@ -1905,7 +1897,7 @@ class CompassClient:
         index_name: str,
         query: dict[str, Any],
         sort_by: list[SortBy] | None = None,
-        size: int = 100,
+        size: int | None = None,
         scroll: str | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
@@ -1917,8 +1909,9 @@ class CompassClient:
         :param index_name: the name of the index
         :param query: the direct search query (e.g. {"match_all": {}})
         :param sort_by: the sort by criteria
-        :param size: the number of results to return
-        :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        :param size: the number of results to return. Omit to use the server default.
+        :param scroll: the scroll duration (e.g. "1m" for 1 minute). Omit to use the
+            server default.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1948,7 +1941,7 @@ class CompassClient:
         *,
         index_name: str,
         scroll_id: str,
-        scroll: str = "1m",
+        scroll: str | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1958,7 +1951,8 @@ class CompassClient:
 
         :param scroll_id: the scroll ID from a previous direct_search call
         :param index_name: the name of the index same as used in direct_search
-        :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        :param scroll: the scroll duration (e.g. "1m" for 1 minute). Omit to use the
+            server default.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default

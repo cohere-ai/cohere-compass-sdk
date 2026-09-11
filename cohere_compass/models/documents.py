@@ -2,9 +2,9 @@
 
 # Python imports
 import uuid
-from dataclasses import field
+from datetime import datetime
 from enum import Enum
-from typing import Annotated, Any, TypeAlias, cast
+from typing import Annotated, Any, TypeAlias
 
 # 3rd party imports
 from pydantic import (
@@ -13,8 +13,8 @@ from pydantic import (
     ConfigDict,
     Field,
     GetJsonSchemaHandler,
-    PositiveInt,
     StringConstraints,
+    field_validator,
     model_validator,
 )
 from pydantic.json_schema import JsonSchemaValue
@@ -22,19 +22,19 @@ from pydantic_core import CoreSchema
 
 # Local imports
 from cohere_compass.constants import URL_SAFE_STRING_PATTERN
-from cohere_compass.models import ValidatedModel
 from cohere_compass.models.config import EnrichmentConfig, ParserConfig
 
 DocumentId: TypeAlias = Annotated[str, Field(pattern=URL_SAFE_STRING_PATTERN)]
 
 
-class CompassDocumentMetadata(ValidatedModel):
+class CompassDocumentMetadata(BaseModel):
     """Compass document metadata."""
+
+    model_config = ConfigDict(extra="ignore")
 
     document_id: DocumentId = ""
     filename: str = ""
-    meta: list[Any] = field(default_factory=list[Any])
-    parent_document_id: str = ""
+    meta: dict[str, Any] = Field(default_factory=dict)
 
 
 class AssetType(str, Enum):
@@ -57,6 +57,16 @@ class AssetType(str, Enum):
     RAW = "raw"
 
     @classmethod
+    def _missing_(cls, value: object) -> "AssetType | None":
+        """Accept asset types added by newer Compass deployments."""
+        if not isinstance(value, str):
+            return None
+        member = str.__new__(cls, value)
+        member._name_ = value
+        member._value_ = value
+        return member
+
+    @classmethod
     def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
         """Make AssetType an extensible enum for better OpenAPI schema generation."""
         json_schema = handler(core_schema)
@@ -66,36 +76,57 @@ class AssetType(str, Enum):
         return json_schema
 
 
-class CompassDocumentChunkAsset(BaseModel):
-    """An asset associated with a Compass document chunk."""
+class VisualElement(BaseModel):
+    """Visual element of an asset."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    x0: int
+    y0: int
+    x1: int
+    y1: int
+    asset_id: str | None = None
+
+
+class DocumentChunkAsset(BaseModel):
+    """An asset associated with a document chunk (write / parser path)."""
+
+    model_config = ConfigDict(extra="ignore")
 
     asset_type: AssetType
     content_type: str
     asset_data: str | None = None
     asset_id: str | None = None
+    visual_elements: list[VisualElement] | None = None
 
 
-class CompassDocumentChunk(ValidatedModel):
-    """A chunk of a Compass document."""
+class CompassDocumentChunk(BaseModel):
+    """
+    A parsed chunk.
 
-    chunk_id: str
-    sort_id: str
-    document_id: str
-    parent_document_id: str
+    Identity (document id, path) lives on the parent document. Extra keys from the
+    parser are ignored.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    sort_id: int
     content: dict[str, Any]
     origin: dict[str, Any] | None = None
-    assets: list[CompassDocumentChunkAsset] | None = None
-    path: str | None = ""
-    enrichments: dict[str, Any] | None = None
+    assets: list[DocumentChunkAsset] | None = None
 
-    def parent_doc_is_split(self):
-        """
-        Check if the parent document is split.
-
-        :return: True if the document ID is different from the parent document ID,
-        indicating that the parent document is split; False otherwise.
-        """
-        return self.document_id != self.parent_document_id
+    def to_index_chunk(self, *, document_id: str, path: str) -> "Chunk":
+        """Build the put-documents write model for this chunk."""
+        return Chunk(
+            chunk_id=f"{document_id}_{self.sort_id}",
+            sort_id=self.sort_id,
+            parent_document_id=document_id,
+            path=path,
+            content=self.content,
+            origin=self.origin,
+            assets=self.assets,
+        )
 
 
 class CompassDocumentStatus(str, Enum):
@@ -116,7 +147,7 @@ class CompassSdkStage(str, Enum):
     Indexing = "indexing"
 
 
-class CompassDocument(ValidatedModel):
+class CompassDocument(BaseModel):
     """
     A model class for a Compass document.
 
@@ -124,30 +155,32 @@ class CompassDocument(ValidatedModel):
     into the index. It includes:
 
     - metadata: the document metadata (e.g., filename, title, authors, date)
-    - content: the document content in string format
-    - elements: the document's Unstructured elements (e.g., tables, images, text).
+    - content: the document content
     - chunks: the document's chunks (e.g., paragraphs, tables, images).
     - index_fields: the fields to be indexed. Used by the indexer
     """
 
+    model_config = ConfigDict(extra="ignore", arbitrary_types_allowed=True)
+
     filebytes: bytes = b""
-    metadata: CompassDocumentMetadata = CompassDocumentMetadata()
-    content: dict[str, str] = field(default_factory=dict[str, str])
+    metadata: CompassDocumentMetadata = Field(default_factory=CompassDocumentMetadata)
+    content: dict[str, Any] = Field(default_factory=dict)
     content_type: str | None = None
-    elements: list[Any] = field(default_factory=list[Any])
-    chunks: list[CompassDocumentChunk] = field(default_factory=list[CompassDocumentChunk])
-    index_fields: list[str] = field(default_factory=list[str])
-    errors: list[dict[CompassSdkStage, str]] = field(default_factory=list[dict[CompassSdkStage, str]])
-    ignore_metadata_errors: bool = True
-    markdown: str | None = None
+    chunks: list[CompassDocumentChunk] = Field(default_factory=list[CompassDocumentChunk])
+    assets: list[DocumentChunkAsset] = Field(default_factory=list[DocumentChunkAsset])
+    index_fields: list[str] = Field(default_factory=list)
+    errors: list[dict[str, Any]] = Field(default_factory=list[dict[str, Any]])
+
+    @field_validator("filebytes", mode="before")
+    @classmethod
+    def _coerce_filebytes(cls, value: Any) -> Any:
+        if value is None or value == "":
+            return b""
+        return value
 
     def has_data(self) -> bool:
         """Check if the document has any data."""
         return len(self.filebytes) > 0
-
-    def has_markdown(self) -> bool:
-        """Check if the document has a markdown representation."""
-        return self.markdown is not None
 
     def has_filename(self) -> bool:
         """Check if the document has a filename."""
@@ -159,28 +192,23 @@ class CompassDocument(ValidatedModel):
 
     def has_parsing_errors(self) -> bool:
         """Check if the document has parsing errors."""
-        return any(stage == CompassSdkStage.Parsing for error in self.errors for stage, _ in error.items())
+        return any(stage == CompassSdkStage.Parsing for error in self.errors for stage in error)
 
     def has_metadata_errors(self) -> bool:
         """Check if the document has metadata errors."""
-        return any(stage == CompassSdkStage.Metadata for error in self.errors for stage, _ in error.items())
+        return any(stage == CompassSdkStage.Metadata for error in self.errors for stage in error)
 
     def has_indexing_errors(self) -> bool:
         """Check if the document has indexing errors."""
-        return any(stage == CompassSdkStage.Indexing for error in self.errors for stage, _ in error.items())
+        return any(stage == CompassSdkStage.Indexing for error in self.errors for stage in error)
 
     @property
     def status(self) -> CompassDocumentStatus:
         """Get the document status."""
         if self.has_parsing_errors():
             return CompassDocumentStatus.ParsingErrors
-
-        if not self.ignore_metadata_errors and self.has_metadata_errors():
-            return CompassDocumentStatus.MetadataErrors
-
         if self.has_indexing_errors():
             return CompassDocumentStatus.IndexingErrors
-
         return CompassDocumentStatus.Success
 
     @model_validator(mode="after")
@@ -194,73 +222,39 @@ class CompassDocument(ValidatedModel):
             missing_fields = set(self.index_fields) - set(chunk_without_index_fields.content.keys())
             raise ValueError(
                 f"All index_fields must exist as keys in chunk content. "
-                f"Missing in chunk {chunk_without_index_fields.chunk_id}: "
+                f"Missing in chunk sort_id={chunk_without_index_fields.sort_id}: "
                 f"{missing_fields}"
             )
         return self
 
-    @staticmethod
-    def adapt_doc_id_compass_doc(doc: dict[Any, Any]) -> "CompassDocument":
-        """
-        Adapt a document dictionary to a CompassDocument instance.
-
-        This dict is returned from Parser client.
-        """
-        metadata = doc["metadata"]
-        if "document_id" not in metadata:
-            metadata["document_id"] = metadata.pop("doc_id")
-            metadata["parent_document_id"] = metadata.pop("parent_doc_id")
-
-        chunks = doc["chunks"]
-        for chunk in chunks:
-            if "parent_document_id" not in chunk:
-                chunk["parent_document_id"] = chunk.pop("parent_doc_id")
-            if "document_id" not in chunk:
-                chunk["document_id"] = chunk.pop("doc_id")
-            if "path" not in chunk:
-                chunk["path"] = doc["metadata"]["filename"]
-
-        res = CompassDocument(
-            filebytes=doc["filebytes"],
-            metadata=metadata,
-            content=doc["content"],
-            content_type=doc["content_type"],
-            elements=doc["elements"],
-            chunks=chunks,
-            index_fields=doc["index_fields"],
-            errors=doc["errors"],
-            ignore_metadata_errors=doc["ignore_metadata_errors"],
-            markdown=doc["markdown"],
+    def to_index_document(self) -> "Document":
+        """Build the put-documents write model for this parsed document."""
+        document_id = self.metadata.document_id
+        path = self.metadata.filename
+        return Document(
+            document_id=document_id,
+            parent_document_id=document_id,
+            path=path,
+            content=self.content,
+            chunks=[chunk.to_index_chunk(document_id=document_id, path=path) for chunk in self.chunks],
+            index_fields=self.index_fields,
         )
-
-        return res
-
-
-class DocumentChunkAsset(BaseModel):
-    """Model class for an asset associated with a document chunk."""
-
-    asset_type: AssetType
-    content_type: str
-    asset_data: str | None = None
-    asset_id: str | None = None
 
 
 class Chunk(BaseModel):
-    """Model class for a chunk of a document."""
+    """Write model for a chunk sent to put_documents."""
 
     chunk_id: str
     sort_id: int
     parent_document_id: str
-    path: str = ""
-    enrichments: dict[str, Any] | None = None
+    path: str
     content: dict[str, Any]
     origin: dict[str, Any] | None = None
     assets: list[DocumentChunkAsset] | None = None
-    asset_ids: list[str] | None = None
 
 
 class Document(BaseModel):
-    """Model class for a document."""
+    """Write model for a document sent to put_documents."""
 
     document_id: DocumentId
     path: str
@@ -276,10 +270,6 @@ class DocumentAttributes(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    # Had to add this to please the linter, because BaseModel only defines __setattr__
-    # if TYPE_CHECKING is not set, i.e. at runtime, resulting in the type checking pass
-    # done by the linter failing to find the __setattr__ method. See:
-    # https://github.com/pydantic/pydantic/blob/main/pydantic/main.py#L878-L920
     def __setattr__(self, name: str, value: Any):  # noqa: D105
         return super().__setattr__(name, value)
 
@@ -287,7 +277,7 @@ class DocumentAttributes(BaseModel):
 class ParseableDocumentConfig(BaseModel):
     """Configuration for a parseable document."""
 
-    parser_config: ParserConfig = ParserConfig()
+    parser_config: ParserConfig = Field(default_factory=ParserConfig)
     enrichment_config: EnrichmentConfig | None = None
     only_parse_doc: bool = False
 
@@ -296,13 +286,12 @@ class ParseableDocument(BaseModel):
     """A document to be sent to Compass for parsing."""
 
     id: str
-    filename: Annotated[str, StringConstraints(min_length=1)]  # Ensures the filename is a non-empty string
+    filename: Annotated[str, StringConstraints(min_length=1)]
     content_type: str | None = None
-    content_length_bytes: PositiveInt | None = None  # File size must be a non-negative integer
-    content_encoded_bytes: str | None = None  # Base64 encoded bytes of the file
+    content_encoded_bytes: str | None = None
     file_data_uuid: UUID4 | None = None
     attributes: DocumentAttributes
-    config: ParseableDocumentConfig = ParseableDocumentConfig()
+    config: ParseableDocumentConfig = Field(default_factory=ParseableDocumentConfig)
 
     @model_validator(mode="after")
     def _validate_content_source(self) -> "ParseableDocument":
@@ -324,6 +313,8 @@ class UploadDocumentsInput(BaseModel):
 class UploadDocumentsResult(BaseModel):
     """A model for the result of a call to upload_documents API."""
 
+    model_config = ConfigDict(extra="ignore")
+
     upload_id: UUID4
     document_ids: list[str]
 
@@ -343,6 +334,8 @@ class PutDocumentResult(BaseModel):
     This model is also used by the put_documents and edit_group_authorization APIs.
     """
 
+    model_config = ConfigDict(extra="ignore")
+
     document_id: str
     error: str | None
     task_ids: list[str] | None = None
@@ -351,19 +344,35 @@ class PutDocumentResult(BaseModel):
 class PutDocumentsResponse(BaseModel):
     """A model for the response of put_documents and edit_group_authorization APIs."""
 
+    model_config = ConfigDict(extra="ignore")
+
     results: list[PutDocumentResult]
 
 
+class UploadTimeline(BaseModel):
+    """Lifecycle timestamps for an upload, from API receipt to terminal state."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    created_at: datetime | None = None
+    last_enqueued_at: datetime | None = None
+    last_started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
 class UploadDocumentsStatus(BaseModel):
-    """A model for the response of status for documents when uploaded via async API."""
+    """Status of a document uploaded via the async upload API."""
+
+    model_config = ConfigDict(extra="ignore")
 
     upload_id: uuid.UUID
     document_id: str
-    destinations: list[str]
+    index_name: str
     file_name: str
-    state: str | None
-    last_error: str | None
-    parsed_presigned_url: str | None
+    state: str | None = None
+    last_error: str | None = None
+    parsed_presigned_url: str | None = None
+    timeline: UploadTimeline = Field(default_factory=UploadTimeline)
 
 
 class BulkUploadStatusRequest(BaseModel):
@@ -375,32 +384,21 @@ class BulkUploadStatusRequest(BaseModel):
 class BulkUploadDocumentsStatus(BaseModel):
     """A model for a single entry in the bulk upload status response."""
 
+    model_config = ConfigDict(extra="ignore")
+
     upload_id: UUID4
     statuses: list[UploadDocumentsStatus]
 
 
 class ParsedDocumentResponse(BaseModel):
-    """A model response for downloading saved document during the async API call."""
+    """A model response for downloading a parsed document from an async upload."""
+
+    model_config = ConfigDict(extra="ignore")
 
     upload_id: uuid.UUID
     document_id: str
-    documents: list[CompassDocument] | None
-    state: str
-
-    @staticmethod
-    def convert(data: dict[str, Any]) -> "ParsedDocumentResponse":
-        """
-        Convert a dictionary to a ParsedDocumentResponse instance.
-
-        :param data: Dictionary containing the document data.
-        :return: ParsedDocumentResponse instance.
-        """
-        return ParsedDocumentResponse(
-            upload_id=uuid.UUID(data.get("upload_id", "")),
-            document_id=data.get("document_id", ""),
-            documents=[CompassDocument.adapt_doc_id_compass_doc(doc) for doc in data.get("documents", [])],
-            state=data.get("state", ""),
-        )
+    documents: list[CompassDocument] | None = None
+    state: str | None = None
 
 
 class AssetPresignedUrlRequest(BaseModel):
@@ -432,28 +430,17 @@ class GetAssetPresignedUrlsRequest(BaseModel):
 class AssetPresignedUrlDetails(BaseModel):
     """A single asset presigned URL response item."""
 
+    model_config = ConfigDict(extra="ignore")
+
     document_id: str
     asset_id: uuid.UUID
     presigned_url: str
 
-    @model_validator(mode="before")
-    @classmethod
-    def _default_presigned_url(cls, data: Any) -> Any:
-        """
-        Ensure that the presigned_url is always present.
-
-        This is done to keep it backward compatible.
-        """
-        if isinstance(data, dict):
-            values = cast(dict[str, Any], data)
-            if values.get("presigned_url") is None:
-                values = {**values, "presigned_url": ""}
-            return values
-        return data
-
 
 class GetAssetPresignedUrlsResponse(BaseModel):
     """A model for the response of get_asset_presigned_urls API."""
+
+    model_config = ConfigDict(extra="ignore")
 
     asset_urls: list[AssetPresignedUrlDetails]
 
@@ -526,6 +513,8 @@ class UploadFilePresignedUrlRequest(BaseModel):
 
 class UploadFilePresignedUrlResponse(BaseModel):
     """Response from the presigned URL upload endpoint."""
+
+    model_config = ConfigDict(extra="ignore")
 
     file_data_uuid: UUID4
     presigned_url: str

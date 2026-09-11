@@ -43,6 +43,9 @@ from cohere_compass.models.indexes import (  # noqa: E402
     RetentionPolicy as RetentionPolicy,
 )
 from cohere_compass.models.indexes import (  # noqa: E402
+    RetentionPolicyResponse as RetentionPolicyResponse,
+)
+from cohere_compass.models.indexes import (  # noqa: E402
     RetentionType as RetentionType,
 )
 from cohere_compass.models.search import *  # noqa: E402, F403
