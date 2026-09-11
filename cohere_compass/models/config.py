@@ -64,10 +64,6 @@ class PDFParsingStrategy(str, Enum):
 class PDFParsingConfig(BaseModel):
     """Contains extra parsing configuration specific to PDF files."""
 
-    model_config = ConfigDict(
-        extra="ignore",
-    )
-
     # enable_classification - controls whether the system uses the visual classification
     # model to detect pages containing images, tables, or other visual elements. When
     # True, pages with classification scores exceeding visual_parsing_threshold will be
@@ -125,11 +121,6 @@ class DocxParsingStrategy(str, Enum):
 
 class ParserConfig(BaseModel):
     """A model class for specifying parsing configuration."""
-
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        extra="ignore",
-    )
 
     # CompassParser configuration
     parsed_images_output_dir: str | None = None

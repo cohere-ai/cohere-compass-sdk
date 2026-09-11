@@ -22,13 +22,12 @@ from pydantic_core import CoreSchema
 
 # Local imports
 from cohere_compass.constants import URL_SAFE_STRING_PATTERN
-from cohere_compass.models import ValidatedModel
 from cohere_compass.models.config import EnrichmentConfig, ParserConfig
 
 DocumentId: TypeAlias = Annotated[str, Field(pattern=URL_SAFE_STRING_PATTERN)]
 
 
-class CompassDocumentMetadata(ValidatedModel):
+class CompassDocumentMetadata(BaseModel):
     """Compass document metadata."""
 
     document_id: DocumentId = ""
@@ -55,6 +54,13 @@ class AssetType(str, Enum):
     AUDIO = "audio"
     # The original uploaded file bytes (when enable_raw_file_asset is on)
     RAW = "raw"
+    # Asset type the SDK does not know yet (newer Compass deployments)
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "AssetType":
+        """Map asset types added by newer Compass deployments to UNKNOWN."""
+        return cls.UNKNOWN
 
     @classmethod
     def __get_pydantic_json_schema__(cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
@@ -75,7 +81,7 @@ class CompassDocumentChunkAsset(BaseModel):
     asset_id: str | None = None
 
 
-class CompassDocumentChunk(ValidatedModel):
+class CompassDocumentChunk(BaseModel):
     """A chunk of a Compass document."""
 
     chunk_id: str
@@ -116,7 +122,7 @@ class CompassSdkStage(str, Enum):
     Indexing = "indexing"
 
 
-class CompassDocument(ValidatedModel):
+class CompassDocument(BaseModel):
     """
     A model class for a Compass document.
 
