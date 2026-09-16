@@ -119,6 +119,16 @@ class DocxParsingStrategy(str, Enum):
         return cls.MarkItDown
 
 
+class VideoAdditionalMetadata(BaseModel):
+    """Contains extra metadata configuration specific to video files."""
+
+    model_config = ConfigDict(extra="ignore")
+    # Prompt used to extract additional metadata from the video.
+    prompt: str
+    # Optional JSON schema/format string constraining the extraction output.
+    json_output_format: str | None = None
+
+
 class ParserConfig(BaseModel):
     """A model class for specifying parsing configuration."""
 
@@ -149,6 +159,8 @@ class ParserConfig(BaseModel):
     # ASR configuration
     min_asr_chunk_duration_seconds: int | None = None
     max_asr_chunk_duration_seconds: int | None = None
+
+    video_additional_metadata: VideoAdditionalMetadata | None = None
 
 
 class WebhookEnricherConfig(BaseModel):
