@@ -73,7 +73,7 @@ uv add cohere-compass-sdk
 Once you install it, the best way to learn how to use the SDK is to head over to [our
 examples](https://github.com/cohere-ai/cohere-compass-sdk/tree/main/examples). For the
 API reference, you can visit this
-[link](https://cohere-preview-d28024ac-1edf-416c-95be-73c5fe85a7c5.docs.buildwithfern.com/compass/reference/list-indexes-v-1-indexes-get).
+[link](https://private.docs.cohere.com/compass-standalone/reference).
 
 ## V2 Migration Guide
 
