@@ -43,7 +43,7 @@ from cohere_compass.constants import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_WAIT,
 )
-from cohere_compass.content_types import ParserCapability, supported_file_types
+from cohere_compass.content_types import ParserCapability, parse_supported_file_types, supported_file_types
 from cohere_compass.exceptions import (
     CompassClientError,
     CompassError,
@@ -226,6 +226,8 @@ class CompassAsyncClient:
 
         If the deployment is unreachable or does not implement this endpoint, returns
         the locally known set for ``capabilities`` when ``fallback_on_failure`` is True.
+        A response that omits ``content_type`` or ``parser_family`` has them filled in
+        from the first MIME type and the SDK's built-in table rather than failing.
 
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
@@ -255,7 +257,7 @@ class CompassAsyncClient:
         if not isinstance(result.result, dict):
             raise ValueError("Invalid response from Compass API")
 
-        return SupportedFileTypesResponse.model_validate(result.result)
+        return parse_supported_file_types(result.result)
 
     async def create_index(
         self,

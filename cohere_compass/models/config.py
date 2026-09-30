@@ -225,16 +225,27 @@ class SupportedFileType(BaseModel):
     """
     One file format Compass accepts, as a set of MIME types and matching extensions.
 
-    MIME types are modelled as plain strings rather than ContentTypeEnum so that a
-    Compass deployment newer than the SDK can advertise types the SDK does not know
-    about yet without failing validation.
+    MIME types, the content type and the parser family are modelled as plain strings
+    rather than enums so that a Compass deployment newer than the SDK can advertise
+    values the SDK does not know about yet without failing validation.
 
+    :param content_type: The canonical MIME type to declare as the document's content
+        type when uploading this format. Always the first entry of mime_types.
+    :param parser_family: The parser Compass routes this format to, such as "pdf",
+        "spreadsheet" or "unstructured". It does not change with the parsing strategies
+        set in the parser config.
     :param mime_types: MIME types accepted for this format, canonical type first
         followed by any aliases that resolve to the same extensions.
     :param extensions: File extensions for this format, lowercase and dot-prefixed.
         Empty for formats uploaded by MIME type only, such as application/octet-stream.
     """
 
+    content_type: str = Field(
+        description="The canonical MIME type to declare on upload. Always the first entry of mime_types.",
+    )
+    parser_family: str = Field(
+        description="The parser this format is routed to. Does not change with the parsing strategies in use.",
+    )
     mime_types: list[str] = Field(
         default_factory=list,
         description="MIME types accepted for this format: canonical type first, then aliases.",

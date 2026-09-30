@@ -558,21 +558,51 @@ def test_get_models(client: CompassClient, respx_mock: MockRouter):
     200,
     response_body={
         "file_types": [
-            {"mime_types": ["application/pdf"], "extensions": [".pdf"]},
-            {"mime_types": ["text/html"], "extensions": [".htm", ".html"]},
-            {"mime_types": ["application/octet-stream"], "extensions": []},
+            {
+                "content_type": "application/pdf",
+                "parser_family": "pdf",
+                "mime_types": ["application/pdf"],
+                "extensions": [".pdf"],
+            },
+            {
+                "content_type": "text/html",
+                "parser_family": "unstructured",
+                "mime_types": ["text/html"],
+                "extensions": [".htm", ".html"],
+            },
+            {
+                "content_type": "application/octet-stream",
+                "parser_family": "unstructured",
+                "mime_types": ["application/octet-stream"],
+                "extensions": [],
+            },
         ]
     },
 )
 def test_get_supported_file_types_returns_parsed_response(client: CompassClient):
-    """Each advertised format is parsed into a SupportedFileType with its MIME types and extensions."""
+    """Each advertised format is parsed into a SupportedFileType with its declarations and routing."""
     result = client.get_supported_file_types()
 
     assert result == SupportedFileTypesResponse(
         file_types=[
-            SupportedFileType(mime_types=["application/pdf"], extensions=[".pdf"]),
-            SupportedFileType(mime_types=["text/html"], extensions=[".htm", ".html"]),
-            SupportedFileType(mime_types=["application/octet-stream"], extensions=[]),
+            SupportedFileType(
+                content_type="application/pdf",
+                parser_family="pdf",
+                mime_types=["application/pdf"],
+                extensions=[".pdf"],
+            ),
+            SupportedFileType(
+                content_type="text/html",
+                parser_family="unstructured",
+                mime_types=["text/html"],
+                extensions=[".htm", ".html"],
+            ),
+            SupportedFileType(
+                content_type="application/octet-stream",
+                parser_family="unstructured",
+                mime_types=["application/octet-stream"],
+                extensions=[],
+            ),
         ]
     )
 
@@ -581,13 +611,53 @@ def test_get_supported_file_types_returns_parsed_response(client: CompassClient)
     "GET",
     "http://test.com/v1/config/supported-file-types",
     200,
-    response_body={"file_types": [{"mime_types": ["application/x-not-in-sdk-enum"], "extensions": [".weird"]}]},
+    response_body={
+        "file_types": [
+            {
+                "content_type": "application/x-not-in-sdk-enum",
+                "parser_family": "not-a-known-family",
+                "mime_types": ["application/x-not-in-sdk-enum"],
+                "extensions": [".weird"],
+            }
+        ]
+    },
 )
-def test_get_supported_file_types_accepts_mime_types_unknown_to_the_sdk(client: CompassClient):
-    """A newer deployment advertising a MIME type the SDK's ContentTypeEnum lacks must still parse."""
+def test_get_supported_file_types_accepts_values_unknown_to_the_sdk(client: CompassClient):
+    """A newer deployment advertising a content type or parser family the SDK lacks must still parse."""
     result = client.get_supported_file_types()
 
     assert result.mime_types == {"application/x-not-in-sdk-enum"}
+    assert result.file_types[0].content_type == "application/x-not-in-sdk-enum"
+    assert result.file_types[0].parser_family == "not-a-known-family"
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/config/supported-file-types",
+    200,
+    response_body={
+        "file_types": [
+            {"mime_types": ["application/pdf"], "extensions": [".pdf"]},
+            {
+                "mime_types": [
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "application/xlsx",
+                ],
+                "extensions": [".xlsx"],
+            },
+            {"mime_types": ["application/x-not-in-sdk-enum"], "extensions": [".weird"]},
+        ]
+    },
+)
+def test_get_supported_file_types_omitting_content_type_and_parser_family_fills_them_in(client: CompassClient):
+    """Omitted fields come from the first MIME type and the SDK's built-in table, else unstructured."""
+    result = client.get_supported_file_types()
+
+    assert [(file_type.content_type, file_type.parser_family) for file_type in result.file_types] == [
+        ("application/pdf", "pdf"),
+        ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "spreadsheet"),
+        ("application/x-not-in-sdk-enum", "unstructured"),
+    ]
 
 
 @mock_endpoint(
