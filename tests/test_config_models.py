@@ -8,10 +8,30 @@ def supported_file_types() -> SupportedFileTypesResponse:
     """A response covering an alias group, a multi-extension format, and a MIME-only format."""
     return SupportedFileTypesResponse(
         file_types=[
-            SupportedFileType(mime_types=["application/pdf"], extensions=[".pdf"]),
-            SupportedFileType(mime_types=["text/html"], extensions=[".htm", ".html"]),
-            SupportedFileType(mime_types=["audio/mpeg", "audio/mp3"], extensions=[".mp3"]),
-            SupportedFileType(mime_types=["application/octet-stream"], extensions=[]),
+            SupportedFileType(
+                content_type="application/pdf",
+                parser_family="pdf",
+                mime_types=["application/pdf"],
+                extensions=[".pdf"],
+            ),
+            SupportedFileType(
+                content_type="text/html",
+                parser_family="unstructured",
+                mime_types=["text/html"],
+                extensions=[".htm", ".html"],
+            ),
+            SupportedFileType(
+                content_type="audio/mpeg",
+                parser_family="audio",
+                mime_types=["audio/mpeg", "audio/mp3"],
+                extensions=[".mp3"],
+            ),
+            SupportedFileType(
+                content_type="application/octet-stream",
+                parser_family="unstructured",
+                mime_types=["application/octet-stream"],
+                extensions=[],
+            ),
         ]
     )
 
@@ -91,6 +111,8 @@ def test_supports_advertised_mime_type_with_internal_capitals() -> None:
     response = SupportedFileTypesResponse(
         file_types=[
             SupportedFileType(
+                content_type="application/vnd.ms-excel.sheet.macroEnabled.12",
+                parser_family="spreadsheet",
                 mime_types=["application/vnd.ms-excel.sheet.macroEnabled.12"],
                 extensions=[".xlsm"],
             )
