@@ -1,6 +1,5 @@
 from cohere_compass.clients import CompassClient
 from cohere_compass.exceptions import CompassClientError
-from cohere_compass.models.config import IndexConfig
 
 COMPASS_API_URL = "<COMPASS_API_URL>"
 BEARER_TOKEN = "<BEARER_TOKEN>"
@@ -13,9 +12,6 @@ compass_client = CompassClient(
 )
 
 try:
-    compass_client.create_index(
-        index_name=INDEX_NAME,
-        index_config=IndexConfig(description=INDEX_DESCRIPTION),
-    )
+    compass_client.update_index(index_name=INDEX_NAME, description=INDEX_DESCRIPTION)
 except CompassClientError as e:
-    raise Exception("Failed to create index") from e
+    raise Exception("Failed to update index") from e

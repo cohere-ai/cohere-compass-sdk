@@ -211,6 +211,8 @@ class IndexConfig(BaseModel):
         by cohere.
     :param sparse_model: the sparse model to use for the index. Leave unset unless
         advised by cohere.
+    :param description: what the index contains, so people and AI agents can tell
+        which index to search. One sentence up to a paragraph (max 1000 characters).
     """
 
     number_of_shards: int | None = None
@@ -219,6 +221,7 @@ class IndexConfig(BaseModel):
     analyzer: str | None = None
     dense_model: str | None = None
     sparse_model: str | None = None
+    description: str | None = Field(default=None, max_length=1000)
 
 
 class SupportedFileType(BaseModel):
