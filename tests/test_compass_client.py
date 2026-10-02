@@ -40,6 +40,7 @@ from cohere_compass.models.documents import (
 from cohere_compass.models.indexes import (
     IndexDetails,
     IndexInfo,
+    IndexUpdateResponse,
     RetentionPolicy,
     RetentionType,
 )
@@ -133,6 +134,45 @@ def test_create_index_formatted_with_index(client: CompassClient):
 )
 def test_create_index_with_index_config(client: CompassClient):
     client.create_index(index_name="test_index", index_config=IndexConfig(number_of_shards=5))
+
+
+@mock_endpoint(
+    "PUT",
+    "http://test.com/v1/indexes/test_index",
+    200,
+    {"description": "Quarterly finance reports."},
+)
+def test_create_index_with_description(client: CompassClient):
+    client.create_index(index_name="test_index", index_config=IndexConfig(description="Quarterly finance reports."))
+
+
+def test_index_config_rejects_overlong_description():
+    with pytest.raises(ValidationError):
+        IndexConfig(description="x" * 1001)
+
+
+@mock_endpoint(
+    "PATCH",
+    "http://test.com/v1/indexes/test_index",
+    200,
+    response_body={"description": "Board meeting minutes."},
+    expected_request_body={"description": "Board meeting minutes."},
+)
+def test_update_index_sets_description(client: CompassClient):
+    result = client.update_index(index_name="test_index", description="Board meeting minutes.")
+    assert result == IndexUpdateResponse(description="Board meeting minutes.")
+
+
+@mock_endpoint(
+    "PATCH",
+    "http://test.com/v1/indexes/test_index",
+    200,
+    response_body={"description": None},
+    expected_request_body={"description": None},
+)
+def test_update_index_none_clears_description(client: CompassClient):
+    result = client.update_index(index_name="test_index", description=None)
+    assert result.description is None
 
 
 @respx.mock
@@ -236,6 +276,21 @@ def test_insert_doc_with_tuple_does_not_throw_attribute_error(client: CompassCli
 def test_list_indices_is_valid(client: CompassClient):
     response = client.list_indexes()
     assert response.indexes == [IndexInfo(name="test_index", count=1, parent_doc_count=1)]
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes",
+    200,
+    response_body={
+        "indexes": [
+            {"name": "finance", "count": 1, "parent_doc_count": 1, "description": "Quarterly finance reports."},
+        ]
+    },
+)
+def test_list_indexes_parses_description(client: CompassClient):
+    response = client.list_indexes()
+    assert response.indexes[0].description == "Quarterly finance reports."
 
 
 @mock_endpoint(

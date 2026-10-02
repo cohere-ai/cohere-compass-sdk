@@ -84,7 +84,13 @@ from cohere_compass.models.documents import (
     UploadFilePresignedUrlRequest,
     UploadFilePresignedUrlResponse,
 )
-from cohere_compass.models.indexes import IndexDetails, ListIndexesResponse, RetentionPolicy
+from cohere_compass.models.indexes import (
+    IndexDetails,
+    IndexUpdate,
+    IndexUpdateResponse,
+    ListIndexesResponse,
+    RetentionPolicy,
+)
 from cohere_compass.models.search import (
     GetDocumentResponse,
     RetrievedDocument,
@@ -147,6 +153,10 @@ API_DEFINITIONS = {
     ),
     "get_index_details": (
         "GET",
+        "indexes/{index_name}",
+    ),
+    "update_index": (
+        "PATCH",
         "indexes/{index_name}",
     ),
     "delete_index": (
@@ -538,6 +548,42 @@ class CompassClient:
             retry_wait=retry_wait,
             timeout=timeout,
         )
+
+    def update_index(
+        self,
+        *,
+        index_name: str,
+        description: str | None,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> IndexUpdateResponse:
+        """
+        Update the mutable attributes of an index in Compass.
+
+        :param index_name: The name of the index to update.
+        :param description: What the index contains, so people and AI agents can tell
+            which index to search (max 1000 characters). None removes the description.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        :returns: The index's attributes after the update.
+
+        """
+        result = self._send_request(
+            api_name="update_index",
+            index_name=index_name,
+            data=IndexUpdate(description=description),
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+        return IndexUpdateResponse.model_validate(result.result)
 
     def delete_index(
         self,
@@ -2138,7 +2184,13 @@ class CompassClient:
     ):
         timeout = timeout or self.timeout
 
-        data_dict = data.model_dump(mode="json", exclude_none=True) if data else None
+        if data is None:
+            data_dict = None
+        elif http_method == "PATCH":
+            # PATCH sends only what the caller set, so an explicit None reaches the server as a clear.
+            data_dict = data.model_dump(mode="json", exclude_unset=True)
+        else:
+            data_dict = data.model_dump(mode="json", exclude_none=True)
 
         headers = None
         if self.bearer_token:
@@ -2160,6 +2212,13 @@ class CompassClient:
             )
         elif http_method == "PUT":
             response = self.httpx.put(
+                target_path,
+                json=data_dict,
+                headers=headers,
+                timeout=timeout.total_seconds(),
+            )
+        elif http_method == "PATCH":
+            response = self.httpx.patch(
                 target_path,
                 json=data_dict,
                 headers=headers,

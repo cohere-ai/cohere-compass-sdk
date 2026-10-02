@@ -57,6 +57,10 @@ class IndexInfo(BaseModel):
     parent_doc_count: int | None = Field(
         description="The total number of files provided for the index - files can be broken into 1..* chunks"
     )
+    description: str | None = Field(
+        default=None,
+        description="What the index contains, as set by its owner. None when no description is set.",
+    )
 
 
 class IndexDetails(IndexInfo):
@@ -95,6 +99,27 @@ class IndexDetails(IndexInfo):
         default=None,
         description="The retention policy configured for this index, if any.",
     )
+
+
+class IndexUpdate(BaseModel):
+    """
+    Request body for update_index API.
+
+    Only the fields that are explicitly set are sent, so an unset field is left
+    unchanged on the server while an explicit None clears it.
+    """
+
+    description: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="What the index contains. None or an empty string removes the description.",
+    )
+
+
+class IndexUpdateResponse(BaseModel):
+    """Response object for update_index API."""
+
+    description: str | None = Field(default=None, description="The index's description after the update.")
 
 
 class ListIndexesResponse(BaseModel):
