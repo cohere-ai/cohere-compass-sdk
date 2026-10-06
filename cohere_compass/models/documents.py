@@ -360,6 +360,32 @@ class PutDocumentsResponse(BaseModel):
     results: list[PutDocumentResult]
 
 
+class DeleteDocumentsInput(BaseModel):
+    """A model for the input of a call to the bulk delete_documents API."""
+
+    document_ids: list[str]
+
+
+class DeleteDocumentStatus(str, Enum):
+    """The outcome of deleting a single document in a bulk delete_documents call."""
+
+    Deleted = "deleted"
+    NotFound = "not_found"
+
+
+class DeleteDocumentResult(BaseModel):
+    """A model for the outcome of deleting a single document."""
+
+    document_id: str
+    status: DeleteDocumentStatus
+
+
+class DeleteDocumentsResult(BaseModel):
+    """A model for the response of the bulk delete_documents API."""
+
+    results: list[DeleteDocumentResult]
+
+
 class UploadDocumentsStatus(BaseModel):
     """A model for the response of status for documents when uploaded via async API."""
 
