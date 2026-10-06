@@ -40,6 +40,7 @@ from cohere_compass.constants import (
     DEFAULT_MAX_ERROR_RATE,
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_WAIT,
+    MAX_BULK_DELETE_DOCUMENT_IDS,
     URL_SAFE_STRING_PATTERN,
 )
 from cohere_compass.content_types import ParserCapability, parse_supported_file_types, supported_file_types
@@ -74,6 +75,8 @@ from cohere_compass.models.documents import (
     BulkUploadDocumentsStatus,
     BulkUploadStatusRequest,
     ContentTypeEnum,
+    DeleteDocumentsInput,
+    DeleteDocumentsResult,
     DocumentAttributes,
     GetAssetPresignedUrlsRequest,
     GetAssetPresignedUrlsResponse,
@@ -175,6 +178,10 @@ API_DEFINITIONS = {
     "delete_document": (
         "DELETE",
         "indexes/{index_name}/documents/{document_id}",
+    ),
+    "delete_documents": (
+        "POST",
+        "indexes/{index_name}/documents/_delete",
     ),
     "get_document": (
         "GET",
@@ -1149,6 +1156,56 @@ class CompassClient:
             retry_wait=retry_wait,
             timeout=timeout,
         )
+
+    def delete_documents(
+        self,
+        *,
+        index_name: str,
+        document_ids: list[str],
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> DeleteDocumentsResult:
+        """
+        Delete multiple documents from Compass in a single request.
+
+        A server error means the whole batch failed and is safe to retry; server errors are retried
+        automatically like other requests. Callers deleting more than ``MAX_BULK_DELETE_DOCUMENT_IDS``
+        documents must split them into batches.
+
+        :param index_name: The name of the index containing the documents.
+        :param document_ids: The IDs of the documents to delete. Must contain between 1 and
+            ``MAX_BULK_DELETE_DOCUMENT_IDS`` IDs. Duplicates are deduplicated by the server.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        :raises ValueError: If ``document_ids`` is empty or has more than ``MAX_BULK_DELETE_DOCUMENT_IDS`` IDs.
+
+        Returns:
+            DeleteDocumentsResult with a per-document status of ``deleted`` or ``not_found``.
+
+        """
+        if not document_ids:
+            raise ValueError("document_ids must contain at least one document ID.")
+        if len(document_ids) > MAX_BULK_DELETE_DOCUMENT_IDS:
+            raise ValueError(
+                f"document_ids must contain at most {MAX_BULK_DELETE_DOCUMENT_IDS} document IDs, "
+                f"got {len(document_ids)}."
+            )
+
+        result = self._send_request(
+            api_name="delete_documents",
+            data=DeleteDocumentsInput(document_ids=document_ids),
+            index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return DeleteDocumentsResult.model_validate(result.result)
 
     def get_document(
         self,

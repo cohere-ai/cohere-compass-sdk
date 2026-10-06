@@ -12,11 +12,13 @@ from respx import MockRouter
 
 from cohere_compass import GroupAuthorizationActions, GroupAuthorizationInput
 from cohere_compass.clients import CompassClient
+from cohere_compass.constants import MAX_BULK_DELETE_DOCUMENT_IDS
 from cohere_compass.content_types import ParserCapability, supported_file_types
 from cohere_compass.exceptions import (
     CompassAuthError,
     CompassClientError,
     CompassError,
+    CompassServerError,
     CompassTimeoutError,
 )
 from cohere_compass.models import (
@@ -33,6 +35,9 @@ from cohere_compass.models.documents import (
     AssetType,
     CompassDocumentMetadata,
     ContentTypeEnum,
+    DeleteDocumentResult,
+    DeleteDocumentsResult,
+    DeleteDocumentStatus,
     DocumentAttributes,
     ParseableDocument,
     UploadDocumentsResult,
@@ -115,6 +120,93 @@ def client(request: pytest.FixtureRequest):
 )
 def test_delete_url_formatted_with_doc_and_index(client: CompassClient):
     client.delete_document(index_name="test_index", document_id="test_id")
+
+
+@mock_endpoint(
+    "POST",
+    "http://test.com/v1/indexes/test_index/documents/_delete",
+    200,
+    response_body={
+        "results": [
+            {"document_id": "doc1", "status": "deleted"},
+            {"document_id": "doc2", "status": "not_found"},
+        ]
+    },
+    expected_request_body={"document_ids": ["doc1", "doc2"]},
+)
+def test_delete_documents(client: CompassClient):
+    result = client.delete_documents(index_name="test_index", document_ids=["doc1", "doc2"])
+
+    assert result == DeleteDocumentsResult(
+        results=[
+            DeleteDocumentResult(document_id="doc1", status=DeleteDocumentStatus.Deleted),
+            DeleteDocumentResult(document_id="doc2", status=DeleteDocumentStatus.NotFound),
+        ]
+    )
+
+
+@pytest.mark.parametrize(
+    "document_ids",
+    [[], [f"doc{i}" for i in range(MAX_BULK_DELETE_DOCUMENT_IDS + 1)]],
+    ids=["empty", "over_limit"],
+)
+@respx.mock
+def test_delete_documents_rejects_invalid_batch_size(
+    client: CompassClient, respx_mock: MockRouter, document_ids: list[str]
+):
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/_delete").mock(
+        return_value=httpx.Response(200, json={"results": []})
+    )
+
+    with pytest.raises(ValueError, match="document_ids must contain"):
+        client.delete_documents(index_name="test_index", document_ids=document_ids)
+
+    assert not route.called
+
+
+@mock_endpoint(
+    "POST",
+    "http://test.com/v1/indexes/test_index/documents/_delete",
+    200,
+    response_body={"results": []},
+)
+def test_delete_documents_accepts_max_batch_size(client: CompassClient):
+    document_ids = [f"doc{i}" for i in range(MAX_BULK_DELETE_DOCUMENT_IDS)]
+    client.delete_documents(index_name="test_index", document_ids=document_ids)
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected_exception"),
+    [(403, CompassAuthError), (404, CompassClientError), (409, CompassClientError), (422, CompassClientError)],
+)
+@respx.mock
+def test_delete_documents_maps_client_errors(
+    client: CompassClient,
+    respx_mock: MockRouter,
+    status_code: int,
+    expected_exception: type[CompassError],
+):
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/_delete").mock(
+        return_value=httpx.Response(status_code, json={"error": "nope"})
+    )
+
+    with pytest.raises(expected_exception) as exc_info:
+        client.delete_documents(index_name="test_index", document_ids=["doc1"], max_retries=3, retry_wait=timedelta(0))
+
+    assert exc_info.type is expected_exception
+    assert route.call_count == 1
+
+
+@respx.mock
+def test_delete_documents_retries_server_errors(client: CompassClient, respx_mock: MockRouter):
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/_delete").mock(
+        return_value=httpx.Response(503, json={"error": "unavailable"})
+    )
+
+    with pytest.raises(CompassServerError):
+        client.delete_documents(index_name="test_index", document_ids=["doc1"], max_retries=3, retry_wait=timedelta(0))
+
+    assert route.call_count == 3
 
 
 @mock_endpoint(
