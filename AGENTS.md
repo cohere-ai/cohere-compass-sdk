@@ -173,8 +173,8 @@ All data models are Pydantic v2 models. `ValidatedModel` (in `models/__init__.py
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `test.yml` | Push to main, PRs to main | Runs `pytest -sv` across Python 3.11/3.12/3.13 |
-| `pre-commit-checks.yml` | All PRs | Runs ruff + pyright across Python 3.11/3.12/3.13 |
+| `test.yml` | Push to main, PRs to main | Runs `pytest -sv` across Python 3.11 through 3.15 |
+| `pre-commit-checks.yml` | All PRs | Runs ruff + pyright across Python 3.11 through 3.15 |
 | `lint-pr.yaml` | PR events | Enforces semantic PR titles |
 | `check-version-bump.yml` | PRs to main | Blocks PRs without version bump |
 | `autogenerate-release.yml` | Push to main (pyproject.toml change) | Auto-creates GitHub release + publishes to PyPI |
