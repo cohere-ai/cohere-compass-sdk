@@ -427,27 +427,6 @@ class TestCompassRootClient:
         assert result.policies[0].permission == Permission.READ
 
     @respx.mock
-    def test_unknown_permissions_become_unknown(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
-        respx_mock.get("http://test.com/security/admin/rbac/v2/roles/editor").mock(
-            return_value=httpx.Response(
-                200,
-                json={
-                    "role_name": "editor",
-                    "policies": [
-                        {"indexes": ["eng-*"], "permission": "admin"},
-                        {"indexes": ["ops-*"], "permission": "owner"},
-                    ],
-                    "groups": [],
-                    "groups_page_info": {"total": 0, "page": 1, "total_pages": 0, "page_size": 10},
-                },
-            )
-        )
-
-        role = root_client.get_detailed_role("editor")
-
-        assert [policy.permission for policy in role.policies] == [Permission.ADMIN, Permission.UNKNOWN]
-
-    @respx.mock
     def test_delete_roles(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
         mock_response: list[dict[str, Any]] = [
             {

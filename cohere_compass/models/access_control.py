@@ -56,10 +56,10 @@ class UsersPage(BaseModel):
 class Permission(Enum):
     """Enumeration for permissions."""
 
-    READ = "read"  # read documents
-    WRITE = "write"  # add, update and delete documents, but not read them
-    ADMIN = "admin"  # administer the index, including READ and WRITE
-    ROOT = "root"  # manage users, groups and roles
+    READ = "read"
+    WRITE = "write"
+    ADMIN = "admin"
+    ROOT = "root"
     # Permission the SDK does not know yet (newer Compass deployments)
     UNKNOWN = "unknown"
 
