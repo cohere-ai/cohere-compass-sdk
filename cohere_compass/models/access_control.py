@@ -2,10 +2,9 @@
 
 # Python imports
 from enum import Enum
-from typing import Annotated
 
 # 3rd party imports
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class PageDirection(Enum):
@@ -61,18 +60,20 @@ class Permission(Enum):
     WRITE = "write"  # add, update and delete documents, but not read them
     ADMIN = "admin"  # administer the index, including READ and WRITE
     ROOT = "root"  # manage users, groups and roles
+    # Permission the SDK does not know yet (newer Compass deployments)
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "Permission":
+        """Map permissions added by newer Compass deployments to UNKNOWN."""
+        return cls.UNKNOWN
 
 
 class Policy(BaseModel):
-    """
-    Model for policy details.
-
-    ``permission`` is a :class:`Permission`, or the raw string for a permission added by a newer
-    Compass deployment, so roles read from such a deployment can be written back unchanged.
-    """
+    """Model for policy details."""
 
     indexes: list[str]
-    permission: Annotated[Permission | str, Field(union_mode="left_to_right")]
+    permission: Permission
 
 
 class Role(BaseModel):
