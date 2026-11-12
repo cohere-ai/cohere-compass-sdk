@@ -2,9 +2,10 @@
 
 # Python imports
 from enum import Enum
+from typing import Annotated
 
 # 3rd party imports
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PageDirection(Enum):
@@ -56,16 +57,22 @@ class UsersPage(BaseModel):
 class Permission(Enum):
     """Enumeration for permissions."""
 
-    READ = "read"
-    WRITE = "write"
-    ROOT = "root"
+    READ = "read"  # read documents
+    WRITE = "write"  # add, update and delete documents, but not read them
+    ADMIN = "admin"  # administer the index, including READ and WRITE
+    ROOT = "root"  # manage users, groups and roles
 
 
 class Policy(BaseModel):
-    """Model for policy details."""
+    """
+    Model for policy details.
+
+    ``permission`` is a :class:`Permission`, or the raw string for a permission added by a newer
+    Compass deployment, so roles read from such a deployment can be written back unchanged.
+    """
 
     indexes: list[str]
-    permission: Permission
+    permission: Annotated[Permission | str, Field(union_mode="left_to_right")]
 
 
 class Role(BaseModel):

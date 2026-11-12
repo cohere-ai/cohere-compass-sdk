@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 from typing import Any
 from unittest.mock import patch
@@ -425,6 +426,33 @@ class TestCompassRootClient:
         assert result.role_name == "editor"
         assert result.policies[0].indexes == ["my-test-index"]
         assert result.policies[0].permission == Permission.READ
+
+    @respx.mock
+    def test_unknown_permissions_round_trip(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
+        policies = [
+            {"indexes": ["eng-*"], "permission": "admin"},
+            {"indexes": ["ops-*"], "permission": "owner"},
+        ]
+        respx_mock.get("http://test.com/security/admin/rbac/v2/roles/editor").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "role_name": "editor",
+                    "policies": policies,
+                    "groups": [],
+                    "groups_page_info": {"total": 0, "page": 1, "total_pages": 0, "page_size": 10},
+                },
+            )
+        )
+        update = respx_mock.put("http://test.com/security/admin/rbac/v2/roles/editor").mock(
+            return_value=httpx.Response(200, json={"role_name": "editor", "policies": policies})
+        )
+
+        role = root_client.get_detailed_role("editor")
+        assert [policy.permission for policy in role.policies] == [Permission.ADMIN, "owner"]
+
+        root_client.update_role(Role(role_name=role.role_name, policies=role.policies))
+        assert json.loads(update.calls.last.request.content) == policies
 
     @respx.mock
     def test_delete_roles(self, root_client: CompassRootClient, respx_mock: MockRouter) -> None:
