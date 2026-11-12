@@ -58,7 +58,15 @@ class Permission(Enum):
 
     READ = "read"
     WRITE = "write"
+    ADMIN = "admin"
     ROOT = "root"
+    # Permission the SDK does not know yet (newer Compass deployments)
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "Permission":
+        """Map permissions added by newer Compass deployments to UNKNOWN."""
+        return cls.UNKNOWN
 
 
 class Policy(BaseModel):
