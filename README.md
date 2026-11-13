@@ -104,13 +104,18 @@ Jobs are saved in a store the caller chooses, so a failed or cancelled job can
 be run again and continue where it stopped:
 
 - `SqliteUploadJobStore(path)` keeps jobs in a SQLite database. Saving a file's
-  status takes well under a millisecond, however large the job.
+  status takes well under a millisecond, however large the job. Keep the
+  database on a local disk, not a network file system such as NFS.
 - `FileUploadJobStore(directory)` keeps one JSON file per job, which people
   can read and edit. Saving a file's status rewrites the whole file: about 25 ms
   in a job of 1,000 files and 250 ms in a job of 10,000, and a fresh upload
   saves each file's status about six times. Use it for jobs of up to a few
   thousand files.
 - `InMemoryUploadJobStore()` keeps jobs only for the life of the process.
+
+Stores create a missing state directory with mode 0700 and leave the mode of an
+existing one unchanged. Close a store when done with it, with `store.close()` or
+`async with`.
 
 A caller can name its jobs with `create_upload_job(job_id=...)` and record its
 own details with `metadata`; the workflow never reads them. The `uploads` module

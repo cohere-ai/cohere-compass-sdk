@@ -11,7 +11,8 @@ The upload workflow never chooses a storage location itself. Callers pass an
   few thousand files.
 - `InMemoryUploadJobStore` keeps jobs only for the life of the process.
 
-No store ever holds credentials or document contents.
+No store ever holds credentials or document contents. Every store can be used
+as an async context manager, which closes it on exit.
 """
 
 import asyncio
@@ -23,7 +24,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TypeVar, cast
+from types import TracebackType
+from typing import Self, TypeVar, cast
 
 from pydantic import ValidationError
 
@@ -32,6 +34,10 @@ from cohere_compass.ext.uploads.exceptions import UploadStateError
 from cohere_compass.ext.uploads.models import FileRecord, UploadJob
 
 _JOB_ID_BYTES = 6
+# The layout of `SqliteUploadJobStore`'s tables, saved as the database's
+# `user_version`. Databases created before the version was saved have 0 and
+# the same layout as version 1.
+_SQLITE_SCHEMA_VERSION = 1
 _Result = TypeVar("_Result")
 
 
@@ -72,6 +78,22 @@ class UploadJobStore(ABC):
         """Describe where the job is stored, for messages to people; None if nowhere."""
         del job_id
         return None
+
+    def close(self) -> None:
+        """Release what the store holds open, such as a database connection; by default nothing."""
+
+    async def __aenter__(self) -> Self:
+        """Return the store, which is closed when the `async with` block exits."""
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """Close the store."""
+        self.close()
 
 
 class InMemoryUploadJobStore(UploadJobStore):
@@ -124,8 +146,9 @@ class FileUploadJobStore(UploadJobStore):
     """
     Keeps each job as an atomically written JSON file in a caller-chosen directory.
 
-    The directory is created with mode 0700 and each file with mode 0600.
-    Every disk operation runs off the event loop.
+    A missing directory is created with mode 0700, and a directory that already
+    exists keeps its mode. Each job file is written with mode 0600. Every disk
+    operation runs off the event loop.
 
     `update_file` re-reads, rewrites and syncs the whole job file, and a job's
     updates run one at a time. Each file changes status about six times during
@@ -236,13 +259,19 @@ class SqliteUploadJobStore(UploadJobStore):
     Keeps jobs in a SQLite database file the caller chooses, one row per file.
 
     `update_file` writes only the changed file's row, so its cost does not grow
-    with the size of the job. The database and its directory are created on
-    first use, with modes 0600 and 0700. Every database operation runs off the
-    event loop.
+    with the size of the job. The database is created on first use with mode
+    0600. Its directory is created with mode 0700 if it is missing, and keeps
+    its mode if it already exists. Every database operation runs off the event
+    loop.
 
-    SQLite locks the database, so several processes may share it, but two
-    processes must still not run the same job at once. Call `close` when done
-    with the store.
+    SQLite locks the database, so several processes may share it, provided the
+    database is on a local disk: the store uses SQLite's WAL mode, which does
+    not work on network file systems such as NFS. Two processes must still not
+    run the same job at once.
+
+    Close the store when done with it, by calling `close` or by using it as an
+    async context manager. A database written by a newer SDK, with a newer
+    table layout, raises `UploadStateError` rather than being changed.
     """
 
     def __init__(self, path: str | Path) -> None:
@@ -371,7 +400,7 @@ class SqliteUploadJobStore(UploadJobStore):
             state = cast(dict[str, object], json.loads(header))
             state["updated_at"] = updated_at
             state["files"] = {key: json.loads(record) for key, record in files}
-            return UploadJob.model_validate_json(json.dumps(state))
+            return UploadJob.model_validate_json(_upgraded_state_json(state))
         except (TypeError, ValueError, ValidationError) as error:
             raise UploadStateError(
                 f"Upload job {job_id!r} in {self.path} is corrupt or unreadable: {error}."
@@ -399,6 +428,13 @@ class SqliteUploadJobStore(UploadJobStore):
         connection = sqlite3.connect(self.path, timeout=30, check_same_thread=False)
         if new:
             self.path.chmod(fs.PRIVATE_FILE_MODE)
+        version = cast(int, connection.execute("PRAGMA user_version").fetchone()[0])
+        if version > _SQLITE_SCHEMA_VERSION:
+            connection.close()
+            raise UploadStateError(
+                f"Upload state database {self.path} has table layout version {version}, but this SDK supports "
+                f"version {_SQLITE_SCHEMA_VERSION} at most. Upgrade cohere-compass-sdk to use it."
+            )
         # WAL with NORMAL syncing makes each commit cheap and keeps the database
         # consistent after a crash; at worst the last few status changes are lost,
         # which a resumed job recovers by checking those files again.
@@ -420,16 +456,21 @@ class SqliteUploadJobStore(UploadJobStore):
             );
             """
         )
+        if version < _SQLITE_SCHEMA_VERSION:
+            # PRAGMA statements take no parameters; the value is an int constant.
+            connection.execute(f"PRAGMA user_version = {_SQLITE_SCHEMA_VERSION}")
         self._connection = connection
         return connection
 
 
 def _upgraded_state_json(value: object) -> str:
     """
-    Return job file JSON in the current format, accepting older job files.
+    Return saved job JSON in the current format, accepting older saved jobs.
 
-    Older files may lack `options.parser_config`, or have a top-level
-    `profile_name`, which moves into `metadata` under the same key.
+    Both `FileUploadJobStore` and `SqliteUploadJobStore` pass every job they
+    load through this function. Older jobs may lack `options.parser_config`,
+    or have a top-level `profile_name`, which moves into `metadata` under the
+    same key.
     """
     if not isinstance(value, dict):
         return json.dumps(value)

@@ -25,8 +25,10 @@ cancelled job can be run again and continue where it stopped::
         index_name="reports",
         prune=True,
     )
-    store = SqliteUploadJobStore("/var/lib/my-app/uploads.db")
-    async with CompassAsyncClient(index_url=url, bearer_token=token) as client:
+    async with (
+        SqliteUploadJobStore("/var/lib/my-app/uploads.db") as store,
+        CompassAsyncClient(index_url=url, bearer_token=token) as client,
+    ):
         job = await create_upload_job(
             options=options,
             files=await discover_files(options),

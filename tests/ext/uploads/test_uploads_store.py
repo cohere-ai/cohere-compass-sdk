@@ -305,6 +305,81 @@ async def test_sqlite_store_creates_a_private_database_and_survives_reopening(tm
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["file", "sqlite"])
+async def test_stores_leave_the_mode_of_an_existing_directory_alone(tmp_path: Path, kind: str) -> None:
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    shared.chmod(0o755)
+    store = FileUploadJobStore(shared) if kind == "file" else SqliteUploadJobStore(shared / "uploads.db")
+
+    async with store:
+        await store.create(_job())
+
+    assert stat.S_IMODE(shared.stat().st_mode) == 0o755
+
+
+@pytest.mark.asyncio
+async def test_stores_close_when_used_as_async_context_managers(store: UploadJobStore) -> None:
+    async with store as entered:
+        await entered.create(_job())
+
+    assert entered is store
+    if isinstance(store, SqliteUploadJobStore):
+        assert store._connection is None  # pyright: ignore[reportPrivateUsage]
+        # A closed SQLite store reopens its database when used again.
+        assert (await store.load("job-1")).job_id == "job-1"
+
+
+def _user_version(path: Path) -> int:
+    connection = sqlite3.connect(path)
+    try:
+        return cast(int, connection.execute("PRAGMA user_version").fetchone()[0])
+    finally:
+        connection.close()
+
+
+@pytest.mark.asyncio
+async def test_sqlite_store_records_and_checks_its_table_layout_version(tmp_path: Path) -> None:
+    path = tmp_path / "uploads.db"
+    async with SqliteUploadJobStore(path) as store:
+        await store.create(_job())
+    assert _user_version(path) == 1
+
+    # A database saved without a version has the same layout as version 1.
+    connection = sqlite3.connect(path)
+    connection.execute("PRAGMA user_version = 0")
+    connection.close()
+    async with SqliteUploadJobStore(path) as store:
+        assert (await store.load("job-1")).job_id == "job-1"
+    assert _user_version(path) == 1
+
+    connection = sqlite3.connect(path)
+    connection.execute("PRAGMA user_version = 2")
+    connection.close()
+    with pytest.raises(UploadStateError, match="layout version 2"):
+        await SqliteUploadJobStore(path).list_jobs()
+    assert _user_version(path) == 2
+
+
+@pytest.mark.asyncio
+async def test_sqlite_store_upgrades_older_saved_jobs(tmp_path: Path) -> None:
+    path = tmp_path / "uploads.db"
+    async with SqliteUploadJobStore(path) as store:
+        await store.create(_job())
+    connection = sqlite3.connect(path)
+    with connection:
+        (header,) = connection.execute("SELECT header FROM jobs").fetchone()
+        state = json.loads(header)
+        del state["metadata"]
+        state["profile_name"] = "work"
+        connection.execute("UPDATE jobs SET header = ?", (json.dumps(state),))
+    connection.close()
+
+    async with SqliteUploadJobStore(path) as store:
+        assert (await store.load("job-1")).metadata == {"profile_name": "work"}
+
+
+@pytest.mark.asyncio
 async def test_sqlite_store_reports_corrupt_rows_and_unusable_paths(tmp_path: Path) -> None:
     store = SqliteUploadJobStore(tmp_path / "uploads.db")
     await store.create(_job())
