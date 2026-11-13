@@ -72,6 +72,8 @@ cohere-compass-sdk/
       fs.py                          # get_fs, open_document, scan_folder (fsspec-based)
       iter.py                        # imap_parallel (bounded parallel map)
       retry.py                       # is_retryable_httpx_exception, is_retryable_compass_exception
+    ext/                             # Optional extensions; one extra per extension, plus `all`
+      uploads/                       # Resumable directory/gs:// uploads: discovery, content IDs, pruning, job stores
     py.typed                         # PEP 561 marker
   tests/                             # Test suite
     test_compass_client.py           # CompassClient + CompassAsyncClient tests (parametrized sync/async)
@@ -121,6 +123,17 @@ All data models are Pydantic v2 models. `ValidatedModel` (in `models/__init__.py
 ### Document Batch Insertion
 
 `CompassClient.insert_docs()` uses `partition_documents()` from `utils/documents.py` to split documents into request-sized chunks (respecting `max_chunks_per_request`). It tracks errors with a sliding window and supports parallel insertion via `joblib.Parallel`.
+
+### Extensions
+
+`cohere_compass/ext/` holds optional, higher-level features built on the clients, following the `ext` convention
+of SQLAlchemy and Sphinx. The core SDK (clients, models, utils) never imports from `ext`. Each extension that
+needs dependencies beyond the core gets its own extra in `pyproject.toml`, named after the extension (for example
+`uploads`), and its dependencies are also added to the `all` extra. Extensions may be async-only.
+
+An extension never decides where to persist state on its own. The uploads extension takes an `UploadJobStore`
+from the caller (`SqliteUploadJobStore(path)`, `FileUploadJobStore(directory)` or `InMemoryUploadJobStore`), and reports progress through
+an `UploadReporter` whose methods are all no-ops by default. Terminal UI belongs to callers.
 
 ### Document Parsing Pipeline
 

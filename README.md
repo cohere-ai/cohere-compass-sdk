@@ -39,6 +39,7 @@ npm i -g markdown-toc # use sudo if you use a system-wide node installation.
 
 - [Getting Started](#getting-started)
   * [Installation](#installation)
+  * [Extensions](#extensions)
 - [V2 Migration Guide](#v2-migration-guide)
 - [Local Development](#local-development)
   * [Create Python Virtual Environment](#create-python-virtual-environment)
@@ -74,6 +75,50 @@ Once you install it, the best way to learn how to use the SDK is to head over to
 examples](https://github.com/cohere-ai/cohere-compass-sdk/tree/main/examples). For the
 API reference, you can visit this
 [link](https://private.docs.cohere.com/compass-standalone/reference).
+
+### Extensions
+
+Extensions are optional, higher-level features built on the clients, under
+`cohere_compass.ext`. Each has its own extra for the dependencies it needs, and
+the `all` extra installs every extension's:
+
+```bash
+pip install "cohere-compass-sdk[uploads]"
+pip install "cohere-compass-sdk[all]"
+```
+
+`cohere_compass.ext.uploads` uploads a local directory or `gs://` prefix to an
+index. Local sources need no extra; `gs://` sources need the `uploads` extra.
+
+- Each file gets a document ID derived from its content and parser options, so
+  documents the index already has are skipped.
+- A bounded number of workers each own a file until Compass finishes
+  processing it.
+- With `prune=True`, the upload then deletes every index document that is not
+  one of the files it uploads. Those are the source's files that pass
+  `include_patterns` and `exclude_patterns`, so documents uploaded earlier from
+  files the patterns now leave out are deleted too. `dry_run=True` reports what
+  an upload would do without changing the index.
+
+Jobs are saved in a store the caller chooses, so a failed or cancelled job can
+be run again and continue where it stopped:
+
+- `SqliteUploadJobStore(path)` keeps jobs in a SQLite database. Saving a file's
+  status takes well under a millisecond, however large the job.
+- `FileUploadJobStore(directory)` keeps one JSON file per job, which people
+  can read and edit. Saving a file's status rewrites the whole file: about 25 ms
+  in a job of 1,000 files and 250 ms in a job of 10,000, and a fresh upload
+  saves each file's status about six times. Use it for jobs of up to a few
+  thousand files.
+- `InMemoryUploadJobStore()` keeps jobs only for the life of the process.
+
+A caller can name its jobs with `create_upload_job(job_id=...)` and record its
+own details with `metadata`; the workflow never reads them. The `uploads` module
+docstring shows a complete example.
+
+The uploads extension is asynchronous and uses `CompassAsyncClient`. Pruning keeps every
+document ID in memory, so it is meant for indexes of up to tens of thousands of
+documents.
 
 ## V2 Migration Guide
 
