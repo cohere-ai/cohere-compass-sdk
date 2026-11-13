@@ -10,17 +10,27 @@ PRIVATE_FILE_MODE = 0o600
 
 
 async def ensure_private_dir(path: Path) -> None:
-    """Create *path* and its parents if needed, then force mode 0700."""
+    """Create *path* with mode 0700 if it is missing; an existing directory keeps its mode."""
     await asyncio.to_thread(_ensure_private_dir, path)
 
 
 def ensure_private_dir_sync(path: Path) -> None:
-    """Create *path* and its parents if needed, then force mode 0700, blocking."""
+    """Create *path* with mode 0700 if it is missing, blocking; an existing directory keeps its mode."""
     _ensure_private_dir(path)
 
 
 def _ensure_private_dir(path: Path) -> None:
-    path.mkdir(mode=PRIVATE_DIR_MODE, parents=True, exist_ok=True)
+    # Only a directory created here is made private. A directory that already
+    # exists may belong to the caller and be shared, such as an application's
+    # data directory or /tmp, and changing its mode would lock other users and
+    # processes out of it.
+    try:
+        path.mkdir(mode=PRIVATE_DIR_MODE, parents=True)
+    except FileExistsError:
+        if not path.is_dir():
+            raise
+        return
+    # mkdir applies the umask to the mode, so set it explicitly.
     path.chmod(PRIVATE_DIR_MODE)
 
 
