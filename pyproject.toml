@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cohere-compass-sdk"
-version = "2.23.0"
+version = "2.24.0"
 authors = []
 description = "Cohere Compass SDK"
 readme = "README.md"
@@ -13,6 +13,13 @@ pydantic = "^2.11.9"
 python = ">=3.11,<4.0"
 tenacity = "^9.1.2"
 httpx = "^0.28.1"
+# Optional: lets the uploads extension read `gs://` sources.
+gcsfs = { version = "^2026.1.0", optional = true }
+
+[tool.poetry.extras]
+# One extra per extension in `cohere_compass.ext`, and `all` for every one.
+uploads = ["gcsfs"]
+all = ["gcsfs"]
 
 [tool.poetry.group.dev.dependencies]
 pyright = "^1.1.405"
