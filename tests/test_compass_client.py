@@ -43,9 +43,12 @@ from cohere_compass.models.documents import (
     UploadDocumentsResult,
 )
 from cohere_compass.models.indexes import (
+    Glossary,
+    GlossaryEntry,
     IndexDetails,
     IndexInfo,
     IndexUpdateResponse,
+    PrefixSearchSettings,
     RetentionPolicy,
     RetentionType,
 )
@@ -1719,6 +1722,115 @@ def test_set_retention_policy_sends_correct_body(client: CompassClient):
 )
 def test_delete_retention_policy_sends_request(client: CompassClient):
     client.delete_retention_policy(index_name="test_index")
+
+
+# ── Search settings ──────────────────────────────────────────────────
+
+_GLOSSARY_BODY = {
+    "entries": [
+        {"terms": ["SPB"], "expansions": ["Star Pubs & Bars"]},
+        {"terms": ["tv", "television"], "expansions": []},
+    ],
+    "expand_semantic_query": True,
+}
+_GLOSSARY = Glossary(
+    entries=[
+        GlossaryEntry(terms=["SPB"], expansions=["Star Pubs & Bars"]),
+        GlossaryEntry(terms=["tv", "television"]),
+    ]
+)
+
+
+@mock_endpoint(
+    "PUT",
+    "http://test.com/v1/indexes/test_index/glossary",
+    200,
+    expected_request_body=_GLOSSARY_BODY,
+    response_body={"glossary": _GLOSSARY_BODY},
+)
+def test_set_glossary_sends_body(client: CompassClient):
+    client.set_glossary(index_name="test_index", glossary=_GLOSSARY)
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes/test_index/glossary",
+    200,
+    response_body={"glossary": _GLOSSARY_BODY},
+)
+def test_get_glossary_unwraps_envelope(client: CompassClient):
+    assert client.get_glossary(index_name="test_index") == _GLOSSARY
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes/test_index/glossary",
+    200,
+    response_body={"glossary": None},
+)
+def test_get_glossary_returns_none_when_unset(client: CompassClient):
+    assert client.get_glossary(index_name="test_index") is None
+
+
+@mock_endpoint(
+    "DELETE",
+    "http://test.com/v1/indexes/test_index/glossary",
+    204,
+)
+def test_delete_glossary_sends_request(client: CompassClient):
+    client.delete_glossary(index_name="test_index")
+
+
+@mock_endpoint(
+    "PUT",
+    "http://test.com/v1/indexes/test_index/prefix_search",
+    200,
+    expected_request_body={"fields": ["text", "content.title"], "min_prefix_length": 4},
+    response_body={"prefix_search": {"fields": ["text", "content.title"], "min_prefix_length": 4}},
+)
+def test_set_prefix_search_sends_body(client: CompassClient):
+    settings = PrefixSearchSettings(fields=["text", "content.title"], min_prefix_length=4)
+    client.set_prefix_search(index_name="test_index", prefix_search=settings)
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes/test_index/prefix_search",
+    200,
+    response_body={"prefix_search": {"fields": ["text"], "min_prefix_length": 3}},
+)
+def test_get_prefix_search_unwraps_envelope(client: CompassClient):
+    assert client.get_prefix_search(index_name="test_index") == PrefixSearchSettings()
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes/test_index/prefix_search",
+    200,
+    response_body={"prefix_search": None},
+)
+def test_get_prefix_search_returns_none_when_unset(client: CompassClient):
+    assert client.get_prefix_search(index_name="test_index") is None
+
+
+@mock_endpoint(
+    "DELETE",
+    "http://test.com/v1/indexes/test_index/prefix_search",
+    204,
+)
+def test_delete_prefix_search_sends_request(client: CompassClient):
+    client.delete_prefix_search(index_name="test_index")
+
+
+@mock_endpoint(
+    "GET",
+    "http://test.com/v1/indexes/test_index/glossary",
+    404,
+    response_body={"detail": "Not Found"},
+)
+def test_get_glossary_raises_when_search_settings_are_off(client: CompassClient):
+    with pytest.raises(CompassClientError):
+        client.get_glossary(index_name="test_index")
 
 
 # ── Synchronizers ────────────────────────────────────────────────────

@@ -49,6 +49,68 @@ class RetentionPolicy(BaseModel):
     )
 
 
+class GlossaryEntry(BaseModel):
+    """
+    One term group in an index glossary.
+
+    With ``expansions``, a query that contains any of ``terms`` is also searched as
+    each expansion (``SPB`` => ``Star Pubs & Bars``). Without ``expansions`` the group
+    is an equivalence set, which needs at least two terms: a query containing any
+    term is also searched as every other term.
+    """
+
+    terms: list[str] = Field(min_length=1, description="Terms to look for in the query, matched as whole words.")
+    expansions: list[str] = Field(
+        default_factory=list,
+        description="What each term also searches for. Empty makes the terms an equivalence set.",
+    )
+
+
+class Glossary(BaseModel):
+    """
+    Search glossary of an index.
+
+    The server limits a glossary to 5,000 entries, 20 terms and 20 expansions per
+    entry, and 256 characters per term.
+    """
+
+    entries: list[GlossaryEntry] = Field(min_length=1)
+    expand_semantic_query: bool = Field(
+        default=True,
+        description="When a term matches, also add a short list of its expansions to the query that is embedded "
+        "and reranked. Keyword search always uses the expansions.",
+    )
+
+
+class PrefixSearchSettings(BaseModel):
+    """
+    Prefix search settings of an index.
+
+    When a query of at least ``min_prefix_length`` characters is the start of a word
+    in one of ``fields`` in a document the caller can read, search is limited to
+    those documents. Otherwise search runs as usual.
+    """
+
+    fields: list[str] = Field(
+        default_factory=lambda: ["text"],
+        min_length=1,
+        description='Fields to check: "text" or "content.<name>". At most 5.',
+    )
+    min_prefix_length: int = Field(default=3, ge=1, le=20, description="Shortest query that is checked as a prefix.")
+
+
+class GlossaryResponse(BaseModel):
+    """Response object for get_glossary API."""
+
+    glossary: Glossary | None = None
+
+
+class PrefixSearchResponse(BaseModel):
+    """Response object for get_prefix_search API."""
+
+    prefix_search: PrefixSearchSettings | None = None
+
+
 class IndexInfo(BaseModel):
     """Information about an index."""
 
