@@ -5,12 +5,12 @@ Only local paths and ``gs://`` URIs are supported; GCS access relies on
 Application Default Credentials and needs the `gcsfs` package, which the
 `uploads` extra installs.
 
-GCS is reached through a private filesystem from
+GCS is reached through a private `GcsFilesystem` from
 `cohere_compass.utils.fs.open_gcs_filesystem`, never through fsspec's shared
 cached instance, whose session belongs to fsspec's own event loop; that
 module's docstring explains the failure the private filesystem prevents.
-Its coroutine methods (`_info`, `_isdir`, `_find`, `_ls`, `_cat_file`) are
-awaited directly on the caller's loop, so no call needs a thread.
+Its methods are coroutines awaited directly on the caller's loop, so no call
+needs a thread.
 
 `discover_files` and `read_source_bytes` accept that filesystem as
 *filesystem*, so a caller that makes many calls, such as `run_upload_job`,
@@ -35,11 +35,11 @@ from cohere_compass.ext.uploads.models import (
     UploadOptions,
 )
 from cohere_compass.models import ContentTypeEnum
-from cohere_compass.utils.fs import AsyncFilesystem, open_gcs_filesystem
+from cohere_compass.utils.fs import GcsFilesystem, open_gcs_filesystem
 
 
 @asynccontextmanager
-async def _gcs(filesystem: AsyncFilesystem | None) -> AsyncIterator[AsyncFilesystem]:
+async def _gcs(filesystem: GcsFilesystem | None) -> AsyncIterator[GcsFilesystem]:
     """Yield *filesystem*, or a private one opened and closed around the block when it is `None`."""
     if filesystem is not None:
         yield filesystem
@@ -158,24 +158,24 @@ def _is_file(info: Mapping[str, object]) -> bool:
     return info.get("type") == "file"
 
 
-async def _discover_gcs(path: str, options: UploadOptions, filesystem: AsyncFilesystem | None) -> list[SourceFile]:
+async def _discover_gcs(path: str, options: UploadOptions, filesystem: GcsFilesystem | None) -> list[SourceFile]:
     try:
         async with _gcs(filesystem) as fs:
             try:
-                info: Mapping[str, object] = await fs._info(path)  # pyright: ignore[reportPrivateUsage]
+                info: Mapping[str, object] = await fs.info(path)
             except (FileNotFoundError, OSError):
                 info = {}
             actual_file = _is_file(info)
-            actual_directory = not actual_file and await fs._isdir(path)  # pyright: ignore[reportPrivateUsage]
+            actual_directory = not actual_file and await fs.is_dir(path)
             if not actual_file and not actual_directory:
                 raise SourceError(f"Source does not exist: {_remote_uri(path)}.")
             _check_kind(actual_file, options)
             if actual_file:
                 candidates: Mapping[str, Mapping[str, object]] = {path: info}
             elif options.recursive:
-                candidates = await fs._find(path, detail=True)  # pyright: ignore[reportPrivateUsage]
+                candidates = await fs.find(path)
             else:
-                listed = await fs._ls(path, detail=True)  # pyright: ignore[reportPrivateUsage]
+                listed = await fs.ls(path)
                 candidates = {cast(str, item["name"]): item for item in listed if isinstance(item.get("name"), str)}
     except SourceError:
         raise
@@ -192,7 +192,7 @@ async def _discover_gcs(path: str, options: UploadOptions, filesystem: AsyncFile
     return sorted(result, key=_sort_key)
 
 
-async def discover_files(options: UploadOptions, *, filesystem: AsyncFilesystem | None = None) -> list[SourceFile]:
+async def discover_files(options: UploadOptions, *, filesystem: GcsFilesystem | None = None) -> list[SourceFile]:
     """
     Discover regular files for an upload without reading their contents.
 
@@ -219,7 +219,7 @@ async def discover_files(options: UploadOptions, *, filesystem: AsyncFilesystem 
     return await asyncio.to_thread(_discover_local, Path(normalized), options)
 
 
-async def read_source_bytes(source: SourceFile, *, filesystem: AsyncFilesystem | None = None) -> bytes:
+async def read_source_bytes(source: SourceFile, *, filesystem: GcsFilesystem | None = None) -> bytes:
     """
     Read a previously discovered source, without exposing backend details.
 
@@ -232,7 +232,7 @@ async def read_source_bytes(source: SourceFile, *, filesystem: AsyncFilesystem |
         if not is_gcs:
             return await local_fs.read_bytes(Path(normalized))
         async with _gcs(filesystem) as fs:
-            return await fs._cat_file(path)  # pyright: ignore[reportPrivateUsage]
+            return await fs.read_bytes(path)
     except (OSError, ValueError):
         raise SourceError(f"Unable to read source: {source.uri}.") from None
 

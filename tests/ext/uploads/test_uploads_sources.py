@@ -19,6 +19,7 @@ from cohere_compass.ext.uploads.sources import (
     read_source_bytes,
     source_type_for,
 )
+from cohere_compass.utils.fs import GcsFilesystem
 
 
 def _options(
@@ -93,10 +94,9 @@ async def test_invalid_local_sources(tmp_path: Path) -> None:
 class _FakeGcs:
     """Stands in for `gcsfs.GCSFileSystem`'s *async* surface.
 
-    Production reaches GCS through the coroutine twins (`_info`, `_isdir`,
-    `_find`, `_ls`, `_cat_file`) of a private filesystem rather than the
-    generated sync wrappers, so the fake mirrors those names and is passed as
-    the `filesystem` argument.
+    `GcsFilesystem` wraps gcsfs's coroutine twins (`_info`, `_isdir`, `_find`,
+    `_ls`, `_cat_file`) rather than the generated sync wrappers, so the fake
+    mirrors those names, and tests pass it wrapped in `GcsFilesystem`.
     """
 
     files: ClassVar[dict[str, bytes]] = {
@@ -138,10 +138,10 @@ def _use_fake_gcs(monkeypatch: pytest.MonkeyPatch, fake: _FakeGcs) -> list[str]:
     events: list[str] = []
 
     @asynccontextmanager
-    async def open_fake() -> AsyncIterator[_FakeGcs]:
+    async def open_fake() -> AsyncIterator[GcsFilesystem]:
         events.append("open")
         try:
-            yield fake
+            yield GcsFilesystem(fake)
         finally:
             events.append("close")
 
@@ -151,7 +151,7 @@ def _use_fake_gcs(monkeypatch: pytest.MonkeyPatch, fake: _FakeGcs) -> list[str]:
 
 @pytest.mark.asyncio
 async def test_mocked_gcs_discovery_and_read() -> None:
-    fake = _FakeGcs()
+    fake = GcsFilesystem(_FakeGcs())
     found = await discover_files(_options("gs://bucket/prefix/", SourceType.GCS_DIRECTORY), filesystem=fake)
     assert [item.uri for item in found] == [
         "gs://bucket/prefix/nested/a.pdf",
@@ -222,14 +222,14 @@ async def test_gcs_discovery_errors_and_nonrecursive_unknown_entries(
             return [{"name": 1}, {"name": "bucket/prefix/z.pdf", "type": "file"}]
 
     found = await discover_files(
-        _options("gs://bucket/prefix", SourceType.GCS_DIRECTORY, recursive=False), filesystem=BrokenGcs()
+        _options("gs://bucket/prefix", SourceType.GCS_DIRECTORY, recursive=False), filesystem=GcsFilesystem(BrokenGcs())
     )
     assert [item.relative_path for item in found] == ["z.pdf"]
 
     @asynccontextmanager
-    async def broken_open() -> AsyncIterator[_FakeGcs]:
+    async def broken_open() -> AsyncIterator[GcsFilesystem]:
         raise OSError("adc")
-        yield _FakeGcs()
+        yield GcsFilesystem(_FakeGcs())
 
     monkeypatch.setattr(sources, "open_gcs_filesystem", broken_open)
     with pytest.raises(SourceError, match="Unable to discover"):
@@ -269,7 +269,8 @@ async def test_gcs_missing_single_file_and_scheme_type_mismatches(
 @pytest.mark.asyncio
 async def test_gcs_filters_apply_to_discovered_files() -> None:
     found = await discover_files(
-        _options("gs://bucket/prefix", SourceType.GCS_DIRECTORY, include=("*.txt",)), filesystem=_FakeGcs()
+        _options("gs://bucket/prefix", SourceType.GCS_DIRECTORY, include=("*.txt",)),
+        filesystem=GcsFilesystem(_FakeGcs()),
     )
     assert found == []
 
@@ -283,7 +284,7 @@ async def test_gcs_discovery_skips_non_file_find_results() -> None:
             return result
 
     found = await discover_files(
-        _options("gs://bucket/prefix", SourceType.GCS_DIRECTORY), filesystem=DirectoryEntryGcs()
+        _options("gs://bucket/prefix", SourceType.GCS_DIRECTORY), filesystem=GcsFilesystem(DirectoryEntryGcs())
     )
     assert len(found) == 2
 

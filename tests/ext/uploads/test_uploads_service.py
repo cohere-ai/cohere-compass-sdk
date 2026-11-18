@@ -42,6 +42,7 @@ from cohere_compass.models.config import ParserConfig, PDFParsingStrategy
 from cohere_compass.models.documents import ParseableDocumentConfig
 from cohere_compass.models.indexes import IndexDetails
 from cohere_compass.models.search import RetrievedDocument
+from cohere_compass.utils.fs import GcsFilesystem
 
 
 class Submission(BaseModel):
@@ -1216,12 +1217,15 @@ class _GcsReads:
         self.events: list[str] = []
 
     @asynccontextmanager
-    async def open(self) -> AsyncIterator[object]:
+    async def open(self) -> AsyncIterator[GcsFilesystem]:
         events = self.events
         events.append("open")
 
-        class Filesystem:
-            async def _cat_file(self, path: str) -> bytes:
+        class Filesystem(GcsFilesystem):
+            def __init__(self) -> None:
+                pass
+
+            async def read_bytes(self, path: str) -> bytes:
                 events.append(f"read {path}")
                 return path.encode()
 

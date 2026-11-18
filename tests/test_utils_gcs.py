@@ -13,7 +13,7 @@ import fsspec  # type: ignore
 import pytest
 
 from cohere_compass.utils import fs as fs_module
-from cohere_compass.utils.fs import GCS_EXTRA_HINT, open_gcs_filesystem
+from cohere_compass.utils.fs import GCS_EXTRA_HINT, GcsFilesystem, open_gcs_filesystem
 
 pytest.importorskip("gcsfs")
 
@@ -24,15 +24,15 @@ from aiohttp import web
 async def test_open_gcs_filesystem_is_private_to_each_block() -> None:
     shared = fsspec.filesystem("gs", token="anon")  # type: ignore
     async with open_gcs_filesystem(token="anon") as first, open_gcs_filesystem(token="anon") as second:
-        assert first is not shared
-        assert first is not second
-        assert all(getattr(filesystem, "asynchronous", False) for filesystem in (first, second))
+        assert first._filesystem is not shared
+        assert first._filesystem is not second._filesystem
+        assert all(getattr(filesystem._filesystem, "asynchronous", False) for filesystem in (first, second))
 
 
 @pytest.mark.asyncio
 async def test_open_gcs_filesystem_closes_its_session_on_exit() -> None:
     async with open_gcs_filesystem(token="anon") as filesystem:
-        session = await getattr(filesystem, "_set_session")()
+        session = await getattr(filesystem._filesystem, "_set_session")()
         assert not session.closed
     assert session.closed
 
@@ -196,3 +196,43 @@ def test_uploads_and_synchronous_fsspec_share_a_process(gcs_emulator: str, order
     sdk_round = "(['a.pdf', 'nested/b.pdf'], [b'alpha', b'beta'], True)"
     expected = ([listing] if order == "sync-first" else []) + [sdk_round, sdk_round, listing]
     assert result.stdout.splitlines() == expected
+
+
+@pytest.mark.asyncio
+async def test_gcs_filesystem_forwards_to_the_detail_coroutines() -> None:
+    calls: list[tuple[str, str, bool | None]] = []
+
+    class Fsspec:
+        async def _info(self, path: str) -> dict[str, object]:
+            calls.append(("info", path, None))
+            return {"name": path}
+
+        async def _isdir(self, path: str) -> bool:
+            calls.append(("isdir", path, None))
+            return True
+
+        async def _find(self, path: str, *, detail: bool) -> dict[str, dict[str, object]]:
+            calls.append(("find", path, detail))
+            return {}
+
+        async def _ls(self, path: str, *, detail: bool) -> list[dict[str, object]]:
+            calls.append(("ls", path, detail))
+            return []
+
+        async def _cat_file(self, path: str) -> bytes:
+            calls.append(("cat_file", path, None))
+            return b"data"
+
+    filesystem = GcsFilesystem(Fsspec())
+    assert await filesystem.info("b/a") == {"name": "b/a"}
+    assert await filesystem.is_dir("b")
+    assert await filesystem.find("b") == {}
+    assert await filesystem.ls("b") == []
+    assert await filesystem.read_bytes("b/a") == b"data"
+    assert calls == [
+        ("info", "b/a", None),
+        ("isdir", "b", None),
+        ("find", "b", True),
+        ("ls", "b", True),
+        ("cat_file", "b/a", None),
+    ]

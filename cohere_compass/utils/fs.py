@@ -20,6 +20,8 @@ the async code in the same way. So:
   `get_fs`, `open_document` and `scan_folder` do.
 - Async code uses `open_gcs_filesystem`, which creates a private filesystem that
   fsspec never hands to another caller, and closes its connections when the block exits.
+  It yields a `GcsFilesystem`, whose public coroutines are the only way the rest of
+  the SDK reaches gcsfs's async methods, so no other module calls them directly.
 """
 
 import glob
@@ -40,14 +42,8 @@ from cohere_compass.models import (
 GCS_EXTRA_HINT = "Reading gs:// paths needs gcsfs. Install it with `pip install 'cohere-compass-sdk[uploads]'`."
 
 
-class AsyncFilesystem(Protocol):
-    """
-    The coroutine methods of an async fsspec filesystem that the SDK uses.
-
-    These are fsspec's underscore-prefixed async implementations. Only call them on
-    a filesystem from `open_gcs_filesystem`, never on one from `fsspec.filesystem`
-    or `get_fs`; the module docstring explains why.
-    """
+class _AsyncFsspecFilesystem(Protocol):
+    """The underscore-prefixed coroutine methods of an async fsspec filesystem that `GcsFilesystem` wraps."""
 
     async def _info(self, path: str) -> Mapping[str, object]: ...
 
@@ -60,15 +56,55 @@ class AsyncFilesystem(Protocol):
     async def _cat_file(self, path: str) -> bytes: ...
 
 
+class GcsFilesystem:
+    """
+    A private async GCS filesystem, from `open_gcs_filesystem`.
+
+    Paths are bucket-and-key, without the ``gs://`` scheme. Entries are fsspec's
+    detail mappings, with keys such as ``name``, ``type`` and ``size``. Missing
+    paths raise `FileNotFoundError`, and other failures raise `OSError` or
+    `ValueError`, as gcsfs does.
+    """
+
+    def __init__(self, filesystem: _AsyncFsspecFilesystem) -> None:
+        """
+        Wrap *filesystem*, an async fsspec filesystem that no other caller shares.
+
+        Production code gets one from `open_gcs_filesystem` instead. Tests pass a
+        fake that implements the underscore-prefixed coroutines.
+        """
+        self._filesystem = filesystem
+
+    async def info(self, path: str) -> Mapping[str, object]:
+        """Return the details of the object or directory at *path*."""
+        return await self._filesystem._info(path)  # pyright: ignore[reportPrivateUsage]
+
+    async def is_dir(self, path: str) -> bool:
+        """Return whether *path* is a directory, that is, a prefix of at least one object."""
+        return await self._filesystem._isdir(path)  # pyright: ignore[reportPrivateUsage]
+
+    async def find(self, path: str) -> Mapping[str, Mapping[str, object]]:
+        """Return the details of every object under *path* at any depth, keyed by path."""
+        return await self._filesystem._find(path, detail=True)  # pyright: ignore[reportPrivateUsage]
+
+    async def ls(self, path: str) -> Sequence[Mapping[str, object]]:
+        """Return the details of the objects and directories directly under *path*."""
+        return await self._filesystem._ls(path, detail=True)  # pyright: ignore[reportPrivateUsage]
+
+    async def read_bytes(self, path: str) -> bytes:
+        """Return the whole content of the object at *path*."""
+        return await self._filesystem._cat_file(path)  # pyright: ignore[reportPrivateUsage]
+
+
 @asynccontextmanager
-async def open_gcs_filesystem(**storage_options: object) -> AsyncIterator[AsyncFilesystem]:
+async def open_gcs_filesystem(**storage_options: object) -> AsyncIterator[GcsFilesystem]:
     """
     Open a private async GCS filesystem for the running event loop.
 
     The filesystem is not fsspec's shared cached instance, so using it cannot break
     other code in the process that reads ``gs://`` paths. Use it only on the event
     loop that opened it and only inside the ``async with`` block, whose exit closes
-    its connections. Paths are bucket-and-key, without the ``gs://`` scheme.
+    its connections.
 
     *storage_options* are passed to `gcsfs.GCSFileSystem`, for example ``project``
     or ``token``. By default it uses Application Default Credentials.
@@ -82,7 +118,7 @@ async def open_gcs_filesystem(**storage_options: object) -> AsyncIterator[AsyncF
     except ImportError as error:
         raise ImportError(GCS_EXTRA_HINT) from error
     try:
-        yield cast(AsyncFilesystem, filesystem)
+        yield GcsFilesystem(cast(_AsyncFsspecFilesystem, filesystem))
     finally:
         await _close_connections(filesystem)  # type: ignore
 
