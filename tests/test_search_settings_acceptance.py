@@ -1,7 +1,7 @@
 """Opt-in contract acceptance against an isolated running Compass API.
 
-Supply CMPS1285_API_URL, CMPS1285_TEST_INDEX, CMPS1285_WRITER_TOKEN and
-CMPS1285_READER_TOKEN. HTTP and authorization are not mocked.
+Supply SEARCH_SETTINGS_API_URL, SEARCH_SETTINGS_TEST_INDEX, SEARCH_SETTINGS_WRITER_TOKEN and
+SEARCH_SETTINGS_READER_TOKEN. HTTP and authorization are not mocked.
 """
 
 import asyncio
@@ -14,7 +14,12 @@ from cohere_compass.clients import CompassAsyncClient, CompassClient
 from cohere_compass.exceptions import CompassAuthError, CompassClientError
 from cohere_compass.models.indexes import Glossary, GlossaryEntry, PrefixSearchSettings
 
-REQUIRED = ("CMPS1285_API_URL", "CMPS1285_TEST_INDEX", "CMPS1285_WRITER_TOKEN", "CMPS1285_READER_TOKEN")
+REQUIRED = (
+    "SEARCH_SETTINGS_API_URL",
+    "SEARCH_SETTINGS_TEST_INDEX",
+    "SEARCH_SETTINGS_WRITER_TOKEN",
+    "SEARCH_SETTINGS_READER_TOKEN",
+)
 pytestmark = pytest.mark.skipif(
     not all(os.environ.get(key) for key in REQUIRED), reason="isolated live API/token inputs missing"
 )
@@ -30,11 +35,15 @@ async def _call(client: CompassClient | CompassAsyncClient, method: str, **kwarg
 @pytest.mark.asyncio
 @pytest.mark.parametrize("asynchronous", [False, True], ids=["sync", "async"])
 async def test_search_settings_crud_preserves_real_caller_permissions(asynchronous: bool) -> None:
-    index = os.environ["CMPS1285_TEST_INDEX"]
+    index = os.environ["SEARCH_SETTINGS_TEST_INDEX"]
     assert index.startswith("deleteme-"), "Use an isolated disposable acceptance index"
     client_type = CompassAsyncClient if asynchronous else CompassClient
-    writer = client_type(index_url=os.environ["CMPS1285_API_URL"], bearer_token=os.environ["CMPS1285_WRITER_TOKEN"])
-    reader = client_type(index_url=os.environ["CMPS1285_API_URL"], bearer_token=os.environ["CMPS1285_READER_TOKEN"])
+    writer = client_type(
+        index_url=os.environ["SEARCH_SETTINGS_API_URL"], bearer_token=os.environ["SEARCH_SETTINGS_WRITER_TOKEN"]
+    )
+    reader = client_type(
+        index_url=os.environ["SEARCH_SETTINGS_API_URL"], bearer_token=os.environ["SEARCH_SETTINGS_READER_TOKEN"]
+    )
     glossary = Glossary(entries=[GlossaryEntry(terms=["SPB"], expansions=["Star Pubs & Bars Limited"])])
     prefix = PrefixSearchSettings(fields=["text"], min_prefix_length=3)
     previous_glossary = await _call(writer, "get_glossary", index_name=index)

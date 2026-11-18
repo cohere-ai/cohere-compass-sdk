@@ -156,7 +156,7 @@ an `UploadReporter` whose methods are all no-ops by default. Terminal UI belongs
 ### Testing
 - **pytest** with `pytest-asyncio` and `pytest-cov`.
 - 80% branch coverage minimum is enforced.
-- Default HTTP tests use **respx** for mocking. `tests/test_search_settings_acceptance.py` is an opt-in real-server CRUD and caller-token contract test, skipped until its `CMPS1285_*` API/index/token inputs are supplied. Run it with `poetry run pytest tests/test_search_settings_acceptance.py --no-cov` against a disposable index.
+- Default HTTP tests use **respx** for mocking. `tests/test_search_settings_acceptance.py` is an opt-in real-server CRUD and caller-token contract test, skipped until its `SEARCH_SETTINGS_*` API/index/token inputs are supplied. Run it with `poetry run pytest tests/test_search_settings_acceptance.py --no-cov` against a disposable index.
 - Sync/async parity is tested via `SyncifiedCompassAsyncClient` (in `tests/utils.py`) which wraps async methods with `asyncio.run()`.
 - The `client` fixture in `test_compass_client.py` is parametrized to run every test against both sync and async clients.
 - `mock_endpoint` decorator (in `test_compass_client.py`) provides declarative HTTP mock setup.
