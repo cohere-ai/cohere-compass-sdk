@@ -1,7 +1,9 @@
+import asyncio
 from pathlib import Path
 from typing import ClassVar
 
 import pytest
+from fsspec.asyn import get_loop  # pyright: ignore[reportMissingTypeStubs]
 
 from cohere_compass.ext.uploads import sources
 from cohere_compass.ext.uploads.exceptions import SourceError
@@ -103,6 +105,11 @@ class _FakeGcs:
         "bucket/prefix/nested/a.pdf": b"nested",
     }
 
+    @property
+    def loop(self) -> asyncio.AbstractEventLoop:
+        # A synchronous-mode gcsfs instance, such as the one fsspec caches, runs on fsspec's IO-thread loop.
+        return get_loop()
+
     async def _info(self, path: str) -> dict[str, object]:
         if path in self.files:
             return {
@@ -155,6 +162,36 @@ async def test_mocked_gcs_discovery_and_read(monkeypatch: pytest.MonkeyPatch) ->
     assert await read_source_bytes(found[0]) == b"nested"
     with pytest.raises(SourceError, match="kind"):
         await discover_files(_options("gs://bucket/a.pdf", SourceType.GCS_DIRECTORY))
+
+
+@pytest.mark.asyncio
+async def test_gcs_coroutines_run_on_the_filesystems_own_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    fsspec hands the same cached gcsfs instance to every `gs://` user in the process, and gcsfs binds that
+    instance's aiohttp session to the loop of its first request. fsspec's sync wrappers always run on
+    `fs.loop`, so the uploads code must run its coroutines there too, never on the caller's loop.
+    """
+    loops: set[asyncio.AbstractEventLoop] = set()
+
+    class LoopRecordingGcs(_FakeGcs):
+        async def _info(self, path: str) -> dict[str, object]:
+            loops.add(asyncio.get_running_loop())
+            return await super()._info(path)
+
+        async def _cat_file(self, path: str) -> bytes:
+            loops.add(asyncio.get_running_loop())
+            return await super()._cat_file(path)
+
+    fake = LoopRecordingGcs()
+
+    def fake_url_to_fs(uri: str) -> tuple[_FakeGcs, str]:
+        return _fake_url_to_fs(uri, fake)
+
+    monkeypatch.setattr(sources, "url_to_fs", fake_url_to_fs)
+    found = await discover_files(_options("gs://bucket/prefix", SourceType.GCS_DIRECTORY))
+    await read_source_bytes(found[0])
+    assert fake.loop is not asyncio.get_running_loop()
+    assert loops == {fake.loop}
 
 
 @pytest.mark.parametrize(
