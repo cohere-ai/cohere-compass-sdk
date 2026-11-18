@@ -69,7 +69,7 @@ cohere-compass-sdk/
       __init__.py
       asyn.py                        # async_enumerate, async_map, async_apply
       documents.py                   # generate_doc_id_from_bytes, partition_documents, partition_documents_async
-      fs.py                          # get_fs, open_document, scan_folder (fsspec-based)
+      fs.py                          # The only module that may import fsspec/gcsfs: get_fs, open_document, scan_folder, open_gcs_filesystem
       iter.py                        # imap_parallel (bounded parallel map)
       retry.py                       # is_retryable_httpx_exception, is_retryable_compass_exception
     ext/                             # Optional extensions; one extra per extension, plus `all`
@@ -134,6 +134,18 @@ needs dependencies beyond the core gets its own extra in `pyproject.toml`, named
 An extension never decides where to persist state on its own. The uploads extension takes an `UploadJobStore`
 from the caller (`SqliteUploadJobStore(path)`, `FileUploadJobStore(directory)` or `InMemoryUploadJobStore`), and reports progress through
 an `UploadReporter` whose methods are all no-ops by default. Terminal UI belongs to callers.
+
+### Filesystem Access
+
+`cohere_compass/utils/fs.py` is the only module that may import `fsspec` or `gcsfs`; ruff's banned-API rule
+(`TID251`, configured in `pyproject.toml`) fails the lint anywhere else. Add any new filesystem helper there.
+
+The reason is that fsspec hands every caller in the process the same cached filesystem object per backend, and
+gcsfs binds that object's aiohttp session to the event loop of its first request. Synchronous code uses the shared
+object's public methods, which fsspec runs on its own background loop. Async code must use a private filesystem
+from `open_gcs_filesystem()`, and must never await the shared object's underscore-prefixed coroutines: doing so
+breaks every other GCS user in the process, including pandas, `fsspec.open` and the parser clients, with "attached
+to a different loop". The module docstring has the details.
 
 ### Document Parsing Pipeline
 

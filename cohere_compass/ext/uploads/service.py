@@ -6,8 +6,10 @@ processing, not just the upload call.
 """
 
 import asyncio
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from time import monotonic
 
@@ -30,10 +32,12 @@ from cohere_compass.ext.uploads.pruning import PruneResult, prune_index
 from cohere_compass.ext.uploads.reporting import UploadReporter
 from cohere_compass.ext.uploads.sources import (
     content_type_for,
+    is_gcs_source,
     read_source_bytes,
 )
 from cohere_compass.ext.uploads.store import UploadJobStore
 from cohere_compass.models.documents import ParseableDocumentConfig
+from cohere_compass.utils.fs import open_gcs_filesystem
 
 Poller = Callable[[CompassAsyncClient, str, str, Sequence[str], float, float], Awaitable[PollResult]]
 Reader = Callable[[SourceFile], Awaitable[bytes]]
@@ -124,7 +128,7 @@ async def run_upload_job(
     store: UploadJobStore,
     reporter: UploadReporter | None = None,
     poller: Poller = wait_for_ingestion,
-    reader: Reader = read_source_bytes,
+    reader: Reader | None = None,
 ) -> UploadResult:
     """
     Run a new or saved job, or resume one, with its configured number of workers.
@@ -136,6 +140,10 @@ async def run_upload_job(
 
     A dry run reads, identifies and checks each file as a real run does, but
     stops before uploading it, prunes nothing, and saves no state.
+
+    *reader* reads each file's bytes. By default, `read_source_bytes` reads
+    them, and a ``gs://`` job shares one GCS filesystem, opened for the run
+    and closed when it ends.
 
     Raises `CompassError` for failures that stop the whole job, such as a
     missing index. If the run is cancelled, every file's progress so far is
@@ -155,7 +163,8 @@ async def run_upload_job(
     outcomes: list[UploadOutcome] = []
     prune: PruneResult | None = None
     try:
-        outcomes = await _run_files(job, client, store, reporter, poller, reader)
+        async with _job_reader(job, reader) as read:
+            outcomes = await _run_files(job, client, store, reporter, poller, read)
         # Every file that was read has a known document ID, so it counts as
         # part of the source even if its upload or processing failed. A file
         # that could not be read has none, so its document in the index would
@@ -186,6 +195,18 @@ async def run_upload_job(
     if result.succeeded and not dry_run:
         await store.delete(job.job_id)
     return result
+
+
+@asynccontextmanager
+async def _job_reader(job: UploadJob, reader: Reader | None) -> AsyncIterator[Reader]:
+    """Yield *reader*, or `read_source_bytes` bound to one GCS filesystem for a ``gs://`` job."""
+    if reader is not None:
+        yield reader
+    elif is_gcs_source(job.options.source_uri):
+        async with open_gcs_filesystem() as filesystem:
+            yield partial(read_source_bytes, filesystem=filesystem)
+    else:
+        yield read_source_bytes
 
 
 def _document_ids(job: UploadJob) -> set[str]:

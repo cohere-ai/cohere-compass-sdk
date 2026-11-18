@@ -1,5 +1,32 @@
+"""
+Filesystem access for the SDK, local and remote.
+
+This is the only module in the SDK that may import fsspec or gcsfs. Ruff's
+banned-API rule (TID251) rejects those imports in every other module, so that
+the rule below is enforced in one place.
+
+fsspec caches filesystem objects for the whole process: `fsspec.filesystem("gs")`
+returns the same `GCSFileSystem` to every caller, including the synchronous
+helpers in this module, pandas and `fsspec.open`. gcsfs creates that object's
+aiohttp session on the event loop that makes its first request, and the session
+fails with "attached to a different loop" when it is used from any other loop.
+fsspec runs synchronous calls on its own background loop. If async code awaited
+the shared object's coroutine methods (`_info`, `_cat_file` and so on) on its own
+loop, it would bind the session to that loop and break every synchronous caller
+in the process, and a session first created by a synchronous caller would break
+the async code in the same way. So:
+
+- Synchronous code uses fsspec's shared objects through their public methods, as
+  `get_fs`, `open_document` and `scan_folder` do.
+- Async code uses `open_gcs_filesystem`, which creates a private filesystem that
+  fsspec never hands to another caller, and closes its connections when the block exits.
+"""
+
 import glob
 import os
+from collections.abc import AsyncIterator, Mapping, Sequence
+from contextlib import asynccontextmanager
+from typing import Protocol, cast
 
 import fsspec  # type: ignore
 from fsspec import AbstractFileSystem  # type: ignore
@@ -9,6 +36,73 @@ from cohere_compass.models import (
     CompassDocumentMetadata,
     CompassSdkStage,
 )
+
+GCS_EXTRA_HINT = "Reading gs:// paths needs gcsfs. Install it with `pip install 'cohere-compass-sdk[uploads]'`."
+
+
+class AsyncFilesystem(Protocol):
+    """
+    The coroutine methods of an async fsspec filesystem that the SDK uses.
+
+    These are fsspec's underscore-prefixed async implementations. Only call them on
+    a filesystem from `open_gcs_filesystem`, never on one from `fsspec.filesystem`
+    or `get_fs`; the module docstring explains why.
+    """
+
+    async def _info(self, path: str) -> Mapping[str, object]: ...
+
+    async def _isdir(self, path: str) -> bool: ...
+
+    async def _find(self, path: str, *, detail: bool) -> Mapping[str, Mapping[str, object]]: ...
+
+    async def _ls(self, path: str, *, detail: bool) -> Sequence[Mapping[str, object]]: ...
+
+    async def _cat_file(self, path: str) -> bytes: ...
+
+
+@asynccontextmanager
+async def open_gcs_filesystem(**storage_options: object) -> AsyncIterator[AsyncFilesystem]:
+    """
+    Open a private async GCS filesystem for the running event loop.
+
+    The filesystem is not fsspec's shared cached instance, so using it cannot break
+    other code in the process that reads ``gs://`` paths. Use it only on the event
+    loop that opened it and only inside the ``async with`` block, whose exit closes
+    its connections. Paths are bucket-and-key, without the ``gs://`` scheme.
+
+    *storage_options* are passed to `gcsfs.GCSFileSystem`, for example ``project``
+    or ``token``. By default it uses Application Default Credentials.
+
+    Raises `ImportError` if gcsfs is not installed.
+    """
+    try:
+        filesystem = fsspec.filesystem(  # type: ignore
+            "gs", asynchronous=True, skip_instance_cache=True, **storage_options
+        )
+    except ImportError as error:
+        raise ImportError(GCS_EXTRA_HINT) from error
+    try:
+        yield cast(AsyncFilesystem, filesystem)
+    finally:
+        await _close_connections(filesystem)  # type: ignore
+
+
+async def _close_connections(filesystem: object) -> None:
+    # gcsfs has no public coroutine that releases a filesystem's connections, so
+    # this uses two private members. `_close_resources` exists on
+    # `ExtendedGcsFileSystem`, which gcsfs returns by default, and closes the
+    # gRPC clients it creates to look up each bucket's type. `_session` is the
+    # aiohttp session that every gcsfs filesystem creates on its first request.
+    # Closing both here, on the loop that created them, releases their
+    # connections now. Otherwise they would stay open until garbage collection,
+    # and closing them then fails with "Event loop is closed" once their loop
+    # has stopped.
+    close_resources = getattr(filesystem, "_close_resources", None)
+    if close_resources is not None:
+        await close_resources()
+    session = getattr(filesystem, "_session", None)
+    if session is not None and not session.closed:
+        await session.close()
 
 
 def get_fs(document_path: str) -> AbstractFileSystem:

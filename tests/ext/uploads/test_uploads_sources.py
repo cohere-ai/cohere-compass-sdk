@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import ClassVar
 
@@ -92,9 +94,9 @@ class _FakeGcs:
     """Stands in for `gcsfs.GCSFileSystem`'s *async* surface.
 
     Production reaches GCS through the coroutine twins (`_info`, `_isdir`,
-    `_find`, `_ls`, `_cat_file`) rather than the generated sync wrappers, so the
-    fake mirrors those names. `_cat_file` replaces the old `open()` + `read()`
-    pair, which is why the read fake no longer returns a file object.
+    `_find`, `_ls`, `_cat_file`) of a private filesystem rather than the
+    generated sync wrappers, so the fake mirrors those names and is passed as
+    the `filesystem` argument.
     """
 
     files: ClassVar[dict[str, bytes]] = {
@@ -131,30 +133,55 @@ class _FakeGcs:
         return self.files[path]
 
 
-def _fake_url_to_fs(uri: str, fake: _FakeGcs) -> tuple[_FakeGcs, str]:
-    return fake, uri.removeprefix("gs://")
+def _use_fake_gcs(monkeypatch: pytest.MonkeyPatch, fake: _FakeGcs) -> list[str]:
+    """Make the filesystem that `sources` opens itself *fake*; return a log of its opens and closes."""
+    events: list[str] = []
+
+    @asynccontextmanager
+    async def open_fake() -> AsyncIterator[_FakeGcs]:
+        events.append("open")
+        try:
+            yield fake
+        finally:
+            events.append("close")
+
+    monkeypatch.setattr(sources, "open_gcs_filesystem", open_fake)
+    return events
 
 
 @pytest.mark.asyncio
-async def test_mocked_gcs_discovery_and_read(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_mocked_gcs_discovery_and_read() -> None:
     fake = _FakeGcs()
-
-    def fake_url_to_fs(uri: str) -> tuple[_FakeGcs, str]:
-        return _fake_url_to_fs(uri, fake)
-
-    monkeypatch.setattr(
-        "cohere_compass.ext.uploads.sources.url_to_fs",
-        fake_url_to_fs,
-    )
-    found = await discover_files(_options("gs://bucket/prefix/", SourceType.GCS_DIRECTORY))
+    found = await discover_files(_options("gs://bucket/prefix/", SourceType.GCS_DIRECTORY), filesystem=fake)
     assert [item.uri for item in found] == [
         "gs://bucket/prefix/nested/a.pdf",
         "gs://bucket/prefix/z.pdf",
     ]
     assert [item.relative_path for item in found] == ["nested/a.pdf", "z.pdf"]
-    assert await read_source_bytes(found[0]) == b"nested"
+    assert await read_source_bytes(found[0], filesystem=fake) == b"nested"
     with pytest.raises(SourceError, match="kind"):
-        await discover_files(_options("gs://bucket/a.pdf", SourceType.GCS_DIRECTORY))
+        await discover_files(_options("gs://bucket/a.pdf", SourceType.GCS_DIRECTORY), filesystem=fake)
+
+
+@pytest.mark.asyncio
+async def test_gcs_calls_without_a_filesystem_open_and_close_their_own(monkeypatch: pytest.MonkeyPatch) -> None:
+    events = _use_fake_gcs(monkeypatch, _FakeGcs())
+    found = await discover_files(_options("gs://bucket/prefix", SourceType.GCS_DIRECTORY))
+    assert events == ["open", "close"]
+    assert await read_source_bytes(found[0]) == b"nested"
+    assert events == ["open", "close", "open", "close"]
+    with pytest.raises(SourceError, match="does not exist"):
+        await discover_files(_options("gs://bucket/missing", SourceType.GCS_DIRECTORY))
+    assert events[-1] == "close"
+
+
+@pytest.mark.asyncio
+async def test_local_sources_never_open_a_gcs_filesystem(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    events = _use_fake_gcs(monkeypatch, _FakeGcs())
+    (tmp_path / "one.pdf").write_bytes(b"one")
+    found = await discover_files(_options(str(tmp_path), SourceType.LOCAL_DIRECTORY))
+    assert await read_source_bytes(found[0]) == b"one"
+    assert events == []
 
 
 @pytest.mark.parametrize(
@@ -194,20 +221,17 @@ async def test_gcs_discovery_errors_and_nonrecursive_unknown_entries(
         async def _ls(self, path: str, *, detail: bool) -> list[dict[str, object]]:
             return [{"name": 1}, {"name": "bucket/prefix/z.pdf", "type": "file"}]
 
-    fake = BrokenGcs()
-
-    def fake_url_to_fs(uri: str) -> tuple[_FakeGcs, str]:
-        return _fake_url_to_fs(uri, fake)
-
-    monkeypatch.setattr(sources, "url_to_fs", fake_url_to_fs)
-    found = await discover_files(_options("gs://bucket/prefix", SourceType.GCS_DIRECTORY, recursive=False))
+    found = await discover_files(
+        _options("gs://bucket/prefix", SourceType.GCS_DIRECTORY, recursive=False), filesystem=BrokenGcs()
+    )
     assert [item.relative_path for item in found] == ["z.pdf"]
 
-    def broken_url_to_fs(uri: str) -> tuple[_FakeGcs, str]:
-        del uri
+    @asynccontextmanager
+    async def broken_open() -> AsyncIterator[_FakeGcs]:
         raise OSError("adc")
+        yield _FakeGcs()
 
-    monkeypatch.setattr(sources, "url_to_fs", broken_url_to_fs)
+    monkeypatch.setattr(sources, "open_gcs_filesystem", broken_open)
     with pytest.raises(SourceError, match="Unable to discover"):
         await discover_files(_options("gs://bucket/prefix", SourceType.GCS_DIRECTORY))
 
@@ -222,12 +246,7 @@ async def test_read_source_wraps_local_and_gcs_failures(tmp_path: Path, monkeypa
             del path
             raise OSError("no read")
 
-    fake = BrokenGcs()
-
-    def fake_url_to_fs(uri: str) -> tuple[_FakeGcs, str]:
-        return _fake_url_to_fs(uri, fake)
-
-    monkeypatch.setattr(sources, "url_to_fs", fake_url_to_fs)
+    _use_fake_gcs(monkeypatch, BrokenGcs())
     with pytest.raises(SourceError, match="Unable to read"):
         await read_source_bytes(SourceFile(uri="gs://bucket/a.pdf", relative_path="a.pdf"))
 
@@ -236,12 +255,7 @@ async def test_read_source_wraps_local_and_gcs_failures(tmp_path: Path, monkeypa
 async def test_gcs_missing_single_file_and_scheme_type_mismatches(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    fake = _FakeGcs()
-
-    def fake_url_to_fs(uri: str) -> tuple[_FakeGcs, str]:
-        return _fake_url_to_fs(uri, fake)
-
-    monkeypatch.setattr(sources, "url_to_fs", fake_url_to_fs)
+    _use_fake_gcs(monkeypatch, _FakeGcs())
     single = await discover_files(_options("gs://bucket/a.pdf", SourceType.GCS_FILE))
     assert single[0].relative_path == "a.pdf"
     with pytest.raises(SourceError, match="does not exist"):
@@ -253,38 +267,25 @@ async def test_gcs_missing_single_file_and_scheme_type_mismatches(
 
 
 @pytest.mark.asyncio
-async def test_fsspec_wrapper_and_gcs_unknown_entries_and_filters(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fake = _FakeGcs()
-
-    def fake_url_to_fs(uri: str) -> tuple[_FakeGcs, str]:
-        return _fake_url_to_fs(uri, fake)
-
-    monkeypatch.setattr(sources, "_url_to_fs", fake_url_to_fs)
-    assert sources.url_to_fs("gs://bucket/a.pdf")[1] == "bucket/a.pdf"
-    monkeypatch.setattr(sources, "url_to_fs", fake_url_to_fs)
-    found = await discover_files(_options("gs://bucket/prefix", SourceType.GCS_DIRECTORY, include=("*.txt",)))
+async def test_gcs_filters_apply_to_discovered_files() -> None:
+    found = await discover_files(
+        _options("gs://bucket/prefix", SourceType.GCS_DIRECTORY, include=("*.txt",)), filesystem=_FakeGcs()
+    )
     assert found == []
 
 
 @pytest.mark.asyncio
-async def test_gcs_discovery_skips_non_file_find_results(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+async def test_gcs_discovery_skips_non_file_find_results() -> None:
     class DirectoryEntryGcs(_FakeGcs):
         async def _find(self, path: str, *, detail: bool) -> dict[str, dict[str, object]]:
             result = await super()._find(path, detail=detail)
             result["bucket/prefix/empty"] = {"type": "directory"}
             return result
 
-    fake = DirectoryEntryGcs()
-
-    def fake_url_to_fs(uri: str) -> tuple[_FakeGcs, str]:
-        return _fake_url_to_fs(uri, fake)
-
-    monkeypatch.setattr(sources, "url_to_fs", fake_url_to_fs)
-    assert len(await discover_files(_options("gs://bucket/prefix", SourceType.GCS_DIRECTORY))) == 2
+    found = await discover_files(
+        _options("gs://bucket/prefix", SourceType.GCS_DIRECTORY), filesystem=DirectoryEntryGcs()
+    )
+    assert len(found) == 2
 
 
 @pytest.mark.parametrize(

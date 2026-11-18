@@ -5,22 +5,26 @@ Only local paths and ``gs://`` URIs are supported; GCS access relies on
 Application Default Credentials and needs the `gcsfs` package, which the
 `uploads` extra installs.
 
-GCS is reached through gcsfs's **coroutine** methods rather than its familiar
-synchronous ones. `gcsfs.GCSFileSystem` subclasses `fsspec.asyn.AsyncFileSystem`,
-whose public sync methods are generated wrappers that dispatch onto fsspec's own
-event-loop thread; calling those from a coroutine would mean a thread hop into a
-function that hops back onto a loop. The underscore-prefixed twins (`_info`,
-`_isdir`, `_find`, `_ls`, `_cat_file`) are the actual async implementations, and
-`_cat_file` also replaces an `open()`/`read()` pair with one await.
+GCS is reached through a private filesystem from
+`cohere_compass.utils.fs.open_gcs_filesystem`, never through fsspec's shared
+cached instance, whose session belongs to fsspec's own event loop; that
+module's docstring explains the failure the private filesystem prevents.
+Its coroutine methods (`_info`, `_isdir`, `_find`, `_ls`, `_cat_file`) are
+awaited directly on the caller's loop, so no call needs a thread.
+
+`discover_files` and `read_source_bytes` accept that filesystem as
+*filesystem*, so a caller that makes many calls, such as `run_upload_job`,
+shares one session and its connections. Without it, each call opens and
+closes a filesystem of its own.
 """
 
 import asyncio
 import fnmatch
 import mimetypes
-from collections.abc import Callable, Mapping
-from importlib import import_module
+from collections.abc import AsyncIterator, Mapping
+from contextlib import asynccontextmanager
 from pathlib import Path, PurePosixPath
-from typing import Protocol, cast
+from typing import cast
 from urllib.parse import urlsplit
 
 from cohere_compass.ext.uploads import _fs as local_fs
@@ -31,29 +35,17 @@ from cohere_compass.ext.uploads.models import (
     UploadOptions,
 )
 from cohere_compass.models import ContentTypeEnum
+from cohere_compass.utils.fs import AsyncFilesystem, open_gcs_filesystem
 
 
-class _Filesystem(Protocol):
-    """The slice of `fsspec.asyn.AsyncFileSystem` this module uses."""
-
-    async def _info(self, path: str) -> Mapping[str, object]: ...
-
-    async def _isdir(self, path: str) -> bool: ...
-
-    async def _find(self, path: str, *, detail: bool) -> Mapping[str, Mapping[str, object]]: ...
-
-    async def _ls(self, path: str, *, detail: bool) -> list[Mapping[str, object]]: ...
-
-    async def _cat_file(self, path: str) -> bytes: ...
-
-
-_fsspec_core = import_module("fsspec.core")
-_url_to_fs = cast(Callable[[str], tuple[_Filesystem, str]], vars(_fsspec_core)["url_to_fs"])
-
-
-def url_to_fs(uri: str) -> tuple[_Filesystem, str]:
-    """Narrow fsspec's untyped filesystem boundary."""
-    return _url_to_fs(uri)
+@asynccontextmanager
+async def _gcs(filesystem: AsyncFilesystem | None) -> AsyncIterator[AsyncFilesystem]:
+    """Yield *filesystem*, or a private one opened and closed around the block when it is `None`."""
+    if filesystem is not None:
+        yield filesystem
+        return
+    async with open_gcs_filesystem() as opened:
+        yield opened
 
 
 def is_gcs_source(source_uri: str) -> bool:
@@ -166,25 +158,25 @@ def _is_file(info: Mapping[str, object]) -> bool:
     return info.get("type") == "file"
 
 
-async def _discover_gcs(path: str, options: UploadOptions) -> list[SourceFile]:
+async def _discover_gcs(path: str, options: UploadOptions, filesystem: AsyncFilesystem | None) -> list[SourceFile]:
     try:
-        fs, fs_path = url_to_fs(_remote_uri(path))
-        try:
-            info: Mapping[str, object] = await fs._info(fs_path)  # pyright: ignore[reportPrivateUsage]
-        except (FileNotFoundError, OSError):
-            info = {}
-        actual_file = _is_file(info)
-        actual_directory = not actual_file and await fs._isdir(fs_path)  # pyright: ignore[reportPrivateUsage]
-        if not actual_file and not actual_directory:
-            raise SourceError(f"Source does not exist: {_remote_uri(path)}.")
-        _check_kind(actual_file, options)
-        if actual_file:
-            candidates: Mapping[str, Mapping[str, object]] = {fs_path: info}
-        elif options.recursive:
-            candidates = await fs._find(fs_path, detail=True)  # pyright: ignore[reportPrivateUsage]
-        else:
-            listed = await fs._ls(fs_path, detail=True)  # pyright: ignore[reportPrivateUsage]
-            candidates = {cast(str, item["name"]): item for item in listed if isinstance(item.get("name"), str)}
+        async with _gcs(filesystem) as fs:
+            try:
+                info: Mapping[str, object] = await fs._info(path)  # pyright: ignore[reportPrivateUsage]
+            except (FileNotFoundError, OSError):
+                info = {}
+            actual_file = _is_file(info)
+            actual_directory = not actual_file and await fs._isdir(path)  # pyright: ignore[reportPrivateUsage]
+            if not actual_file and not actual_directory:
+                raise SourceError(f"Source does not exist: {_remote_uri(path)}.")
+            _check_kind(actual_file, options)
+            if actual_file:
+                candidates: Mapping[str, Mapping[str, object]] = {path: info}
+            elif options.recursive:
+                candidates = await fs._find(path, detail=True)  # pyright: ignore[reportPrivateUsage]
+            else:
+                listed = await fs._ls(path, detail=True)  # pyright: ignore[reportPrivateUsage]
+                candidates = {cast(str, item["name"]): item for item in listed if isinstance(item.get("name"), str)}
     except SourceError:
         raise
     except (OSError, ValueError, KeyError):
@@ -194,18 +186,23 @@ async def _discover_gcs(path: str, options: UploadOptions) -> list[SourceFile]:
     for candidate, candidate_info in candidates.items():
         if not _is_file(candidate_info):
             continue
-        relative = candidate.rsplit("/", 1)[-1] if actual_file else candidate[len(fs_path.rstrip("/") + "/") :]
+        relative = candidate.rsplit("/", 1)[-1] if actual_file else candidate[len(path + "/") :]
         if _included(relative, options):
             result.append(_source_file(_remote_uri(candidate), relative, candidate_info))
     return sorted(result, key=_sort_key)
 
 
-async def discover_files(options: UploadOptions) -> list[SourceFile]:
+async def discover_files(options: UploadOptions, *, filesystem: AsyncFilesystem | None = None) -> list[SourceFile]:
     """
     Discover regular files for an upload without reading their contents.
 
     Include and exclude patterns use POSIX relative paths. Basename patterns
     (such as ``*.pdf``) apply at every depth; exclusion patterns take priority.
+
+    *filesystem* lists a ``gs://`` source; it must come from
+    `cohere_compass.utils.fs.open_gcs_filesystem`, opened on the running loop.
+    Without one, a private filesystem is opened for this call. Local sources
+    ignore it.
     """
     is_gcs, normalized, path = _normalize_source(options.source_uri)
     expected_gcs = options.source_type in {
@@ -215,21 +212,27 @@ async def discover_files(options: UploadOptions) -> list[SourceFile]:
     if is_gcs != expected_gcs:
         raise SourceError(f"Source URI does not match {options.source_type.value}.")
     if is_gcs:
-        return await _discover_gcs(path, options)
+        return await _discover_gcs(path, options, filesystem)
     # One offload for the whole local walk: a recursive directory is thousands
     # of `stat` calls, and awaiting each one individually would be slower than
     # a single hop as well as noisier.
     return await asyncio.to_thread(_discover_local, Path(normalized), options)
 
 
-async def read_source_bytes(source: SourceFile) -> bytes:
-    """Read a previously discovered source, without exposing backend details."""
+async def read_source_bytes(source: SourceFile, *, filesystem: AsyncFilesystem | None = None) -> bytes:
+    """
+    Read a previously discovered source, without exposing backend details.
+
+    *filesystem* reads a ``gs://`` source, as for `discover_files`. Without
+    one, a private filesystem is opened for this call, which costs a new
+    connection to GCS, so pass one when reading many files.
+    """
     is_gcs, normalized, path = _normalize_source(source.uri)
     try:
         if not is_gcs:
             return await local_fs.read_bytes(Path(normalized))
-        fs, fs_path = url_to_fs(_remote_uri(path))
-        return await fs._cat_file(fs_path)  # pyright: ignore[reportPrivateUsage]
+        async with _gcs(filesystem) as fs:
+            return await fs._cat_file(path)  # pyright: ignore[reportPrivateUsage]
     except (OSError, ValueError):
         raise SourceError(f"Unable to read source: {source.uri}.") from None
 

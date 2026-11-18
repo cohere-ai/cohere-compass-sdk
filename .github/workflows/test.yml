@@ -56,8 +56,10 @@ jobs:
           pip install poetry
 
       - name: Install dependencies
+        # Every extra, so that extensions are tested with their optional
+        # dependencies, such as gcsfs for the uploads extension.
         run: |
-          poetry install
+          poetry install --all-extras
 
       - name: Run tests
         working-directory: .

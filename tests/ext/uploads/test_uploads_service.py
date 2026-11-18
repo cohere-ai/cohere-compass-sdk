@@ -1,5 +1,6 @@
 import asyncio
-from collections.abc import Callable, Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import cast
 from uuid import UUID, uuid4
@@ -9,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 
 from cohere_compass.clients import CompassAsyncClient
 from cohere_compass.exceptions import CompassClientError, CompassError
+from cohere_compass.ext.uploads import service
 from cohere_compass.ext.uploads.exceptions import SourceError
 from cohere_compass.ext.uploads.identity import content_identity
 from cohere_compass.ext.uploads.models import (
@@ -1205,3 +1207,66 @@ async def test_jobs_take_a_caller_chosen_id_and_metadata() -> None:
     assert job.job_id == "reports" and saved.metadata == {"profile_name": "work"} and saved.api_url is None
     with pytest.raises(UploadStateError, match="already exists"):
         await create_upload_job(options=_options(), files=files, store=store, job_id="reports")
+
+
+class _GcsReads:
+    """A fake for `open_gcs_filesystem` that logs opens, closes and the paths each filesystem reads."""
+
+    def __init__(self) -> None:
+        self.events: list[str] = []
+
+    @asynccontextmanager
+    async def open(self) -> AsyncIterator[object]:
+        events = self.events
+        events.append("open")
+
+        class Filesystem:
+            async def _cat_file(self, path: str) -> bytes:
+                events.append(f"read {path}")
+                return path.encode()
+
+        try:
+            yield Filesystem()
+        finally:
+            events.append("close")
+
+
+@pytest.mark.asyncio
+async def test_default_reader_shares_one_gcs_filesystem_across_a_gcs_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    gcs = _GcsReads()
+    monkeypatch.setattr(service, "open_gcs_filesystem", gcs.open)
+    store = InMemoryUploadJobStore()
+    options = _options().model_copy(
+        update={"source_uri": "gs://bucket/prefix", "source_type": SourceType.GCS_DIRECTORY}
+    )
+    files = [SourceFile(uri=f"gs://bucket/prefix/{number}.pdf", relative_path=f"{number}.pdf") for number in range(3)]
+    job = await create_upload_job(options=options, files=files, store=store)
+
+    async def poller(*args: object) -> PollResult:
+        return PollResult(status=FileStatus.COMPLETED)
+
+    result = await run_upload_job(job, client=cast(CompassAsyncClient, Client()), store=store, poller=poller)
+    assert result.succeeded
+    assert gcs.events[0] == "open" and gcs.events[-1] == "close"
+    assert sorted(gcs.events[1:-1]) == [f"read bucket/prefix/{number}.pdf" for number in range(3)]
+
+
+@pytest.mark.asyncio
+async def test_default_reader_opens_no_gcs_filesystem_for_a_local_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gcs = _GcsReads()
+    monkeypatch.setattr(service, "open_gcs_filesystem", gcs.open)
+    (tmp_path / "a.pdf").write_bytes(b"a")
+    store = InMemoryUploadJobStore()
+    options = _options().model_copy(update={"source_uri": str(tmp_path)})
+    job = await create_upload_job(
+        options=options, files=[SourceFile(uri=str(tmp_path / "a.pdf"), relative_path="a.pdf")], store=store
+    )
+
+    async def poller(*args: object) -> PollResult:
+        return PollResult(status=FileStatus.COMPLETED)
+
+    result = await run_upload_job(job, client=cast(CompassAsyncClient, Client()), store=store, poller=poller)
+    assert result.succeeded
+    assert gcs.events == []

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cohere-compass-sdk"
-version = "2.25.0"
+version = "2.25.1"
 authors = []
 description = "Cohere Compass SDK"
 readme = "README.md"
@@ -54,6 +54,7 @@ extend-select = [
     "I",   # isort
     "Q",   # flakes8-quotes
     "RUF", # Ruff-specific
+    "TID", # flake8-tidy-imports (for the banned APIs below)
     "UP",  # pyupgrade
 ]
 ignore = [
@@ -64,8 +65,16 @@ ignore = [
 isort = { known-first-party = ["cohere_compass"] }
 mccabe = { max-complexity = 15 }
 
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# fsspec shares one filesystem object per backend across the whole process, and
+# misusing it from async code breaks every other user of that object. Only
+# `cohere_compass/utils/fs.py` may import these; its docstring explains the rule.
+"fsspec".msg = "Import filesystem helpers from cohere_compass.utils.fs instead; its docstring explains why."
+"gcsfs".msg = "Import filesystem helpers from cohere_compass.utils.fs instead; its docstring explains why."
+
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["D"]
+"cohere_compass/utils/fs.py" = ["TID251"]
+"tests/**/*.py" = ["D", "TID251"]
 
 [tool.pytest.ini_options]
 addopts = """
