@@ -86,9 +86,9 @@ class PrefixSearchSettings(BaseModel):
     """
     Prefix search settings of an index.
 
-    When a query of at least ``min_prefix_length`` characters is the start of a word
-    in one of ``fields`` in a document the caller can read, search is limited to
-    those documents. Otherwise search runs as usual.
+    When a query whose last word has at least ``min_prefix_length`` characters is the
+    start of a word in one of ``fields`` in a document the caller can read, search is
+    limited to those documents. Otherwise search runs as usual.
     """
 
     fields: list[str] = Field(
@@ -96,7 +96,9 @@ class PrefixSearchSettings(BaseModel):
         min_length=1,
         description='Fields to check: "text" or "content.<name>". At most 5.',
     )
-    min_prefix_length: int = Field(default=3, ge=1, le=20, description="Shortest query that is checked as a prefix.")
+    min_prefix_length: int = Field(
+        default=3, ge=1, le=20, description="Shortest last word of a query that is checked as a prefix."
+    )
 
 
 class GlossaryResponse(BaseModel):
