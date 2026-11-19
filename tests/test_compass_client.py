@@ -1161,6 +1161,53 @@ def test_search_chunks(client: CompassClient, respx_mock: MockRouter):
     assert result.hits[0].score == 0.95
 
 
+GROUP_SCOPED_SEARCHES = [
+    pytest.param("search_documents", "documents/_search", {"query": "test query"}, id="search_documents"),
+    pytest.param("search_chunks", "documents/_search_chunks", {"query": "test query"}, id="search_chunks"),
+    pytest.param("direct_search", "_direct_search", {"query": {"match_all": {}}}, id="direct_search"),
+]
+
+
+@pytest.mark.parametrize(("method_name", "path", "search_kwargs"), GROUP_SCOPED_SEARCHES)
+@pytest.mark.parametrize("group_scopes", [["group-b", "group-a"], []], ids=["scopes", "empty"])
+@respx.mock
+def test_search_with_group_scopes_sends_them_in_body(
+    client: CompassClient,
+    respx_mock: MockRouter,
+    method_name: str,
+    path: str,
+    search_kwargs: dict[str, Any],
+    group_scopes: list[str],
+):
+    """Scoped searches send group_scopes as given, and an empty list is sent for the server to reject with 400."""
+    route = respx_mock.post(f"http://test.com/v1/indexes/test_index/{path}").mock(
+        return_value=httpx.Response(200, json={"hits": []})
+    )
+
+    getattr(client, method_name)(index_name="test_index", group_scopes=group_scopes, **search_kwargs)
+
+    assert json.loads(route.calls.last.request.content)["group_scopes"] == group_scopes
+
+
+@pytest.mark.parametrize(("method_name", "path", "search_kwargs"), GROUP_SCOPED_SEARCHES)
+@respx.mock
+def test_search_without_group_scopes_omits_them_from_body(
+    client: CompassClient,
+    respx_mock: MockRouter,
+    method_name: str,
+    path: str,
+    search_kwargs: dict[str, Any],
+):
+    """Searches with group_scopes=None leave the field out of the body, so the request is unchanged for any server."""
+    route = respx_mock.post(f"http://test.com/v1/indexes/test_index/{path}").mock(
+        return_value=httpx.Response(200, json={"hits": []})
+    )
+
+    getattr(client, method_name)(index_name="test_index", group_scopes=None, **search_kwargs)
+
+    assert "group_scopes" not in json.loads(route.calls.last.request.content)
+
+
 @respx.mock
 def test_update_group_authorization(client: CompassClient, respx_mock: MockRouter):
     route = respx_mock.post("http://test.com/v1/indexes/test_index/group_authorization").mock(

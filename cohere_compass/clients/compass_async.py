@@ -1580,6 +1580,7 @@ class CompassAsyncClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
+        group_scopes: list[str] | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1587,7 +1588,9 @@ class CompassAsyncClient:
         return await self._send_request(
             api_name=api_name,
             index_name=index_name,
-            data=SearchInput(query=query, top_k=top_k, filters=filters, rerank_model=rerank_model),
+            data=SearchInput(
+                query=query, top_k=top_k, filters=filters, rerank_model=rerank_model, group_scopes=group_scopes
+            ),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1601,6 +1604,7 @@ class CompassAsyncClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
+        group_scopes: list[str] | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1613,6 +1617,13 @@ class CompassAsyncClient:
         :param top_k: the number of documents to return
         :param filters: the search filters to apply
         :param rerank_model: the model to use for reranking the results
+        :param group_scopes: 1 to 2,000 Compass group names, each exactly as it appears
+            in documents' ``authorized_groups``, that narrow document-level security for
+            this search. Only the scopes the caller holds are applied; the others are
+            dropped silently, and public documents are excluded. Raises
+            ``CompassAuthError`` (HTTP 403) when the caller holds none of them. If not
+            provided, the search uses the caller's own groups plus public documents.
+            Requires Compass 0.118.0 or later; older servers ignore it.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1631,6 +1642,7 @@ class CompassAsyncClient:
             top_k=top_k,
             filters=filters,
             rerank_model=rerank_model,
+            group_scopes=group_scopes,
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1646,6 +1658,7 @@ class CompassAsyncClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
+        group_scopes: list[str] | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1658,6 +1671,13 @@ class CompassAsyncClient:
         :param top_k: the number of chunks to return
         :param filters: the search filters to apply
         :param rerank_model: the model to use for reranking the results
+        :param group_scopes: 1 to 2,000 Compass group names, each exactly as it appears
+            in documents' ``authorized_groups``, that narrow document-level security for
+            this search. Only the scopes the caller holds are applied; the others are
+            dropped silently, and public documents are excluded. Raises
+            ``CompassAuthError`` (HTTP 403) when the caller holds none of them. If not
+            provided, the search uses the caller's own groups plus public documents.
+            Requires Compass 0.118.0 or later; older servers ignore it.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1676,6 +1696,7 @@ class CompassAsyncClient:
             top_k=top_k,
             filters=filters,
             rerank_model=rerank_model,
+            group_scopes=group_scopes,
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1824,6 +1845,7 @@ class CompassAsyncClient:
         sort_by: list[SortBy] | None = None,
         size: int = 100,
         scroll: str | None = None,
+        group_scopes: list[str] | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1836,6 +1858,15 @@ class CompassAsyncClient:
         :pram sort_by: the sort by criteria
         :pram size: the number of results to return
         :pram scroll: the scroll duration (e.g. "1m" for 1 minute)
+        :param group_scopes: 1 to 2,000 Compass group names, each exactly as it appears
+            in documents' ``authorized_groups``, that narrow document-level security for
+            this search. Only the scopes the caller holds are applied; the others are
+            dropped silently, and public documents are excluded. Raises
+            ``CompassAuthError`` (HTTP 403) when the caller holds none of them. If not
+            provided, the search uses the caller's own groups plus public documents. A
+            scroll opened with group_scopes stays scoped on every direct_search_scroll
+            page, which must use the same bearer token. Requires Compass 0.118.0 or
+            later; older servers ignore it.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1848,7 +1879,7 @@ class CompassAsyncClient:
             DirectSearchResponse object containing the direct search results
 
         """
-        data = DirectSearchInput(query=query, size=size, scroll=scroll, sort_by=sort_by)
+        data = DirectSearchInput(query=query, size=size, scroll=scroll, sort_by=sort_by, group_scopes=group_scopes)
 
         result = await self._send_request(
             api_name="direct_search",
