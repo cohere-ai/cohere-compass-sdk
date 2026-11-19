@@ -1815,7 +1815,7 @@ class CompassClient:
             dropped silently, and public documents are excluded. Raises
             ``CompassAuthError`` (HTTP 403) when the caller holds none of them. If not
             provided, the search uses the caller's own groups plus public documents.
-            Requires Compass 0.116.0 or later; older servers ignore it.
+            Requires Compass 0.118.0 or later; older servers ignore it.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1869,7 +1869,7 @@ class CompassClient:
             dropped silently, and public documents are excluded. Raises
             ``CompassAuthError`` (HTTP 403) when the caller holds none of them. If not
             provided, the search uses the caller's own groups plus public documents.
-            Requires Compass 0.116.0 or later; older servers ignore it.
+            Requires Compass 0.118.0 or later; older servers ignore it.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -2053,7 +2053,7 @@ class CompassClient:
             ``CompassAuthError`` (HTTP 403) when the caller holds none of them. If not
             provided, the search uses the caller's own groups plus public documents. A
             scroll opened with group_scopes stays scoped on every direct_search_scroll
-            page, which must use the same bearer token. Requires Compass 0.116.0 or
+            page, which must use the same bearer token. Requires Compass 0.118.0 or
             later; older servers ignore it.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
