@@ -99,6 +99,14 @@ index. Local sources need no extra; `gs://` sources need the `uploads` extra.
   `include_patterns` and `exclude_patterns`, so documents uploaded earlier from
   files the patterns now leave out are deleted too. `dry_run=True` reports what
   an upload would do without changing the index.
+- Each file is uploaded under its name. With `keep_paths=True`, it is uploaded
+  under its path relative to the source instead, such as
+  `projects/search/README.md`, so documents from different folders can be told
+  apart. `attribute_templates` adds attributes to every document, built from
+  the file's `{relative_path}` and `{name}`, for example
+  `{"url": "https://github.com/org/repo/blob/main/{relative_path}"}`. Neither is
+  part of the document ID, so documents the index already has keep their old
+  filename and attributes until `force=True` uploads them again.
 
 Jobs are saved in a store the caller chooses, so a failed or cancelled job can
 be run again and continue where it stopped:

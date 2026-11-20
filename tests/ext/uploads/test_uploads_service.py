@@ -37,7 +37,7 @@ from cohere_compass.models import (
     UploadDocumentsStatus,
 )
 from cohere_compass.models.config import ParserConfig, PDFParsingStrategy
-from cohere_compass.models.documents import ParseableDocumentConfig
+from cohere_compass.models.documents import DocumentAttributes, ParseableDocumentConfig
 from cohere_compass.models.indexes import IndexDetails
 from cohere_compass.models.search import RetrievedDocument
 
@@ -49,6 +49,7 @@ class Submission(BaseModel):
 
 
 DEFAULT_PARSEABLE_DOCUMENT_CONFIG = ParseableDocumentConfig()
+DEFAULT_ATTRIBUTES = DocumentAttributes()
 
 
 class Client:
@@ -63,6 +64,8 @@ class Client:
     def __init__(self) -> None:
         self.uploads: list[str] = []
         self.upload_configs: list[ParseableDocumentConfig] = []
+        self.upload_filenames: list[str] = []
+        self.upload_attributes: list[dict[str, object]] = []
         self.preflight_calls = 0
 
     async def get_index_details(self, *, index_name: str) -> IndexDetails:
@@ -79,11 +82,14 @@ class Client:
         filename: str,
         filebytes: bytes,
         document_id: str,
+        attributes: DocumentAttributes = DEFAULT_ATTRIBUTES,
         config: ParseableDocumentConfig = DEFAULT_PARSEABLE_DOCUMENT_CONFIG,
         content_type: ContentTypeEnum | None = None,
     ) -> UploadDocumentsResult:
         self.uploads.append(document_id)
         self.upload_configs.append(config)
+        self.upload_filenames.append(filename)
+        self.upload_attributes.append(attributes.model_dump())
         return cast(UploadDocumentsResult, Submission(upload_id=uuid4()))
 
     async def upload_document_status(self, *, index_name: str, upload_id: UUID) -> list[UploadDocumentsStatus] | None:
@@ -303,6 +309,73 @@ async def test_parser_strategy_is_sent_to_sdk(tmp_path: Path, strategy: str, exp
     assert client.upload_configs[0].parser_config.pdf_parsing_strategy is expected
 
 
+@pytest.mark.parametrize(
+    ("keep_paths", "expected_filename"),
+    [(False, "README.md"), (True, "projects/search/README.md")],
+)
+@pytest.mark.asyncio
+async def test_filename_is_the_name_unless_keep_paths(tmp_path: Path, keep_paths: bool, expected_filename: str) -> None:
+    store = FileUploadJobStore(tmp_path / "state")
+    job = await create_upload_job(
+        api_url="api",
+        options=_options(workers=1).model_copy(update={"keep_paths": keep_paths}),
+        files=[SourceFile(uri="one", relative_path="projects/search/README.md")],
+        store=store,
+    )
+    client = Client()
+
+    result = await run_upload_job(
+        job,
+        client=cast(CompassAsyncClient, client),
+        store=store,
+        reporter=UploadReporter(),
+        poller=_completed,
+        reader=_reader(lambda _: b"contents"),
+    )
+
+    assert result.succeeded
+    assert client.upload_filenames == [expected_filename]
+    assert client.upload_attributes == [{}]
+
+
+@pytest.mark.asyncio
+async def test_attribute_templates_are_rendered_per_file(tmp_path: Path) -> None:
+    store = FileUploadJobStore(tmp_path / "state")
+    options = _options(workers=1).model_copy(
+        update={
+            "attribute_templates": {
+                "url": "https://github.com/org/repo/blob/main/{relative_path}",
+                "title": "{name}",
+                "source": "repo",
+            }
+        }
+    )
+    job = await create_upload_job(
+        api_url="api",
+        options=options,
+        files=[
+            SourceFile(uri="one", relative_path="a/README.md"),
+            SourceFile(uri="two", relative_path="b/notes.md"),
+        ],
+        store=store,
+    )
+    client = Client()
+
+    await run_upload_job(
+        job,
+        client=cast(CompassAsyncClient, client),
+        store=store,
+        reporter=UploadReporter(),
+        poller=_completed,
+        reader=_reader(lambda source: source.uri.encode()),
+    )
+
+    assert sorted(client.upload_attributes, key=lambda attributes: str(attributes["url"])) == [
+        {"url": "https://github.com/org/repo/blob/main/a/README.md", "title": "README.md", "source": "repo"},
+        {"url": "https://github.com/org/repo/blob/main/b/notes.md", "title": "notes.md", "source": "repo"},
+    ]
+
+
 @pytest.mark.asyncio
 async def test_generic_and_nested_parser_config_are_sent_to_sdk(tmp_path: Path) -> None:
     parsing_options = ParserConfig.model_validate(
@@ -464,6 +537,7 @@ async def test_timeout_releases_worker_without_reuploading(tmp_path: Path) -> No
             filename: str,
             filebytes: bytes,
             document_id: str,
+            attributes: DocumentAttributes = DEFAULT_ATTRIBUTES,
             config: ParseableDocumentConfig = DEFAULT_PARSEABLE_DOCUMENT_CONFIG,
             content_type: ContentTypeEnum | None = None,
         ) -> UploadDocumentsResult:
@@ -661,6 +735,7 @@ async def test_source_changed_reader_upload_and_poller_errors(tmp_path: Path) ->
             filename: str,
             filebytes: bytes,
             document_id: str,
+            attributes: DocumentAttributes = DEFAULT_ATTRIBUTES,
             config: ParseableDocumentConfig = DEFAULT_PARSEABLE_DOCUMENT_CONFIG,
             content_type: ContentTypeEnum | None = None,
         ) -> UploadDocumentsResult:
@@ -669,6 +744,7 @@ async def test_source_changed_reader_upload_and_poller_errors(tmp_path: Path) ->
                 filename,
                 filebytes,
                 document_id,
+                attributes,
                 config,
                 content_type,
             )
@@ -1036,6 +1112,7 @@ class ExistingOldClient(Client):
         filename: str,
         filebytes: bytes,
         document_id: str,
+        attributes: DocumentAttributes = DEFAULT_ATTRIBUTES,
         config: ParseableDocumentConfig = DEFAULT_PARSEABLE_DOCUMENT_CONFIG,
         content_type: ContentTypeEnum | None = None,
     ) -> UploadDocumentsResult:
