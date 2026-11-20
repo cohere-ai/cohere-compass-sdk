@@ -40,6 +40,7 @@ from cohere_compass.models.documents import (
     DeleteDocumentStatus,
     DocumentAttributes,
     ParseableDocument,
+    ParseableDocumentConfig,
     UploadDocumentsResult,
 )
 from cohere_compass.models.indexes import (
@@ -973,6 +974,44 @@ def test_upload_document_with_authorized_groups(client: CompassClient, respx_moc
     assert request_body["authorized_groups"] == ["group1", "group2"]
 
 
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        (ParseableDocumentConfig(index_fields=[" title ", "text"]), ["title", "text"]),
+        (ParseableDocumentConfig(), None),
+    ],
+)
+@respx.mock
+def test_upload_document_index_fields(
+    client: CompassClient,
+    respx_mock: MockRouter,
+    config: ParseableDocumentConfig,
+    expected: list[str] | None,
+):
+    """index_fields is sent stripped when set and left out of the body when not, so older servers see no change."""
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/upload").mock(
+        return_value=httpx.Response(200, json={"upload_id": str(uuid.uuid4()), "document_ids": ["doc"]})
+    )
+
+    client.upload_document(
+        index_name="test_index",
+        filename="test.pdf",
+        filebytes=b"test content",
+        document_id="doc",
+        config=config,
+    )
+
+    doc_config = json.loads(route.calls.last.request.content)["documents"][0]["config"]
+    assert doc_config.get("index_fields") == expected
+    assert ("index_fields" in doc_config) == (expected is not None)
+
+
+@pytest.mark.parametrize("index_fields", [[""], ["   "]])
+def test_parseable_document_config_rejects_blank_index_fields(index_fields: list[str]):
+    with pytest.raises(ValidationError):
+        ParseableDocumentConfig(index_fields=index_fields)
+
+
 @respx.mock
 def test_upload_document_status(client: CompassClient, respx_mock: MockRouter):
     upload_id = uuid.uuid4()
@@ -1162,6 +1201,53 @@ def test_search_chunks(client: CompassClient, respx_mock: MockRouter):
     assert route.called
     assert len(result.hits) == 2
     assert result.hits[0].score == 0.95
+
+
+GROUP_SCOPED_SEARCHES = [
+    pytest.param("search_documents", "documents/_search", {"query": "test query"}, id="search_documents"),
+    pytest.param("search_chunks", "documents/_search_chunks", {"query": "test query"}, id="search_chunks"),
+    pytest.param("direct_search", "_direct_search", {"query": {"match_all": {}}}, id="direct_search"),
+]
+
+
+@pytest.mark.parametrize(("method_name", "path", "search_kwargs"), GROUP_SCOPED_SEARCHES)
+@pytest.mark.parametrize("group_scopes", [["group-b", "group-a"], []], ids=["scopes", "empty"])
+@respx.mock
+def test_search_with_group_scopes_sends_them_in_body(
+    client: CompassClient,
+    respx_mock: MockRouter,
+    method_name: str,
+    path: str,
+    search_kwargs: dict[str, Any],
+    group_scopes: list[str],
+):
+    """Scoped searches send group_scopes as given, and an empty list is sent for the server to reject with 400."""
+    route = respx_mock.post(f"http://test.com/v1/indexes/test_index/{path}").mock(
+        return_value=httpx.Response(200, json={"hits": []})
+    )
+
+    getattr(client, method_name)(index_name="test_index", group_scopes=group_scopes, **search_kwargs)
+
+    assert json.loads(route.calls.last.request.content)["group_scopes"] == group_scopes
+
+
+@pytest.mark.parametrize(("method_name", "path", "search_kwargs"), GROUP_SCOPED_SEARCHES)
+@respx.mock
+def test_search_without_group_scopes_omits_them_from_body(
+    client: CompassClient,
+    respx_mock: MockRouter,
+    method_name: str,
+    path: str,
+    search_kwargs: dict[str, Any],
+):
+    """Searches with group_scopes=None leave the field out of the body, so the request is unchanged for any server."""
+    route = respx_mock.post(f"http://test.com/v1/indexes/test_index/{path}").mock(
+        return_value=httpx.Response(200, json={"hits": []})
+    )
+
+    getattr(client, method_name)(index_name="test_index", group_scopes=None, **search_kwargs)
+
+    assert "group_scopes" not in json.loads(route.calls.last.request.content)
 
 
 @respx.mock
