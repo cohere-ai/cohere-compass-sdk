@@ -40,6 +40,7 @@ from cohere_compass.models.documents import (
     DeleteDocumentStatus,
     DocumentAttributes,
     ParseableDocument,
+    ParseableDocumentConfig,
     UploadDocumentsResult,
 )
 from cohere_compass.models.indexes import (
@@ -968,6 +969,44 @@ def test_upload_document_with_authorized_groups(client: CompassClient, respx_moc
     request_body = json.loads(request.content)
     assert "authorized_groups" in request_body
     assert request_body["authorized_groups"] == ["group1", "group2"]
+
+
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        (ParseableDocumentConfig(index_fields=[" title ", "text"]), ["title", "text"]),
+        (ParseableDocumentConfig(), None),
+    ],
+)
+@respx.mock
+def test_upload_document_index_fields(
+    client: CompassClient,
+    respx_mock: MockRouter,
+    config: ParseableDocumentConfig,
+    expected: list[str] | None,
+):
+    """index_fields is sent stripped when set and left out of the body when not, so older servers see no change."""
+    route = respx_mock.post("http://test.com/v1/indexes/test_index/documents/upload").mock(
+        return_value=httpx.Response(200, json={"upload_id": str(uuid.uuid4()), "document_ids": ["doc"]})
+    )
+
+    client.upload_document(
+        index_name="test_index",
+        filename="test.pdf",
+        filebytes=b"test content",
+        document_id="doc",
+        config=config,
+    )
+
+    doc_config = json.loads(route.calls.last.request.content)["documents"][0]["config"]
+    assert doc_config.get("index_fields") == expected
+    assert ("index_fields" in doc_config) == (expected is not None)
+
+
+@pytest.mark.parametrize("index_fields", [[""], ["   "]])
+def test_parseable_document_config_rejects_blank_index_fields(index_fields: list[str]):
+    with pytest.raises(ValidationError):
+        ParseableDocumentConfig(index_fields=index_fields)
 
 
 @respx.mock
