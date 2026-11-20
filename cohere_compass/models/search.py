@@ -132,6 +132,7 @@ class SearchInput(BaseModel):
     top_k: int
     filters: list[SearchFilter] | None = None
     rerank_model: str | None = None
+    group_scopes: list[str] | None = None
 
 
 class SortBy(BaseModel):
@@ -148,6 +149,7 @@ class DirectSearchInput(BaseModel):
     size: int
     sort_by: list[SortBy] | None = None
     scroll: str | None = None
+    group_scopes: list[str] | None = None
 
 
 class DirectSearchScrollInput(BaseModel):
