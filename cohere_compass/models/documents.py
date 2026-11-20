@@ -291,11 +291,19 @@ class DocumentAttributes(BaseModel):
 
 
 class ParseableDocumentConfig(BaseModel):
-    """Configuration for a parseable document."""
+    """
+    Configuration for a parseable document.
+
+    `index_fields` lists the content fields embedded for semantic search, replacing the
+    parser's. Best effort: listed fields missing from a chunk are skipped, and when none
+    exist the embedded text falls back to "text" and "meta". If not provided, the
+    parser's fields are used. Requires Compass 0.118.0 or later; older servers ignore it.
+    """
 
     parser_config: ParserConfig = ParserConfig()
     enrichment_config: EnrichmentConfig | None = None
     only_parse_doc: bool = False
+    index_fields: list[Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]] | None = None
 
 
 class ParseableDocument(BaseModel):
