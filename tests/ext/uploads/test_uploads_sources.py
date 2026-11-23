@@ -1,7 +1,9 @@
+import asyncio
 from pathlib import Path
 from typing import ClassVar
 
 import pytest
+from fsspec.asyn import get_loop  # pyright: ignore[reportMissingTypeStubs]
 
 from cohere_compass.ext.uploads import sources
 from cohere_compass.ext.uploads.exceptions import SourceError
@@ -103,6 +105,11 @@ class _FakeGcs:
         "bucket/prefix/nested/a.pdf": b"nested",
     }
 
+    @property
+    def loop(self) -> asyncio.AbstractEventLoop:
+        # A synchronous-mode gcsfs instance, such as the one fsspec caches, runs on fsspec's IO-thread loop.
+        return get_loop()
+
     async def _info(self, path: str) -> dict[str, object]:
         if path in self.files:
             return {
@@ -155,6 +162,55 @@ async def test_mocked_gcs_discovery_and_read(monkeypatch: pytest.MonkeyPatch) ->
     assert await read_source_bytes(found[0]) == b"nested"
     with pytest.raises(SourceError, match="kind"):
         await discover_files(_options("gs://bucket/a.pdf", SourceType.GCS_DIRECTORY))
+
+
+@pytest.mark.asyncio
+async def test_gcs_coroutines_run_on_the_filesystems_own_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    fsspec hands the same cached gcsfs instance to every `gs://` user in the process, and gcsfs binds that
+    instance's aiohttp session to the loop of its first request. fsspec's sync wrappers always run on
+    `fs.loop`, so the uploads code must run its coroutines there too, never on the caller's loop.
+    """
+    loops_by_method: dict[str, set[asyncio.AbstractEventLoop]] = {}
+
+    def record(method: str) -> None:
+        loops_by_method.setdefault(method, set()).add(asyncio.get_running_loop())
+
+    class LoopRecordingGcs(_FakeGcs):
+        async def _info(self, path: str) -> dict[str, object]:
+            record("_info")
+            return await super()._info(path)
+
+        async def _isdir(self, path: str) -> bool:
+            record("_isdir")
+            return await super()._isdir(path)
+
+        async def _find(self, path: str, *, detail: bool) -> dict[str, dict[str, object]]:
+            record("_find")
+            return await super()._find(path, detail=detail)
+
+        async def _ls(self, path: str, *, detail: bool) -> list[dict[str, object]]:
+            record("_ls")
+            return await super()._ls(path, detail=detail)
+
+        async def _cat_file(self, path: str) -> bytes:
+            record("_cat_file")
+            return await super()._cat_file(path)
+
+    fake = LoopRecordingGcs()
+
+    def fake_url_to_fs(uri: str) -> tuple[_FakeGcs, str]:
+        return _fake_url_to_fs(uri, fake)
+
+    monkeypatch.setattr(sources, "url_to_fs", fake_url_to_fs)
+    # A recursive directory discovery calls `_info`, `_isdir` and `_find`, a non-recursive one calls `_ls`,
+    # and a read calls `_cat_file`.
+    found = await discover_files(_options("gs://bucket/prefix", SourceType.GCS_DIRECTORY))
+    await discover_files(_options("gs://bucket/prefix", SourceType.GCS_DIRECTORY, recursive=False))
+    await read_source_bytes(found[0])
+    assert fake.loop is not asyncio.get_running_loop()
+    # A method that production awaited on the caller's loop would have that loop in its set.
+    assert loops_by_method == {method: {fake.loop} for method in ("_info", "_isdir", "_find", "_ls", "_cat_file")}
 
 
 @pytest.mark.parametrize(
