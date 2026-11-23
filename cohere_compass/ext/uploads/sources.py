@@ -7,20 +7,29 @@ Application Default Credentials and needs the `gcsfs` package, which the
 
 GCS is reached through gcsfs's **coroutine** methods rather than its familiar
 synchronous ones. `gcsfs.GCSFileSystem` subclasses `fsspec.asyn.AsyncFileSystem`,
-whose public sync methods are generated wrappers that dispatch onto fsspec's own
-event-loop thread; calling those from a coroutine would mean a thread hop into a
-function that hops back onto a loop. The underscore-prefixed twins (`_info`,
-`_isdir`, `_find`, `_ls`, `_cat_file`) are the actual async implementations, and
-`_cat_file` also replaces an `open()`/`read()` pair with one await.
+whose public sync methods are generated wrappers that run the underscore-prefixed
+coroutines (`_info`, `_isdir`, `_find`, `_ls`, `_cat_file`) on the filesystem's
+own event loop, `fs.loop`, and block until they finish. Calling those wrappers
+from a coroutine would block a thread for every call; `_cat_file` also replaces
+an `open()`/`read()` pair with one await.
+
+The coroutines must run on `fs.loop`, not on the caller's loop. `url_to_fs`
+returns the instance that fsspec caches for the whole process and hands to every
+other fsspec user of ``gs://``, and gcsfs binds that instance's aiohttp session
+to the loop that makes its first request. If this module ran the coroutines on
+the caller's loop, the session would belong to one loop while the other users
+ran on another, and whichever side came second would fail with "attached to a
+different loop". `_on_fs_loop` therefore schedules each coroutine on `fs.loop`,
+as the sync wrappers do, and awaits the result without blocking a thread.
 """
 
 import asyncio
 import fnmatch
 import mimetypes
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Coroutine, Mapping
 from importlib import import_module
 from pathlib import Path, PurePosixPath
-from typing import Protocol, cast
+from typing import Protocol, TypeVar, cast
 from urllib.parse import urlsplit
 
 from cohere_compass.ext.uploads import _fs as local_fs
@@ -32,9 +41,14 @@ from cohere_compass.ext.uploads.models import (
 )
 from cohere_compass.models import ContentTypeEnum
 
+_T = TypeVar("_T")
+
 
 class _Filesystem(Protocol):
     """The slice of `fsspec.asyn.AsyncFileSystem` this module uses."""
+
+    @property
+    def loop(self) -> asyncio.AbstractEventLoop: ...
 
     async def _info(self, path: str) -> Mapping[str, object]: ...
 
@@ -54,6 +68,11 @@ _url_to_fs = cast(Callable[[str], tuple[_Filesystem, str]], vars(_fsspec_core)["
 def url_to_fs(uri: str) -> tuple[_Filesystem, str]:
     """Narrow fsspec's untyped filesystem boundary."""
     return _url_to_fs(uri)
+
+
+async def _on_fs_loop(fs: _Filesystem, coroutine: Coroutine[object, object, _T]) -> _T:
+    """Run one of *fs*'s coroutines on the filesystem's own loop and await its result."""
+    return await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(coroutine, fs.loop))
 
 
 def is_gcs_source(source_uri: str) -> bool:
@@ -170,20 +189,20 @@ async def _discover_gcs(path: str, options: UploadOptions) -> list[SourceFile]:
     try:
         fs, fs_path = url_to_fs(_remote_uri(path))
         try:
-            info: Mapping[str, object] = await fs._info(fs_path)  # pyright: ignore[reportPrivateUsage]
+            info: Mapping[str, object] = await _on_fs_loop(fs, fs._info(fs_path))  # pyright: ignore[reportPrivateUsage]
         except (FileNotFoundError, OSError):
             info = {}
         actual_file = _is_file(info)
-        actual_directory = not actual_file and await fs._isdir(fs_path)  # pyright: ignore[reportPrivateUsage]
+        actual_directory = not actual_file and await _on_fs_loop(fs, fs._isdir(fs_path))  # pyright: ignore[reportPrivateUsage]
         if not actual_file and not actual_directory:
             raise SourceError(f"Source does not exist: {_remote_uri(path)}.")
         _check_kind(actual_file, options)
         if actual_file:
             candidates: Mapping[str, Mapping[str, object]] = {fs_path: info}
         elif options.recursive:
-            candidates = await fs._find(fs_path, detail=True)  # pyright: ignore[reportPrivateUsage]
+            candidates = await _on_fs_loop(fs, fs._find(fs_path, detail=True))  # pyright: ignore[reportPrivateUsage]
         else:
-            listed = await fs._ls(fs_path, detail=True)  # pyright: ignore[reportPrivateUsage]
+            listed = await _on_fs_loop(fs, fs._ls(fs_path, detail=True))  # pyright: ignore[reportPrivateUsage]
             candidates = {cast(str, item["name"]): item for item in listed if isinstance(item.get("name"), str)}
     except SourceError:
         raise
@@ -229,7 +248,7 @@ async def read_source_bytes(source: SourceFile) -> bytes:
         if not is_gcs:
             return await local_fs.read_bytes(Path(normalized))
         fs, fs_path = url_to_fs(_remote_uri(path))
-        return await fs._cat_file(fs_path)  # pyright: ignore[reportPrivateUsage]
+        return await _on_fs_loop(fs, fs._cat_file(fs_path))  # pyright: ignore[reportPrivateUsage]
     except (OSError, ValueError):
         raise SourceError(f"Unable to read source: {source.uri}.") from None
 
