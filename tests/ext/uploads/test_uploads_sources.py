@@ -171,15 +171,30 @@ async def test_gcs_coroutines_run_on_the_filesystems_own_loop(monkeypatch: pytes
     instance's aiohttp session to the loop of its first request. fsspec's sync wrappers always run on
     `fs.loop`, so the uploads code must run its coroutines there too, never on the caller's loop.
     """
-    loops: set[asyncio.AbstractEventLoop] = set()
+    loops_by_method: dict[str, set[asyncio.AbstractEventLoop]] = {}
+
+    def record(method: str) -> None:
+        loops_by_method.setdefault(method, set()).add(asyncio.get_running_loop())
 
     class LoopRecordingGcs(_FakeGcs):
         async def _info(self, path: str) -> dict[str, object]:
-            loops.add(asyncio.get_running_loop())
+            record("_info")
             return await super()._info(path)
 
+        async def _isdir(self, path: str) -> bool:
+            record("_isdir")
+            return await super()._isdir(path)
+
+        async def _find(self, path: str, *, detail: bool) -> dict[str, dict[str, object]]:
+            record("_find")
+            return await super()._find(path, detail=detail)
+
+        async def _ls(self, path: str, *, detail: bool) -> list[dict[str, object]]:
+            record("_ls")
+            return await super()._ls(path, detail=detail)
+
         async def _cat_file(self, path: str) -> bytes:
-            loops.add(asyncio.get_running_loop())
+            record("_cat_file")
             return await super()._cat_file(path)
 
     fake = LoopRecordingGcs()
@@ -188,10 +203,14 @@ async def test_gcs_coroutines_run_on_the_filesystems_own_loop(monkeypatch: pytes
         return _fake_url_to_fs(uri, fake)
 
     monkeypatch.setattr(sources, "url_to_fs", fake_url_to_fs)
+    # A recursive directory discovery calls `_info`, `_isdir` and `_find`, a non-recursive one calls `_ls`,
+    # and a read calls `_cat_file`.
     found = await discover_files(_options("gs://bucket/prefix", SourceType.GCS_DIRECTORY))
+    await discover_files(_options("gs://bucket/prefix", SourceType.GCS_DIRECTORY, recursive=False))
     await read_source_bytes(found[0])
     assert fake.loop is not asyncio.get_running_loop()
-    assert loops == {fake.loop}
+    # A method that production awaited on the caller's loop would have that loop in its set.
+    assert loops_by_method == {method: {fake.loop} for method in ("_info", "_isdir", "_find", "_ls", "_cat_file")}
 
 
 @pytest.mark.parametrize(
