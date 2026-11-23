@@ -287,7 +287,19 @@ async def _process_file(
         await _update_file_status(store, job, key, record, FileStatus.UPLOAD_FAILED, str(error))
         return _outcome(record, started, reporter)
 
-    digest, document_id = content_identity(data, job.options.parser_config)
+    relative_path = record.source.relative_path
+    name = Path(relative_path).name
+    filename = relative_path if job.options.keep_paths else name
+    attributes = {
+        attribute: template.format(relative_path=relative_path, name=name)
+        for attribute, template in job.options.attribute_templates.items()
+    }
+    digest, document_id = content_identity(
+        data,
+        job.options.parser_config,
+        path=relative_path if job.options.keep_paths else None,
+        attributes=attributes,
+    )
     if record.content_sha256 is not None and record.content_sha256 != digest:
         await _update_file_status(store, job, key, record, FileStatus.SOURCE_CHANGED)
         return _outcome(record, started, reporter)
@@ -314,16 +326,10 @@ async def _process_file(
 
     await _update_file_status(store, job, key, record, FileStatus.UPLOADING)
     reporter.file_phase_changed(record.source, FileStatus.UPLOADING)
-    relative_path = record.source.relative_path
-    name = Path(relative_path).name
-    attributes = {
-        key: template.format(relative_path=relative_path, name=name)
-        for key, template in job.options.attribute_templates.items()
-    }
     try:
         submission = await client.upload_document(
             index_name=job.options.index_name,
-            filename=relative_path if job.options.keep_paths else name,
+            filename=filename,
             filebytes=data,
             document_id=document_id,
             attributes=DocumentAttributes.model_validate(attributes),

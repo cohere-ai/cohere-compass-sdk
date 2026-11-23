@@ -376,6 +376,44 @@ async def test_attribute_templates_are_rendered_per_file(tmp_path: Path) -> None
     ]
 
 
+@pytest.mark.parametrize(
+    ("update", "distinct_ids"),
+    [
+        ({}, 1),
+        ({"keep_paths": True}, 2),
+        ({"attribute_templates": {"url": "https://example.com/{relative_path}"}}, 2),
+        ({"attribute_templates": {"title": "{name}"}}, 1),
+    ],
+)
+@pytest.mark.asyncio
+async def test_same_content_in_two_folders_is_two_documents_when_paths_or_attributes_differ(
+    tmp_path: Path, update: dict[str, object], distinct_ids: int
+) -> None:
+    store = FileUploadJobStore(tmp_path / "state")
+    job = await create_upload_job(
+        api_url="api",
+        options=_options(workers=1).model_copy(update=update),
+        files=[
+            SourceFile(uri="one", relative_path="a/README.md"),
+            SourceFile(uri="two", relative_path="b/README.md"),
+        ],
+        store=store,
+    )
+    client = Client()
+
+    result = await run_upload_job(
+        job,
+        client=cast(CompassAsyncClient, client),
+        store=store,
+        reporter=UploadReporter(),
+        poller=_completed,
+        reader=_reader(lambda _: b"same contents"),
+    )
+
+    assert result.succeeded
+    assert len(set(client.uploads)) == distinct_ids
+
+
 @pytest.mark.asyncio
 async def test_generic_and_nested_parser_config_are_sent_to_sdk(tmp_path: Path) -> None:
     parsing_options = ParserConfig.model_validate(

@@ -181,9 +181,9 @@ class UploadOptions(UploadModel):
     parser_config: ParserConfig = Field(default_factory=ParserConfig)
     # Send each file's path relative to the source as its filename, instead of
     # only its name, so documents from different folders can be told apart.
-    # Neither this nor `attribute_templates` is part of a document's ID, so
-    # documents the index already has keep their old filename and attributes
-    # unless `force` uploads them again.
+    # When set, the path is part of each document's ID, as are the attributes
+    # `attribute_templates` renders: the same content under two paths is two
+    # documents, and a moved file or a changed template is a new document.
     keep_paths: bool = False
     # Attributes added to every document, as templates over the file's
     # `{relative_path}` and `{name}`, e.g. a link to the file in its repository.
