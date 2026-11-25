@@ -58,10 +58,25 @@ class RetrievedChunk(BaseModel):
     assets_info: list[AssetInfo] | None = None
 
 
+class RelevantSpan(BaseModel):
+    """A passage of a chunk's ``content["text"]`` that the rerank model found relevant to the query."""
+
+    start: int = Field(description="Offset of the span's first character in the chunk's content text, in codepoints.")
+    end: int = Field(description="Offset just past the span's last character, so the span is text[start:end].")
+    score: float = Field(description="How relevant the rerank model found the span, between 0 and 1.")
+    text: str = Field(description="The span's text.")
+
+
 class RetrievedScoredChunk(RetrievedChunk):
     """Chunk of a document retrieved from search API."""
 
     score: float
+    relevant_spans: list[RelevantSpan] | None = Field(
+        default=None,
+        description="The relevant passages of the chunk's content text, ordered by start. None when the search did "
+        "not request relevant spans, did not rerank this chunk, or the server predates relevant spans; empty when "
+        "the chunk was reranked and no passage passed the threshold.",
+    )
 
 
 class RetrievedDocument(BaseModel):
@@ -125,6 +140,26 @@ class SearchFilter(BaseModel):
     value: Any
 
 
+class RelevantSpansInput(BaseModel):
+    """Options for returning the passages of each reranked chunk that the rerank model finds relevant."""
+
+    mode: Literal["enabled", "disabled"] = Field(
+        default="enabled", description='Whether to return relevant spans; "disabled" behaves as if not requested.'
+    )
+    threshold: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Only spans scoring above this value are returned. If not set, the rerank model's default is used.",
+    )
+    max_spans: int | None = Field(
+        default=None,
+        ge=1,
+        description="The most spans to return per chunk, keeping the highest-scoring ones. "
+        "If not set, all are returned.",
+    )
+
+
 class SearchInput(BaseModel):
     """Input to search APIs."""
 
@@ -133,6 +168,7 @@ class SearchInput(BaseModel):
     filters: list[SearchFilter] | None = None
     rerank_model: str | None = None
     group_scopes: list[str] | None = None
+    relevant_spans: RelevantSpansInput | None = None
 
 
 class SortBy(BaseModel):

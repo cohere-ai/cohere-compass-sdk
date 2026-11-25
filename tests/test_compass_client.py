@@ -57,6 +57,8 @@ from cohere_compass.models.search import (
     CountGroup,
     CountResponse,
     CountValue,
+    RelevantSpan,
+    RelevantSpansInput,
     SortBy,
     VisualElement,
 )
@@ -1395,6 +1397,140 @@ def test_search_without_group_scopes_omits_them_from_body(
     getattr(client, method_name)(index_name="test_index", group_scopes=None, **search_kwargs)
 
     assert "group_scopes" not in json.loads(route.calls.last.request.content)
+
+
+RERANKED_SEARCHES = [
+    pytest.param("search_documents", "documents/_search", id="search_documents"),
+    pytest.param("search_chunks", "documents/_search_chunks", id="search_chunks"),
+]
+
+
+@pytest.mark.parametrize(("method_name", "path"), RERANKED_SEARCHES)
+@pytest.mark.parametrize(
+    ("relevant_spans", "expected"),
+    [
+        (RelevantSpansInput(), {"mode": "enabled"}),
+        (
+            RelevantSpansInput(threshold=0.4, max_spans=3),
+            {"mode": "enabled", "threshold": 0.4, "max_spans": 3},
+        ),
+        (RelevantSpansInput(mode="disabled"), {"mode": "disabled"}),
+    ],
+    ids=["defaults", "threshold-and-max", "disabled"],
+)
+@respx.mock
+def test_search_with_relevant_spans_sends_them_in_body(
+    client: CompassClient,
+    respx_mock: MockRouter,
+    method_name: str,
+    path: str,
+    relevant_spans: RelevantSpansInput,
+    expected: dict[str, Any],
+):
+    """relevant_spans is sent with only the options that were set, so the server applies its own defaults."""
+    route = respx_mock.post(f"http://test.com/v1/indexes/test_index/{path}").mock(
+        return_value=httpx.Response(200, json={"hits": []})
+    )
+
+    getattr(client, method_name)(index_name="test_index", query="test query", relevant_spans=relevant_spans)
+
+    assert json.loads(route.calls.last.request.content)["relevant_spans"] == expected
+
+
+@pytest.mark.parametrize(("method_name", "path"), RERANKED_SEARCHES)
+@respx.mock
+def test_search_without_relevant_spans_omits_them_from_body(
+    client: CompassClient,
+    respx_mock: MockRouter,
+    method_name: str,
+    path: str,
+):
+    """Searches without relevant_spans leave the field out of the body, so older servers see the same request."""
+    route = respx_mock.post(f"http://test.com/v1/indexes/test_index/{path}").mock(
+        return_value=httpx.Response(200, json={"hits": []})
+    )
+
+    getattr(client, method_name)(index_name="test_index", query="test query")
+
+    assert "relevant_spans" not in json.loads(route.calls.last.request.content)
+
+
+@pytest.mark.parametrize(
+    ("threshold", "max_spans"),
+    [(-0.1, None), (1.1, None), (None, 0)],
+    ids=["threshold-below-0", "threshold-above-1", "max-spans-0"],
+)
+def test_relevant_spans_input_rejects_out_of_range_options(threshold: float | None, max_spans: int | None):
+    with pytest.raises(ValidationError):
+        RelevantSpansInput(threshold=threshold, max_spans=max_spans)
+
+
+SPANS_JSON = [
+    {"start": 0, "end": 5, "score": 0.9, "text": "Hello"},
+    {"start": 13, "end": 18, "score": 0.6, "text": "world"},
+]
+SPANS = [
+    RelevantSpan(start=0, end=5, score=0.9, text="Hello"),
+    RelevantSpan(start=13, end=18, score=0.6, text="world"),
+]
+
+
+def _chunk_json(chunk_id: str, spans: object) -> dict[str, Any]:
+    chunk: dict[str, Any] = {
+        "chunk_id": chunk_id,
+        "score": 0.9,
+        "content": {"text": "Hello, there, world"},
+        "parent_document_id": "doc1",
+        "sort_id": 0,
+        "path": "test.pdf",
+    }
+    if spans != "omitted":
+        chunk["relevant_spans"] = spans
+    return chunk
+
+
+SPANS_RESPONSES = [
+    pytest.param(SPANS_JSON, SPANS, id="spans"),
+    pytest.param([], [], id="reranked-no-span-passed"),
+    pytest.param(None, None, id="null"),
+    pytest.param("omitted", None, id="omitted-by-older-server"),
+]
+
+
+@pytest.mark.parametrize(("spans_json", "expected"), SPANS_RESPONSES)
+@respx.mock
+def test_search_chunks_parses_relevant_spans(
+    client: CompassClient, respx_mock: MockRouter, spans_json: object, expected: list[RelevantSpan] | None
+):
+    respx_mock.post("http://test.com/v1/indexes/test_index/documents/_search_chunks").mock(
+        return_value=httpx.Response(200, json={"hits": [{**_chunk_json("chunk1", spans_json), "document_id": "doc1"}]})
+    )
+
+    result = client.search_chunks(index_name="test_index", query="test query")
+
+    assert result.hits[0].relevant_spans == expected
+
+
+@pytest.mark.parametrize(("spans_json", "expected"), SPANS_RESPONSES)
+@respx.mock
+def test_search_documents_parses_relevant_spans(
+    client: CompassClient, respx_mock: MockRouter, spans_json: object, expected: list[RelevantSpan] | None
+):
+    document = {
+        "document_id": "doc1",
+        "score": 0.9,
+        "content": {"text": "Hello, there, world"},
+        "path": "test.pdf",
+        "parent_document_id": "doc1",
+        "chunks": [_chunk_json("chunk1", spans_json)],
+    }
+    respx_mock.post("http://test.com/v1/indexes/test_index/documents/_search").mock(
+        return_value=httpx.Response(200, json={"hits": [document]})
+    )
+
+    result = client.search_documents(index_name="test_index", query="test query")
+
+    assert result.hits[0].chunks[0].relevant_spans == expected
 
 
 @respx.mock
