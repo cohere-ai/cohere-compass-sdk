@@ -1,7 +1,8 @@
 import json
 import uuid
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 from typing import Any, Literal, cast
 
 import httpx
@@ -12,7 +13,7 @@ from respx import MockRouter
 
 from cohere_compass import GroupAuthorizationActions, GroupAuthorizationInput
 from cohere_compass.clients import CompassClient
-from cohere_compass.constants import MAX_BULK_DELETE_DOCUMENT_IDS
+from cohere_compass.constants import DEFAULT_COMPASS_COUNT_TIMEOUT, MAX_BULK_DELETE_DOCUMENT_IDS
 from cohere_compass.content_types import ParserCapability, supported_file_types
 from cohere_compass.exceptions import (
     CompassAuthError,
@@ -52,6 +53,10 @@ from cohere_compass.models.indexes import (
 )
 from cohere_compass.models.search import (
     AssetInfo,
+    CountBucket,
+    CountGroup,
+    CountResponse,
+    CountValue,
     SortBy,
     VisualElement,
 )
@@ -657,6 +662,151 @@ def test_direct_search_without_sort_by(client: CompassClient, respx_mock: MockRo
     assert route.called
     payload = json.loads(route.calls.last.request.content)
     assert "sort_by" not in payload or payload["sort_by"] is None
+
+
+COUNT_URL = "http://test.com/v1/indexes/test_index/_count"
+
+
+@mock_endpoint(
+    "POST",
+    COUNT_URL,
+    response_body={
+        "chunk_count": 1200,
+        "document_count": 41,
+        "group_by": {
+            "field": "content.file_type.keyword",
+            "cardinality": 3,
+            "values": [
+                {"value": "pdf", "chunk_count": 900, "document_count": 30},
+                {"value": 2026, "chunk_count": 200, "document_count": 7},
+                {"value": 1.5, "chunk_count": 80, "document_count": 3},
+            ],
+            "other_chunk_count": 0,
+            "chunk_count_error_upper_bound": 0,
+            "missing": {"chunk_count": 20, "document_count": 1},
+        },
+    },
+    expected_request_body={
+        "query": {"term": {"content.source_system.keyword": "fda"}},
+        "group_by": "content.file_type.keyword",
+        "group_size": 50,
+        "group_scopes": ["group-b", "group-a"],
+    },
+)
+def test_count_grouped(client: CompassClient):
+    result = client.count(
+        index_name="test_index",
+        query={"term": {"content.source_system.keyword": "fda"}},
+        group_by="content.file_type.keyword",
+        group_size=50,
+        group_scopes=["group-b", "group-a"],
+    )
+
+    assert result == CountResponse(
+        chunk_count=1200,
+        document_count=41,
+        group_by=CountGroup(
+            field="content.file_type.keyword",
+            cardinality=3,
+            values=[
+                CountValue(value="pdf", chunk_count=900, document_count=30),
+                CountValue(value=2026, chunk_count=200, document_count=7),
+                CountValue(value=1.5, chunk_count=80, document_count=3),
+            ],
+            other_chunk_count=0,
+            chunk_count_error_upper_bound=0,
+            missing=CountBucket(chunk_count=20, document_count=1),
+        ),
+    )
+    assert result.group_by is not None
+    assert [type(value.value) for value in result.group_by.values] == [str, int, float]
+
+
+@mock_endpoint(
+    "POST",
+    COUNT_URL,
+    response_body={"chunk_count": 7, "document_count": 3},
+    expected_request_body={"group_size": 100},
+)
+def test_count_everything(client: CompassClient):
+    """Without arguments, the body leaves out query, group_by and group_scopes, so the server counts every chunk."""
+    assert client.count(index_name="test_index") == CountResponse(chunk_count=7, document_count=3)
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected_exception"),
+    [
+        (400, CompassClientError),
+        (404, CompassClientError),
+        (429, CompassClientError),
+        (503, CompassServerError),
+        (504, CompassServerError),
+    ],
+)
+@respx.mock
+def test_count_sends_once_by_default(
+    client: CompassClient,
+    respx_mock: MockRouter,
+    status_code: int,
+    expected_exception: type[CompassClientError | CompassServerError],
+):
+    """A retry runs the whole count again, so a refused count is not retried unless the caller asks."""
+    route = respx_mock.post(COUNT_URL).mock(return_value=httpx.Response(status_code, json={"detail": "refused"}))
+
+    with pytest.raises(expected_exception) as exc_info:
+        client.count(index_name="test_index", retry_wait=timedelta(0))
+
+    assert exc_info.value.code == status_code
+    assert route.call_count == 1
+
+
+@respx.mock
+def test_count_timeout_is_not_retried_by_default(client: CompassClient, respx_mock: MockRouter):
+    route = respx_mock.post(COUNT_URL).mock(side_effect=httpx.ReadTimeout("Request timeout"))
+
+    with pytest.raises(CompassTimeoutError):
+        client.count(index_name="test_index", retry_wait=timedelta(0))
+
+    assert route.call_count == 1
+
+
+@respx.mock
+def test_count_retries_when_asked(client: CompassClient, respx_mock: MockRouter):
+    route = respx_mock.post(COUNT_URL).mock(return_value=httpx.Response(503, json={"detail": "unavailable"}))
+
+    with pytest.raises(CompassServerError):
+        client.count(index_name="test_index", max_retries=3, retry_wait=timedelta(0))
+
+    assert route.call_count == 3
+
+
+@pytest.mark.parametrize("client_class", [CompassClient, SyncifiedCompassAsyncClient], ids=["sync", "async"])
+@pytest.mark.parametrize(
+    ("client_timeout", "count_timeout", "expected_timeout"),
+    [
+        (None, None, DEFAULT_COMPASS_COUNT_TIMEOUT),
+        (timedelta(minutes=5), None, timedelta(minutes=5)),
+        (timedelta(minutes=5), timedelta(seconds=30), timedelta(seconds=30)),
+    ],
+    ids=["default", "longer_client_timeout", "explicit"],
+)
+@respx.mock
+def test_count_timeout_outlasts_the_server_limit(
+    respx_mock: MockRouter,
+    client_class: type[CompassClient | SyncifiedCompassAsyncClient],
+    client_timeout: timedelta | None,
+    count_timeout: timedelta | None,
+    expected_timeout: timedelta,
+):
+    """Counts wait at least DEFAULT_COMPASS_COUNT_TIMEOUT, longer than the client default, unless told otherwise."""
+    client = cast(CompassClient, client_class(index_url="http://test.com", timeout=client_timeout))
+    route = respx_mock.post(COUNT_URL).mock(
+        return_value=httpx.Response(200, json={"chunk_count": 0, "document_count": 0})
+    )
+
+    client.count(index_name="test_index", timeout=count_timeout)
+
+    assert route.calls.last.request.extensions["timeout"]["read"] == expected_timeout.total_seconds()
 
 
 @respx.mock
@@ -1298,6 +1448,74 @@ def test_client_error_404(client: CompassClient, respx_mock: MockRouter):
 
     with pytest.raises(CompassClientError, match=r'Client error 404: {"error":"Index not found"}'):
         client.get_index_details(index_name="nonexistent")
+
+
+def test_client_errors_default_to_no_retry_after():
+    assert CompassClientError("missing", 404).retry_after is None
+    assert CompassClientError(message="missing", code=404).retry_after is None
+    assert CompassAuthError("denied", 403).retry_after is None
+
+
+@pytest.mark.parametrize(
+    ("retry_after_header", "expected"),
+    [
+        ("10", timedelta(seconds=10)),
+        (" 0 ", timedelta(0)),
+        ("Wed, 21 Oct 2015 07:28:00 GMT", timedelta(0)),
+        (None, None),
+        ("", None),
+        ("soon", None),
+        ("-5", None),
+        ("1.5", None),
+        ("99999999999999999", None),
+    ],
+    ids=["seconds", "zero", "past_date", "missing", "empty", "text", "negative", "fraction", "too_large"],
+)
+@respx.mock
+def test_client_error_carries_retry_after(
+    client: CompassClient,
+    respx_mock: MockRouter,
+    retry_after_header: str | None,
+    expected: timedelta | None,
+):
+    """A 429's Retry-After reaches the caller as a timedelta, a value that can't be read as None, and no retry."""
+    headers = {} if retry_after_header is None else {"Retry-After": retry_after_header}
+    route = respx_mock.get("http://test.com/v1/indexes").mock(
+        return_value=httpx.Response(429, headers=headers, json={"detail": "busy"})
+    )
+
+    with pytest.raises(CompassClientError) as exc_info:
+        client.list_indexes(max_retries=3, retry_wait=timedelta(0))
+
+    assert exc_info.value.code == 429
+    assert exc_info.value.retry_after == expected
+    assert route.call_count == 1
+
+
+@respx.mock
+def test_client_error_reads_retry_after_http_date(client: CompassClient, respx_mock: MockRouter):
+    retry_at = datetime.now(timezone.utc) + timedelta(seconds=30)
+    respx_mock.post(COUNT_URL).mock(
+        return_value=httpx.Response(429, headers={"Retry-After": format_datetime(retry_at, usegmt=True)})
+    )
+
+    with pytest.raises(CompassClientError) as exc_info:
+        client.count(index_name="test_index")
+
+    retry_after = exc_info.value.retry_after
+    assert retry_after is not None
+    # The header drops the fraction of a second, and some time passes before it is read.
+    assert timedelta(seconds=25) < retry_after <= timedelta(seconds=30)
+
+
+@respx.mock
+def test_auth_error_carries_retry_after(client: CompassClient, respx_mock: MockRouter):
+    respx_mock.get("http://test.com/v1/indexes").mock(return_value=httpx.Response(403, headers={"Retry-After": "5"}))
+
+    with pytest.raises(CompassAuthError) as exc_info:
+        client.list_indexes()
+
+    assert exc_info.value.retry_after == timedelta(seconds=5)
 
 
 @respx.mock
