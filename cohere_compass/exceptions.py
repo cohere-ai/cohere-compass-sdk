@@ -6,6 +6,8 @@ reporting.
 """
 
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 
 import httpx
 
@@ -75,6 +77,7 @@ class CompassClientError(CompassError):
         self,
         message: str,
         code: int,
+        retry_after: timedelta | None = None,
     ):
         """
         Initialize CompassClientError.
@@ -83,10 +86,15 @@ class CompassClientError(CompassError):
 
         :param message: Error message.
         :param code: HTTP status code associated with the error.
+        :param retry_after: How long the server asked the caller to wait before
+            retrying, from the response's Retry-After header. None when the response
+            had no Retry-After header, or one that couldn't be read. Compass sends it
+            with a 429, for example when a count finds OpenSearch too busy.
 
         """
         self.message = message
         self.code = code
+        self.retry_after = retry_after
         super().__init__(self.message)
 
 
@@ -97,6 +105,7 @@ class CompassAuthError(CompassClientError):
         self,
         message: str,
         code: int,
+        retry_after: timedelta | None = None,
     ):
         """
         Initialize CompassAuthError.
@@ -105,10 +114,13 @@ class CompassAuthError(CompassClientError):
         errors.
 
         :param message: Error message to display.
+        :param code: HTTP status code associated with the error.
+        :param retry_after: How long the server asked the caller to wait before
+            retrying, from the response's Retry-After header, or None.
 
         """
         self.message = message
-        super().__init__(self.message, code)
+        super().__init__(self.message, code, retry_after)
 
 
 class CompassInsertionError(CompassError):
@@ -159,6 +171,28 @@ class CompassMaxErrorRateExceeded(Exception):
         super().__init__(self.message)
 
 
+def _parse_retry_after(value: str | None) -> timedelta | None:
+    """
+    Read a Retry-After header, given as delay-seconds or as an HTTP-date.
+
+    A date already past is no wait at all. Returns None for a missing header or a value
+    that is neither form.
+    """
+    if value is None:
+        return None
+    value = value.strip()
+    try:
+        if value.isascii() and value.isdigit():
+            return timedelta(seconds=int(value))
+        retry_at = parsedate_to_datetime(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if retry_at.tzinfo is None:
+        # An HTTP-date is always in GMT; parsedate_to_datetime leaves a "-0000" zone naive.
+        retry_at = retry_at.replace(tzinfo=timezone.utc)
+    return max(retry_at - datetime.now(timezone.utc), timedelta(0))
+
+
 @contextmanager
 def handle_httpx_exceptions():
     """Context manager that converts httpx exceptions into Compass exceptions."""
@@ -182,14 +216,15 @@ def handle_httpx_exceptions():
         if isinstance(exc, httpx.HTTPStatusError):
             status = exc.response.status_code
             body_text = exc.response.text
+            retry_after = _parse_retry_after(exc.response.headers.get("retry-after"))
 
             if status in (401, 403):
                 msg = "Unauthorized. Please check your bearer token."
-                raise CompassAuthError(msg, status) from exc
+                raise CompassAuthError(msg, status, retry_after) from exc
 
             elif 400 <= status < 500:
                 msg = f"Client error {status}: {body_text}"
-                raise CompassClientError(message=msg, code=status) from exc
+                raise CompassClientError(message=msg, code=status, retry_after=retry_after) from exc
 
             elif 500 <= status < 600:
                 msg = f"Server error {status}: {body_text}"

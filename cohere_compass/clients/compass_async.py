@@ -38,6 +38,7 @@ from cohere_compass.clients.compass import (
 )
 from cohere_compass.constants import (
     DEFAULT_COMPASS_CLIENT_TIMEOUT,
+    DEFAULT_COMPASS_COUNT_TIMEOUT,
     DEFAULT_MAX_CHUNKS_PER_REQUEST,
     DEFAULT_MAX_ERROR_RATE,
     DEFAULT_MAX_RETRIES,
@@ -56,6 +57,8 @@ from cohere_compass.exceptions import (
 from cohere_compass.models import (
     CompassDocument,
     CompassSdkStage,
+    CountInput,
+    CountResponse,
     DirectSearchInput,
     DirectSearchResponse,
     DirectSearchScrollInput,
@@ -1931,6 +1934,78 @@ class CompassAsyncClient:
 
         return DirectSearchResponse.model_validate(result.result)
 
+    async def count(
+        self,
+        *,
+        index_name: str,
+        query: dict[str, Any] | None = None,
+        group_by: str | None = None,
+        group_size: int = 100,
+        group_scopes: list[str] | None = None,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> CountResponse:
+        """
+        Count the chunks in an index and the documents they belong to, optionally per value of one field.
+
+        Chunk counts are exact; document counts and the number of distinct values are
+        estimates. Counts cover what the caller's groups can read, and unlike search
+        results they are not re-checked against the documents table or Atlas.
+
+        Requires Compass 0.119.0 or later with counting turned on (``ENABLE_COUNT``, the
+        chart's ``config.enableCount``). Otherwise the route doesn't exist and this
+        raises ``CompassClientError`` with code 404.
+
+        :param index_name: the name of the index
+        :param query: an OpenSearch query that narrows what is counted, as in
+            direct_search (e.g. {"term": {"content.source_system.keyword": "fda"}}). If
+            not provided, every chunk in the index is counted.
+        :param group_by: the field to count per value: ``content.<attribute>``,
+            ``origin.<attribute>``, ``source`` or ``path.keyword``, such as
+            ``content.file_type.keyword``. A text field is grouped on its ``.keyword``
+            field. Indexes created before Compass 0.89.0 hold ``source`` as text, so group
+            them by ``source.keyword``.
+        :param group_size: how many values to return, those with the most chunks first.
+            1 to 500.
+        :param group_scopes: 1 to 2,000 Compass group names, each exactly as it appears
+            in documents' ``authorized_groups``, that narrow document-level security for
+            this count. Only the scopes the caller holds are counted; the others are
+            dropped silently, and public documents are excluded. Raises
+            ``CompassAuthError`` (HTTP 403) when the caller holds none of them. If not
+            provided, the count uses the caller's own groups plus public documents.
+        :param max_retries: Maximum number of attempts. Defaults to 1 rather than the
+            client's default, because a retry runs the whole count again while OpenSearch
+            may still be running the first one.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the longer of the
+            client's timeout and ``DEFAULT_COMPASS_COUNT_TIMEOUT``, so the request
+            outlasts the server's time limit for a count (60 seconds by default).
+
+        :return: the total counts, and the counts per value when group_by is set
+        :raises CompassClientError: code 400 when group_by names a field that can't be
+            grouped, or whose values don't fit in OpenSearch's memory; code 429 when
+            OpenSearch is too busy to run the count, in which case wait at least the
+            exception's ``retry_after`` before retrying, and longer after each refusal.
+        :raises CompassServerError: code 504 when the count runs past the server's time
+            limit; code 503 when part of the index couldn't be counted or OpenSearch's
+            memory is full.
+
+        """
+        data = CountInput(query=query, group_by=group_by, group_size=group_size, group_scopes=group_scopes)
+
+        result = await self._send_request(
+            api_name="count",
+            index_name=index_name,
+            data=data,
+            max_retries=max_retries or 1,
+            retry_wait=retry_wait,
+            timeout=timeout or max(self.timeout, DEFAULT_COMPASS_COUNT_TIMEOUT),
+        )
+
+        return CountResponse.model_validate(result.result)
+
     async def get_task(
         self,
         *,
@@ -2196,6 +2271,7 @@ class CompassAsyncClient:
                 http_method=http_method,
                 target_path=target_path,
                 data=data,
+                timeout=timeout,
                 query_params=query_params,
             )
 
