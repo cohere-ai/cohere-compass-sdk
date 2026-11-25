@@ -545,6 +545,40 @@ def test_get_document_asset_image(client: CompassClient, respx_mock: MockRouter)
     assert content_type == "image/png"
 
 
+@pytest.mark.parametrize(
+    ("content_type", "body", "expected"),
+    [
+        # Compass appends a charset to text media types.
+        ("text/markdown; charset=utf-8", b"# Test", "# Test"),
+        ("text/csv; charset=utf-8", b"a,b\n1,2\n", "a,b\n1,2\n"),
+        ("text/plain", b"plain text", "plain text"),
+        ("application/json; charset=utf-8", b'{"test": "test"}', {"test": "test"}),
+        ("application/problem+json", b'{"title": "x"}', {"title": "x"}),
+        # Raw file assets keep the original upload's type.
+        ("application/pdf", b"%PDF-1.7 binary", b"%PDF-1.7 binary"),
+        ("application/octet-stream", b"\x00\x01\x02", b"\x00\x01\x02"),
+        ("image/gif", b"GIF89a", b"GIF89a"),
+        ("video/mp4", b"fake-mp4", b"fake-mp4"),
+    ],
+)
+def test_get_document_asset_decodes_by_media_type(
+    client: CompassClient,
+    respx_mock: MockRouter,
+    content_type: str,
+    body: bytes,
+    expected: str | bytes | dict[str, str],
+):
+    respx_mock.get("http://test.com/v1/indexes/test_index/documents/test_id/assets/test_asset_id").mock(
+        return_value=httpx.Response(200, content=body, headers={"Content-Type": content_type}),
+    )
+    asset, returned_content_type = client.get_document_asset(
+        index_name="test_index", document_id="test_id", asset_id="test_asset_id"
+    )
+    assert type(asset) is type(expected)
+    assert asset == expected
+    assert returned_content_type == content_type
+
+
 def test_get_media_clip(client: CompassClient, respx_mock: MockRouter):
     route = respx_mock.get(
         "http://test.com/v1/indexes/test_index/documents/doc_audio/assets/audio_asset_id",

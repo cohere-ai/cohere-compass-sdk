@@ -1734,9 +1734,9 @@ class CompassAsyncClient:
         Returns:
             A tuple of the content and content type of the asset. The variable type of
             the content is either str, bytes, or dict[str, Any], depending on the asset
-            type. For example, if the asset is an image, the content type will be bytes;
-            if the asset is a markdown, the content type will be str; if the asset is a
-            json, the content type will be dict[str, Any].
+            type: dict[str, Any] for a JSON asset, str for a text asset (any text/*
+            type, e.g. markdown or CSV), and bytes for anything else, e.g. an image,
+            audio, video or a PDF.
 
         Raises:
             CompassError: if the asset cannot be retrieved, either because it doesn't
@@ -2209,14 +2209,15 @@ class CompassAsyncClient:
         response.raise_for_status()
 
         content_type = response.headers.get("content-type")
-        if content_type in ("image/jpeg", "image/png", "image/webp"):
-            result = response.content
-        elif content_type == "text/markdown":
-            result = response.text
-        elif content_type is not None and (content_type.startswith("audio/") or content_type.startswith("video/")):
-            result = response.content
-        else:
+        # Compare the media type without parameters: Compass serves text assets as
+        # e.g. "text/markdown; charset=utf-8".
+        media_type = (content_type or "").split(";", 1)[0].strip().lower()
+        if not media_type or media_type == "application/json" or media_type.endswith("+json"):
             result = response.json() if response.text else None
+        elif media_type.startswith("text/"):
+            result = response.text
+        else:
+            result = response.content
         return _SendRequestResult(
             result=result,
             content_type=content_type,
