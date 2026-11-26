@@ -65,6 +65,7 @@ from cohere_compass.models import (
     Document,
     ParseableDocument,
     PutDocumentsInput,
+    RelevantSpansInput,
     SearchChunksResponse,
     SearchDocumentsResponse,
     SearchFilter,
@@ -1584,6 +1585,7 @@ class CompassAsyncClient:
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
         group_scopes: list[str] | None = None,
+        relevant_spans: RelevantSpansInput | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1592,7 +1594,12 @@ class CompassAsyncClient:
             api_name=api_name,
             index_name=index_name,
             data=SearchInput(
-                query=query, top_k=top_k, filters=filters, rerank_model=rerank_model, group_scopes=group_scopes
+                query=query,
+                top_k=top_k,
+                filters=filters,
+                rerank_model=rerank_model,
+                group_scopes=group_scopes,
+                relevant_spans=relevant_spans,
             ),
             max_retries=max_retries,
             retry_wait=retry_wait,
@@ -1608,6 +1615,7 @@ class CompassAsyncClient:
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
         group_scopes: list[str] | None = None,
+        relevant_spans: RelevantSpansInput | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1627,6 +1635,12 @@ class CompassAsyncClient:
             ``CompassAuthError`` (HTTP 403) when the caller holds none of them. If not
             provided, the search uses the caller's own groups plus public documents.
             Requires Compass 0.118.0 or later; older servers ignore it.
+        :param relevant_spans: when given with ``mode="enabled"``, each reranked chunk in
+            the results carries ``relevant_spans``: the passages of its ``content["text"]``
+            that the rerank model found relevant to the query. Requires a rerank model that
+            supports relevant spans (Rerank v5); with any other model the server answers
+            400, raised as ``CompassClientError``. If not provided, the field is left out of
+            the request and chunks carry ``relevant_spans=None``.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1646,6 +1660,7 @@ class CompassAsyncClient:
             filters=filters,
             rerank_model=rerank_model,
             group_scopes=group_scopes,
+            relevant_spans=relevant_spans,
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1662,6 +1677,7 @@ class CompassAsyncClient:
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
         group_scopes: list[str] | None = None,
+        relevant_spans: RelevantSpansInput | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1681,6 +1697,12 @@ class CompassAsyncClient:
             ``CompassAuthError`` (HTTP 403) when the caller holds none of them. If not
             provided, the search uses the caller's own groups plus public documents.
             Requires Compass 0.118.0 or later; older servers ignore it.
+        :param relevant_spans: when given with ``mode="enabled"``, each reranked chunk in
+            the results carries ``relevant_spans``: the passages of its ``content["text"]``
+            that the rerank model found relevant to the query. Requires a rerank model that
+            supports relevant spans (Rerank v5); with any other model the server answers
+            400, raised as ``CompassClientError``. If not provided, the field is left out of
+            the request and chunks carry ``relevant_spans=None``.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1700,6 +1722,7 @@ class CompassAsyncClient:
             filters=filters,
             rerank_model=rerank_model,
             group_scopes=group_scopes,
+            relevant_spans=relevant_spans,
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
