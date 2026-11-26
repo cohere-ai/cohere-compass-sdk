@@ -24,6 +24,9 @@ SKIP_INFER_TABLE_TYPES = ["jpg", "png", "xls", "xlsx", "heic"]
 UUID_NAMESPACE = "00000000-0000-0000-0000-000000000000"
 
 DEFAULT_COMPASS_CLIENT_TIMEOUT = timedelta(minutes=1)  # seconds
+# Compass lets a count run for COUNT_TIMEOUT_SECONDS (60 by default) before answering 504, so the HTTP
+# timeout outlasts it rather than abandoning a count OpenSearch is still running.
+DEFAULT_COMPASS_COUNT_TIMEOUT = timedelta(seconds=90)
 DEFAULT_COMPASS_PARSER_CLIENT_TIMEOUT = timedelta(minutes=5)
 DEFAULT_ROOT_CLIENT_TIMEOUT = timedelta(seconds=5)
 URL_SAFE_STRING_PATTERN = r"^[^\s\"\/\\?#><']*$"
