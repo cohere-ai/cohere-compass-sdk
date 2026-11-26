@@ -79,6 +79,46 @@ def test_options_defensively_copy_mutable_parser_config() -> None:
     assert configured.parser_config.num_tokens_per_chunk == 300
 
 
+def test_options_persist_paths_and_attribute_templates() -> None:
+    configured = UploadOptions.model_validate(
+        {
+            **options().model_dump(),
+            "keep_paths": True,
+            "attribute_templates": {"url": "https://example.com/{relative_path}", "title": "{name}"},
+        }
+    )
+
+    restored = UploadOptions.model_validate_json(configured.model_dump_json())
+
+    assert restored.keep_paths
+    assert restored.attribute_templates == {"url": "https://example.com/{relative_path}", "title": "{name}"}
+
+
+def test_options_saved_without_paths_or_attribute_templates_still_load() -> None:
+    saved = options().model_dump(mode="json", exclude={"keep_paths", "attribute_templates"})
+
+    restored = UploadOptions.model_validate(saved)
+
+    assert not restored.keep_paths
+    assert restored.attribute_templates == {}
+
+
+@pytest.mark.parametrize(
+    "template",
+    ["{path}", "{relative_path.upper}", "{name!r}", "{name:>10}", "{}", "{0}", "{relative_path", "{name}{other}"],
+)
+def test_attribute_templates_reject_other_fields(template: str) -> None:
+    with pytest.raises(ValidationError):
+        UploadOptions.model_validate({**options().model_dump(), "attribute_templates": {"url": template}})
+
+
+def test_attribute_templates_reject_empty_keys_and_values() -> None:
+    with pytest.raises(ValidationError):
+        UploadOptions.model_validate({**options().model_dump(), "attribute_templates": {"": "x"}})
+    with pytest.raises(ValidationError):
+        UploadOptions.model_validate({**options().model_dump(), "attribute_templates": {"url": ""}})
+
+
 def test_file_status_terminal_properties() -> None:
     assert FileStatus.COMPLETED.is_successful_terminal
     assert FileStatus.UPLOAD_FAILED.is_terminal and FileStatus.UPLOAD_FAILED.is_retryable

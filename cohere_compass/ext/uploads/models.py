@@ -3,6 +3,7 @@
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import PurePath
+from string import Formatter
 from typing import Annotated, Literal, Self
 
 from pydantic import (
@@ -22,6 +23,7 @@ NonEmptyString = Annotated[str, Field(min_length=1)]
 NonNegativeInt = Annotated[int, Field(ge=0)]
 PositiveFloat = Annotated[float, Field(gt=0, allow_inf_nan=False)]
 NonNegativeFloat = Annotated[float, Field(ge=0, allow_inf_nan=False)]
+ATTRIBUTE_TEMPLATE_FIELDS = frozenset({"relative_path", "name"})
 
 
 def _utc_timestamp(value: datetime) -> datetime:
@@ -177,6 +179,33 @@ class UploadOptions(UploadModel):
     # what it would do. A dry-run job is never saved.
     dry_run: bool = False
     parser_config: ParserConfig = Field(default_factory=ParserConfig)
+    # Send each file's path relative to the source as its filename, instead of
+    # only its name, so documents from different folders can be told apart.
+    # When set, the path is part of each document's ID, as are the attributes
+    # `attribute_templates` renders: the same content under two paths is two
+    # documents, and a moved file or a changed template is a new document.
+    keep_paths: bool = False
+    # Attributes added to every document, as templates over the file's
+    # `{relative_path}` and `{name}`, e.g. a link to the file in its repository.
+    attribute_templates: dict[NonEmptyString, NonEmptyString] = Field(default_factory=dict)
+
+    @field_validator("attribute_templates")
+    @classmethod
+    def validate_attribute_templates(cls, value: dict[str, str]) -> dict[str, str]:
+        """Reject templates with fields other than bare `{relative_path}` and `{name}`."""
+        for key, template in value.items():
+            try:
+                fields = list(Formatter().parse(template))
+            except ValueError as error:
+                raise ValueError(f"attribute template {key!r} is malformed: {error}") from error
+            for _, field, format_spec, conversion in fields:
+                if field is None:
+                    continue
+                if field not in ATTRIBUTE_TEMPLATE_FIELDS or format_spec or conversion:
+                    raise ValueError(
+                        f"attribute template {key!r} may only use bare {{relative_path}} and {{name}} fields."
+                    )
+        return value
 
     @field_validator("source_uri", mode="before")
     @classmethod

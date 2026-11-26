@@ -33,7 +33,7 @@ from cohere_compass.ext.uploads.sources import (
     read_source_bytes,
 )
 from cohere_compass.ext.uploads.store import UploadJobStore
-from cohere_compass.models.documents import ParseableDocumentConfig
+from cohere_compass.models.documents import DocumentAttributes, ParseableDocumentConfig
 
 Poller = Callable[[CompassAsyncClient, str, str, Sequence[str], float, float], Awaitable[PollResult]]
 Reader = Callable[[SourceFile], Awaitable[bytes]]
@@ -287,7 +287,19 @@ async def _process_file(
         await _update_file_status(store, job, key, record, FileStatus.UPLOAD_FAILED, str(error))
         return _outcome(record, started, reporter)
 
-    digest, document_id = content_identity(data, job.options.parser_config)
+    relative_path = record.source.relative_path
+    name = Path(relative_path).name
+    filename = relative_path if job.options.keep_paths else name
+    attributes = {
+        attribute: template.format(relative_path=relative_path, name=name)
+        for attribute, template in job.options.attribute_templates.items()
+    }
+    digest, document_id = content_identity(
+        data,
+        job.options.parser_config,
+        path=relative_path if job.options.keep_paths else None,
+        attributes=attributes,
+    )
     if record.content_sha256 is not None and record.content_sha256 != digest:
         await _update_file_status(store, job, key, record, FileStatus.SOURCE_CHANGED)
         return _outcome(record, started, reporter)
@@ -317,11 +329,12 @@ async def _process_file(
     try:
         submission = await client.upload_document(
             index_name=job.options.index_name,
-            filename=Path(record.source.relative_path).name,
+            filename=filename,
             filebytes=data,
             document_id=document_id,
+            attributes=DocumentAttributes.model_validate(attributes),
             config=ParseableDocumentConfig(parser_config=job.options.parser_config),
-            content_type=content_type_for(record.source.relative_path),
+            content_type=content_type_for(relative_path),
         )
     except CompassError as error:
         await _update_file_status(store, job, key, record, FileStatus.UPLOAD_FAILED, str(error))
