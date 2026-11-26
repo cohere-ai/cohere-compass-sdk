@@ -92,10 +92,14 @@ from cohere_compass.models.documents import (
     UploadFilePresignedUrlResponse,
 )
 from cohere_compass.models.indexes import (
+    Glossary,
+    GlossaryResponse,
     IndexDetails,
     IndexUpdate,
     IndexUpdateResponse,
     ListIndexesResponse,
+    PrefixSearchResponse,
+    PrefixSearchSettings,
     RetentionPolicy,
 )
 from cohere_compass.models.search import GetDocumentResponse, RetrievedDocument, SortBy
@@ -534,6 +538,196 @@ class CompassAsyncClient:
         """
         await self._send_request(
             api_name="delete_retention_policy",
+            index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+    async def set_glossary(
+        self,
+        *,
+        index_name: str,
+        glossary: Glossary,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ):
+        """
+        Replace the search glossary of an index.
+
+        A glossary maps terms such as acronyms or short names to expansions. A query
+        that contains a term is also searched as each expansion. Needs WRITE
+        permission on the index, and a Compass deployment with index search settings
+        enabled.
+
+        :param index_name: The name of the index or collection.
+        :param glossary: The glossary to store. It replaces any previous one.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        """
+        await self._send_request(
+            api_name="set_glossary",
+            index_name=index_name,
+            data=glossary,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+    async def get_glossary(
+        self,
+        *,
+        index_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> Glossary | None:
+        """
+        Get the search glossary of an index.
+
+        :param index_name: The name of the index or collection.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            The glossary, or None if the index has none.
+
+        """
+        result = await self._send_request(
+            api_name="get_glossary",
+            index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return GlossaryResponse.model_validate(result.result or {}).glossary
+
+    async def delete_glossary(
+        self,
+        *,
+        index_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ):
+        """
+        Remove the search glossary from an index.
+
+        :param index_name: The name of the index or collection.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        """
+        await self._send_request(
+            api_name="delete_glossary",
+            index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+    async def set_prefix_search(
+        self,
+        *,
+        index_name: str,
+        prefix_search: PrefixSearchSettings,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ):
+        """
+        Replace the prefix search settings of an index.
+
+        Needs WRITE permission on the index, and a Compass deployment with index search
+        settings enabled.
+
+        :param index_name: The name of the index or collection.
+        :param prefix_search: The settings to store. They replace any previous ones.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        """
+        await self._send_request(
+            api_name="set_prefix_search",
+            index_name=index_name,
+            data=prefix_search,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+    async def get_prefix_search(
+        self,
+        *,
+        index_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> PrefixSearchSettings | None:
+        """
+        Get the prefix search settings of an index.
+
+        :param index_name: The name of the index or collection.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        Returns:
+            The settings, or None if the index has none.
+
+        """
+        result = await self._send_request(
+            api_name="get_prefix_search",
+            index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+        return PrefixSearchResponse.model_validate(result.result or {}).prefix_search
+
+    async def delete_prefix_search(
+        self,
+        *,
+        index_name: str,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ):
+        """
+        Remove the prefix search settings from an index.
+
+        :param index_name: The name of the index or collection.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        """
+        await self._send_request(
+            api_name="delete_prefix_search",
             index_name=index_name,
             max_retries=max_retries,
             retry_wait=retry_wait,
