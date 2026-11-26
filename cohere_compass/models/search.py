@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Literal, cast
 
 # 3rd party imports
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from cohere_compass.models.documents import AssetType
 
@@ -164,3 +164,54 @@ class DirectSearchResponse(BaseModel):
 
     hits: list[RetrievedChunkExtended]
     scroll_id: str | None = None
+
+
+class CountInput(BaseModel):
+    """Input to the count API."""
+
+    query: dict[str, Any] | None = None
+    group_by: str | None = None
+    group_size: int = 100
+    group_scopes: list[str] | None = None
+
+
+class CountBucket(BaseModel):
+    """Chunks and the documents they belong to."""
+
+    chunk_count: int = Field(description="Number of chunks.")
+    document_count: int = Field(description="Estimated number of documents those chunks belong to.")
+
+
+class CountValue(CountBucket):
+    """Counts for one value of the grouped field."""
+
+    value: str | int | float = Field(
+        description="A value of the grouped field. Numbers come back as numbers; dates and true/false values as "
+        'text, such as "2026-11-23T00:00:00.000Z" or "true".'
+    )
+
+
+class CountGroup(BaseModel):
+    """Counts per value of the grouped field."""
+
+    field: str = Field(description="The grouped field.")
+    cardinality: int = Field(description="Estimated number of distinct values of the field.")
+    values: list[CountValue] = Field(description="The values with the most chunks, most first.")
+    other_chunk_count: int = Field(
+        description="Chunks whose value is not listed; 0 means every value is listed. For a field that holds a "
+        "list, a chunk is counted once per value it holds."
+    )
+    chunk_count_error_upper_bound: int = Field(
+        description="Most a listed chunk_count can be off by, when the field has more values than are listed."
+    )
+    missing: CountBucket = Field(
+        description="Chunks with no indexed value for the field, including values too long for its keyword index."
+    )
+
+
+class CountResponse(BaseModel):
+    """Response object for the count API."""
+
+    chunk_count: int = Field(description="Number of matching chunks. Exact.")
+    document_count: int = Field(description="Estimated number of documents the matching chunks belong to.")
+    group_by: CountGroup | None = Field(default=None, description="Counts per value, when group_by is set.")
