@@ -319,12 +319,27 @@ class ParseableDocument(BaseModel):
         return self
 
 
+class GovernancePermit(BaseModel):
+    """A governance permit for a read: Compass returns only what the permit's rule allows."""
+
+    permit_id: uuid.UUID
+    rule: str
+
+
+class GovernanceWrite(BaseModel):
+    """Governance for a write: the writer's delegated token and the content's label."""
+
+    actor: str
+    label: dict[str, list[str]]
+
+
 class UploadDocumentsInput(BaseModel):
     """A model for the input of a call to upload_documents API."""
 
     documents: list[ParseableDocument]
     authorized_groups: list[str] | None = None
     merge_groups_on_conflict: bool = False
+    governance: GovernanceWrite | None = None
 
 
 class UploadDocumentsResult(BaseModel):
@@ -340,6 +355,7 @@ class PutDocumentsInput(BaseModel):
     documents: list[Document]
     authorized_groups: list[str] | None = None
     merge_groups_on_conflict: bool = False
+    governance: GovernanceWrite | None = None
 
 
 class PutDocumentResult(BaseModel):

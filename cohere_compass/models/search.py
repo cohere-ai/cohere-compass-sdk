@@ -7,7 +7,7 @@ from typing import Any, Literal, cast
 # 3rd party imports
 from pydantic import BaseModel, model_validator
 
-from cohere_compass.models.documents import AssetType
+from cohere_compass.models.documents import AssetType, GovernancePermit
 
 
 class VisualElement(BaseModel):
@@ -132,6 +132,7 @@ class SearchInput(BaseModel):
     top_k: int
     filters: list[SearchFilter] | None = None
     rerank_model: str | None = None
+    governance: GovernancePermit | None = None
 
 
 class SortBy(BaseModel):
@@ -148,6 +149,7 @@ class DirectSearchInput(BaseModel):
     size: int
     sort_by: list[SortBy] | None = None
     scroll: str | None = None
+    governance: GovernancePermit | None = None
 
 
 class DirectSearchScrollInput(BaseModel):
@@ -155,6 +157,7 @@ class DirectSearchScrollInput(BaseModel):
 
     scroll_id: str
     scroll: str
+    governance: GovernancePermit | None = None
 
 
 class DirectSearchResponse(BaseModel):
