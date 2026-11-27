@@ -33,7 +33,6 @@ from cohere_compass import GroupAuthorizationInput
 from cohere_compass.clients.compass import (
     API_DEFINITIONS,
     SYNCHRONIZER_NAME_PATTERN,
-    _permit_query,  # pyright: ignore[reportPrivateUsage]
     _SendRequestResult,  # pyright: ignore[reportPrivateUsage]
     logger,
 )
@@ -90,6 +89,7 @@ from cohere_compass.models.documents import (
     UploadDocumentsStatus,
     UploadFilePresignedUrlRequest,
     UploadFilePresignedUrlResponse,
+    permit_query,
 )
 from cohere_compass.models.indexes import (
     IndexDetails,
@@ -1040,7 +1040,7 @@ class CompassAsyncClient:
             api_name="get_document",
             document_id=document_id,
             index_name=index_name,
-            query_params=_permit_query(permit),
+            query_params=permit_query(permit),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1751,7 +1751,7 @@ class CompassAsyncClient:
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
-            query_params=_permit_query(permit),
+            query_params=permit_query(permit),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -2013,7 +2013,7 @@ class CompassAsyncClient:
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
-            query_params={"x0": x0, "y0": y0, "x1": x1, "y1": y1, **_permit_query(permit)},
+            query_params={"x0": x0, "y0": y0, "x1": x1, "y1": y1, **permit_query(permit)},
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -2069,7 +2069,7 @@ class CompassAsyncClient:
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
-            query_params={"start_time": start_time, "end_time": end_time, **_permit_query(permit)},
+            query_params={"start_time": start_time, "end_time": end_time, **permit_query(permit)},
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,

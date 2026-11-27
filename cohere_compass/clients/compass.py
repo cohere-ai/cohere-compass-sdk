@@ -88,6 +88,7 @@ from cohere_compass.models.documents import (
     UploadDocumentsStatus,
     UploadFilePresignedUrlRequest,
     UploadFilePresignedUrlResponse,
+    permit_query,
 )
 from cohere_compass.models.indexes import (
     IndexDetails,
@@ -114,10 +115,6 @@ from cohere_compass.models.synchronizers import (
 )
 from cohere_compass.utils.documents import partition_documents
 from cohere_compass.utils.retry import is_retryable_httpx_exception
-
-
-def _permit_query(permit: GovernancePermit | None) -> dict[str, str]:
-    return {"permit_id": str(permit.permit_id), "permit_rule": permit.rule} if permit else {}
 
 
 @dataclass
@@ -1244,7 +1241,7 @@ class CompassClient:
             api_name="get_document",
             document_id=document_id,
             index_name=index_name,
-            query_params=_permit_query(permit),
+            query_params=permit_query(permit),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1945,7 +1942,7 @@ class CompassClient:
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
-            query_params=_permit_query(permit),
+            query_params=permit_query(permit),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -2206,7 +2203,7 @@ class CompassClient:
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
-            query_params={"x0": x0, "y0": y0, "x1": x1, "y1": y1, **_permit_query(permit)},
+            query_params={"x0": x0, "y0": y0, "x1": x1, "y1": y1, **permit_query(permit)},
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -2262,7 +2259,7 @@ class CompassClient:
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
-            query_params={"start_time": start_time, "end_time": end_time, **_permit_query(permit)},
+            query_params={"start_time": start_time, "end_time": end_time, **permit_query(permit)},
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,

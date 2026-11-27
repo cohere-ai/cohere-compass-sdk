@@ -326,6 +326,11 @@ class GovernancePermit(BaseModel):
     rule: str
 
 
+def permit_query(permit: GovernancePermit | None) -> dict[str, str]:
+    """Return the query parameters that name `permit` on a read by id."""
+    return {"permit_id": str(permit.permit_id), "permit_rule": permit.rule} if permit else {}
+
+
 class GovernanceWrite(BaseModel):
     """Governance for a write: the writer's delegated token and the content's label."""
 
