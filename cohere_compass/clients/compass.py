@@ -59,6 +59,8 @@ from cohere_compass.models import (
     DirectSearchResponse,
     DirectSearchScrollInput,
     Document,
+    GovernancePermit,
+    GovernanceWrite,
     ParseableDocument,
     PutDocumentsInput,
     SearchChunksResponse,
@@ -86,6 +88,7 @@ from cohere_compass.models.documents import (
     UploadDocumentsStatus,
     UploadFilePresignedUrlRequest,
     UploadFilePresignedUrlResponse,
+    permit_query,
 )
 from cohere_compass.models.indexes import (
     IndexDetails,
@@ -1212,6 +1215,7 @@ class CompassClient:
         *,
         index_name: str,
         document_id: str,
+        permit: GovernancePermit | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1221,6 +1225,7 @@ class CompassClient:
 
         :param index_name: The name of the index containing the document.
         :param document_id: The ID of the document to retrieve.
+        :param permit: a governance permit; Compass returns only what it allows.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1236,6 +1241,7 @@ class CompassClient:
             api_name="get_document",
             document_id=document_id,
             index_name=index_name,
+            query_params=permit_query(permit),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1314,6 +1320,7 @@ class CompassClient:
         doc: CompassDocument,
         authorized_groups: list[str] | None = None,
         merge_groups_on_conflict: bool = False,
+        governance: GovernanceWrite | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1326,6 +1333,7 @@ class CompassClient:
         :param authorized_groups: Optional list of groups authorized to access this
             document.
         :param merge_groups_on_conflict: Whether to merge groups on conflict.
+        :param governance: the writer's delegated token and the content's label.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1339,6 +1347,7 @@ class CompassClient:
             docs=[doc],
             authorized_groups=authorized_groups,
             merge_groups_on_conflict=merge_groups_on_conflict,
+            governance=governance,
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1356,6 +1365,7 @@ class CompassClient:
         content_type: ContentTypeEnum | None = None,
         authorized_groups: list[str] | None = None,
         merge_groups_on_conflict: bool = False,
+        governance: GovernanceWrite | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1378,6 +1388,7 @@ class CompassClient:
             These groups should exist in RBAC. Default will make the document public.
         :param merge_groups_on_conflict: When Document-level Security is enabled,
             allows merging authorized groups if document already exists.
+        :param governance: the writer's delegated token and the content's label.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1406,6 +1417,7 @@ class CompassClient:
                 documents=[doc],
                 authorized_groups=authorized_groups,
                 merge_groups_on_conflict=merge_groups_on_conflict,
+                governance=governance,
             ),
             index_name=index_name,
             max_retries=max_retries,
@@ -1427,6 +1439,7 @@ class CompassClient:
         content_type: ContentTypeEnum | None = None,
         authorized_groups: list[str] | None = None,
         merge_groups_on_conflict: bool = False,
+        governance: GovernanceWrite | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1450,6 +1463,7 @@ class CompassClient:
             These groups should exist in RBAC. Default will make the document public.
         :param merge_groups_on_conflict: When Document-level Security is enabled,
             allows merging authorized groups if document already exists.
+        :param governance: the writer's delegated token and the content's label.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1476,6 +1490,7 @@ class CompassClient:
                 documents=[doc],
                 authorized_groups=authorized_groups,
                 merge_groups_on_conflict=merge_groups_on_conflict,
+                governance=governance,
             ),
             index_name=index_name,
             max_retries=max_retries,
@@ -1652,6 +1667,7 @@ class CompassClient:
         num_jobs: int | None = None,
         authorized_groups: list[str] | None = None,
         merge_groups_on_conflict: bool = False,
+        governance: GovernanceWrite | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1672,6 +1688,7 @@ class CompassClient:
             documents public).
         :param merge_groups_on_conflict: Whether to merge groups when upserting
             documents with security.
+        :param governance: the writer's delegated token and the content's label.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1700,6 +1717,7 @@ class CompassClient:
                 documents=[input_doc for _, input_doc in request_data],
                 authorized_groups=authorized_groups,
                 merge_groups_on_conflict=merge_groups_on_conflict,
+                governance=governance,
             )
 
             # It could be that all documents have errors, in which case we should not
@@ -1772,6 +1790,7 @@ class CompassClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
+        permit: GovernancePermit | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1779,7 +1798,7 @@ class CompassClient:
         return self._send_request(
             api_name=api_name,
             index_name=index_name,
-            data=SearchInput(query=query, top_k=top_k, filters=filters, rerank_model=rerank_model),
+            data=SearchInput(query=query, top_k=top_k, filters=filters, rerank_model=rerank_model, governance=permit),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1793,6 +1812,7 @@ class CompassClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
+        permit: GovernancePermit | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1805,6 +1825,7 @@ class CompassClient:
         :param top_k: the number of documents to return
         :param filters: the search filters to apply
         :param rerank_model: the model to use for reranking the results
+        :param permit: a governance permit; Compass returns only what it allows.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1823,6 +1844,7 @@ class CompassClient:
             top_k=top_k,
             filters=filters,
             rerank_model=rerank_model,
+            permit=permit,
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1838,6 +1860,7 @@ class CompassClient:
         top_k: int = 10,
         filters: list[SearchFilter] | None = None,
         rerank_model: str | None = None,
+        permit: GovernancePermit | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1850,6 +1873,7 @@ class CompassClient:
         :param top_k: the number of chunks to return
         :param filters: the search filters to apply
         :param rerank_model: the model to use for reranking the results
+        :param permit: a governance permit; Compass returns only what it allows.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1868,6 +1892,7 @@ class CompassClient:
             top_k=top_k,
             filters=filters,
             rerank_model=rerank_model,
+            permit=permit,
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -1881,6 +1906,7 @@ class CompassClient:
         index_name: str,
         document_id: str,
         asset_id: str,
+        permit: GovernancePermit | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -1891,6 +1917,7 @@ class CompassClient:
         :param index_name: the name of the index
         :param document_id: the id of the document
         :param asset_id: the id of the asset
+        :param permit: a governance permit; Compass returns only what it allows.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -1915,6 +1942,7 @@ class CompassClient:
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
+            query_params=permit_query(permit),
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -2012,6 +2040,7 @@ class CompassClient:
         sort_by: list[SortBy] | None = None,
         size: int = 100,
         scroll: str | None = None,
+        permit: GovernancePermit | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -2024,6 +2053,7 @@ class CompassClient:
         :param sort_by: the sort by criteria
         :param size: the number of results to return
         :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        :param permit: a governance permit; Compass returns only what it allows.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -2035,7 +2065,7 @@ class CompassClient:
         :raises CompassError: if the search fails
 
         """
-        data = DirectSearchInput(query=query, size=size, sort_by=sort_by, scroll=scroll)
+        data = DirectSearchInput(query=query, size=size, sort_by=sort_by, scroll=scroll, governance=permit)
 
         result = self._send_request(
             api_name="direct_search",
@@ -2054,6 +2084,7 @@ class CompassClient:
         index_name: str,
         scroll_id: str,
         scroll: str = "1m",
+        permit: GovernancePermit | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -2064,6 +2095,7 @@ class CompassClient:
         :param scroll_id: the scroll ID from a previous direct_search call
         :param index_name: the name of the index same as used in direct_search
         :param scroll: the scroll duration (e.g. "1m" for 1 minute)
+        :param permit: a governance permit; Compass returns only what it allows.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -2078,7 +2110,7 @@ class CompassClient:
             CompassError: if the scroll search fails
 
         """
-        data = DirectSearchScrollInput(scroll_id=scroll_id, scroll=scroll)
+        data = DirectSearchScrollInput(scroll_id=scroll_id, scroll=scroll, governance=permit)
         result = self._send_request(
             api_name="direct_search_scroll",
             index_name=index_name,
@@ -2135,6 +2167,7 @@ class CompassClient:
         y0: int,
         x1: int,
         y1: int,
+        permit: GovernancePermit | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -2149,6 +2182,7 @@ class CompassClient:
         :param y0: the y coordinate of the top left corner of the bounding box
         :param x1: the x coordinate of the bottom right corner of the bounding box
         :param y1: the y coordinate of the bottom right corner of the bounding box
+        :param permit: a governance permit; Compass returns only what it allows.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -2169,7 +2203,7 @@ class CompassClient:
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
-            query_params={"x0": x0, "y0": y0, "x1": x1, "y1": y1},
+            query_params={"x0": x0, "y0": y0, "x1": x1, "y1": y1, **permit_query(permit)},
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,
@@ -2185,6 +2219,7 @@ class CompassClient:
         asset_id: str,
         start_time: float,
         end_time: float,
+        permit: GovernancePermit | None = None,
         max_retries: int | None = None,
         retry_wait: timedelta | None = None,
         timeout: timedelta | None = None,
@@ -2201,6 +2236,7 @@ class CompassClient:
         :param asset_id: the id of the asset
         :param start_time: start time in seconds for the clip
         :param end_time: end time in seconds for the clip
+        :param permit: a governance permit; Compass returns only what it allows.
         :param max_retries: Maximum number of retries for failed requests. If not
             provided, the default from the client will be used.
         :param retry_wait: Time to wait between retries. If not provided, the default
@@ -2223,7 +2259,7 @@ class CompassClient:
             index_name=index_name,
             document_id=document_id,
             asset_id=asset_id,
-            query_params={"start_time": start_time, "end_time": end_time},
+            query_params={"start_time": start_time, "end_time": end_time, **permit_query(permit)},
             max_retries=max_retries,
             retry_wait=retry_wait,
             timeout=timeout,

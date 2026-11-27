@@ -23,6 +23,8 @@ from cohere_compass.exceptions import (
 )
 from cohere_compass.models import (
     CompassDocument,
+    GovernancePermit,
+    GovernanceWrite,
     SearchFilter,
 )
 from cohere_compass.models.config import (
@@ -1942,3 +1944,45 @@ def test_upsert_synchronizer_409_propagated_to_caller(client: CompassClient, res
             synchronizer_name="test_sync",
             synchronizer=UpsertSynchronizerRequest(data_origin_id="onedrive"),
         )
+
+
+_PERMIT = GovernancePermit(permit_id=uuid.UUID(int=1), rule="visible")
+_WRITE = GovernanceWrite(actor="token", label={"marking": ["m"]})
+_GOVERNED: dict[str, Callable[[CompassClient, Any], Any]] = {
+    "search_documents": lambda c, p: c.search_documents(index_name="i", query="q", permit=p),
+    "search_chunks": lambda c, p: c.search_chunks(index_name="i", query="q", permit=p),
+    "direct_search": lambda c, p: c.direct_search(index_name="i", query={}, permit=p),
+    "direct_search_scroll": lambda c, p: c.direct_search_scroll(index_name="i", scroll_id="s", permit=p),
+    "get_document": lambda c, p: c.get_document(index_name="i", document_id="d", permit=p),
+    "get_document_asset": lambda c, p: c.get_document_asset(index_name="i", document_id="d", asset_id="a", permit=p),
+    "get_visual_element": lambda c, p: c.get_visual_element(
+        index_name="i", document_id="d", asset_id="a", x0=0, y0=0, x1=1, y1=1, permit=p
+    ),
+    "get_media_clip": lambda c, p: c.get_media_clip(
+        index_name="i", document_id="d", asset_id="a", start_time=0, end_time=1, permit=p
+    ),
+    "insert_docs": lambda c, w: c.insert_docs(index_name="i", docs=iter([CompassDocument()]), governance=w),
+    "upload_document": lambda c, w: c.upload_document(
+        index_name="i", filename="f.txt", filebytes=b"x", document_id="d", governance=w
+    ),
+    "upload_document_via_uuid": lambda c, w: c.upload_document_via_uuid(
+        index_name="i", filename="f.txt", file_data_uuid=uuid.uuid4(), document_id="d", governance=w
+    ),
+}
+
+
+@pytest.mark.parametrize("governed", [True, False], ids=["set", "unset"])
+@pytest.mark.parametrize("call", _GOVERNED)
+@respx.mock
+def test_governance(client: CompassClient, respx_mock: MockRouter, call: str, governed: bool):
+    route = respx_mock.route().mock(return_value=httpx.Response(400))
+    governance = (_WRITE if "insert" in call or "upload" in call else _PERMIT) if governed else None
+    with pytest.raises(CompassError):
+        _GOVERNED[call](client, governance)
+    request = route.calls.last.request
+    if request.method == "GET":
+        query = {k: v for k, v in request.url.params.items() if k.startswith("permit")}
+        assert query == ({"permit_id": str(_PERMIT.permit_id), "permit_rule": "visible"} if governed else {})
+    else:
+        body = json.loads(request.content)
+        assert body.get("governance") == (governance.model_dump(mode="json") if governance else None)
