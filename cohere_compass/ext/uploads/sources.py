@@ -185,6 +185,13 @@ def _is_file(info: Mapping[str, object]) -> bool:
     return info.get("type") == "file"
 
 
+def _is_folder_placeholder(name: str) -> bool:
+    # GCS has no real directories. Consoles and tools that "create a folder" write a zero-byte object whose
+    # name ends in "/", and gcsfs lists it as a file. Uploading it would fail, because the source folder's
+    # own placeholder has an empty relative path, and a nested one is not a document.
+    return name.endswith("/")
+
+
 async def _discover_gcs(path: str, options: UploadOptions) -> list[SourceFile]:
     try:
         fs, fs_path = url_to_fs(_remote_uri(path))
@@ -211,7 +218,7 @@ async def _discover_gcs(path: str, options: UploadOptions) -> list[SourceFile]:
 
     result: list[SourceFile] = []
     for candidate, candidate_info in candidates.items():
-        if not _is_file(candidate_info):
+        if not _is_file(candidate_info) or _is_folder_placeholder(candidate):
             continue
         relative = candidate.rsplit("/", 1)[-1] if actual_file else candidate[len(fs_path.rstrip("/") + "/") :]
         if _included(relative, options):
