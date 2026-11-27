@@ -343,6 +343,32 @@ async def test_gcs_discovery_skips_non_file_find_results(
     assert len(await discover_files(_options("gs://bucket/prefix", SourceType.GCS_DIRECTORY))) == 2
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("recursive", [True, False])
+async def test_gcs_discovery_skips_folder_placeholder_objects(monkeypatch: pytest.MonkeyPatch, recursive: bool) -> None:
+    """
+    gcsfs lists a zero-byte "folder" object such as `bucket/prefix/` as a file. The source folder's own
+    placeholder has an empty relative path, which `SourceFile` rejects, so discovery must skip placeholders.
+    """
+
+    class PlaceholderGcs(_FakeGcs):
+        files: ClassVar[dict[str, bytes]] = {
+            **_FakeGcs.files,
+            "bucket/prefix/": b"",
+            "bucket/prefix/nested/": b"",
+        }
+
+    fake = PlaceholderGcs()
+
+    def fake_url_to_fs(uri: str) -> tuple[_FakeGcs, str]:
+        return _fake_url_to_fs(uri, fake)
+
+    monkeypatch.setattr(sources, "url_to_fs", fake_url_to_fs)
+    found = await discover_files(_options("gs://bucket/prefix", SourceType.GCS_DIRECTORY, recursive=recursive))
+    expected = ["nested/a.pdf", "z.pdf"] if recursive else ["z.pdf"]
+    assert [item.relative_path for item in found] == expected
+
+
 @pytest.mark.parametrize(
     ("uri", "expected"),
     [
