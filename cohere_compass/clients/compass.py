@@ -206,6 +206,10 @@ API_DEFINITIONS = {
         "POST",
         "indexes/{index_name}/documents/{document_id}/_add_attributes",
     ),
+    "set_document_governance": (
+        "POST",
+        "indexes/{index_name}/documents/{document_id}/_governance",
+    ),
     "upload_documents": (
         "POST",
         "indexes/{index_name}/documents/upload",
@@ -1307,6 +1311,40 @@ class CompassClient:
             api_name="add_attributes",
             document_id=document_id,
             data=attributes,
+            index_name=index_name,
+            max_retries=max_retries,
+            retry_wait=retry_wait,
+            timeout=timeout,
+        )
+
+    def set_document_governance(
+        self,
+        *,
+        index_name: str,
+        document_id: str,
+        governance: GovernanceWrite,
+        max_retries: int | None = None,
+        retry_wait: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ):
+        """
+        Relabel an indexed document's chunks, and set when they expire, in place.
+
+        :param index_name: The name of the index containing the document.
+        :param document_id: The ID of the document to relabel.
+        :param governance: the writer's delegated token, the new label and expiry.
+        :param max_retries: Maximum number of retries for failed requests. If not
+            provided, the default from the client will be used.
+        :param retry_wait: Time to wait between retries. If not provided, the default
+            from the client will be used.
+        :param timeout: Request timeout duration. If not provided, the default from the
+            client will be used.
+
+        """
+        self._send_request(
+            api_name="set_document_governance",
+            document_id=document_id,
+            data=governance,
             index_name=index_name,
             max_retries=max_retries,
             retry_wait=retry_wait,

@@ -3,6 +3,7 @@
 # Python imports
 import uuid
 from dataclasses import field
+from datetime import datetime
 from enum import Enum
 from typing import Annotated, Any, TypeAlias, cast
 
@@ -332,10 +333,11 @@ def permit_query(permit: GovernancePermit | None) -> dict[str, str]:
 
 
 class GovernanceWrite(BaseModel):
-    """Governance for a write: the writer's delegated token and the content's label."""
+    """Governance for a write: the writer's token, the label and when it expires."""
 
     actor: str
     label: dict[str, list[str]]
+    expires: datetime | None = None
 
 
 class UploadDocumentsInput(BaseModel):

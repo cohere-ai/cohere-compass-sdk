@@ -1,7 +1,7 @@
 import json
 import uuid
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, cast
 
 import httpx
@@ -1985,4 +1985,15 @@ def test_governance(client: CompassClient, respx_mock: MockRouter, call: str, go
         assert query == ({"permit_id": str(_PERMIT.permit_id), "permit_rule": "visible"} if governed else {})
     else:
         body = json.loads(request.content)
-        assert body.get("governance") == (governance.model_dump(mode="json") if governance else None)
+        assert body.get("governance") == (governance.model_dump(mode="json", exclude_none=True) if governance else None)
+
+
+@respx.mock
+def test_set_document_governance(client: CompassClient, respx_mock: MockRouter):
+    route = respx_mock.post("http://test.com/v1/indexes/i/documents/d/_governance").mock(
+        return_value=httpx.Response(200, json={})
+    )
+    expires = datetime(2027, 1, 1, tzinfo=timezone.utc)
+    governance = _WRITE.model_copy(update={"expires": expires})
+    client.set_document_governance(index_name="i", document_id="d", governance=governance)
+    assert json.loads(route.calls.last.request.content) == {**_WRITE.model_dump(), "expires": "2027-01-01T00:00:00Z"}
